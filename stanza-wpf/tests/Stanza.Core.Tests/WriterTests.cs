@@ -8,13 +8,13 @@ public class WriterTests
     private const string RfcExample = """
         # DOING
 
-        (A1) 2026-08-07 完成登录模块的单元测试 +Apollo #紧急
+        (A) 2026-08-07 完成登录模块的单元测试 +Apollo #紧急
             先跑通现有测试用例
             再补充边界情况
 
             测试数据在共享盘的 testdata 目录
 
-        (C1) 2026-08-07 预约周五下午的牙医 +生活
+        (C) 2026-08-07 预约周五下午的牙医 +生活
             记得带医保卡
 
         (B) 整理《重构》读书笔记 +学习
@@ -99,9 +99,8 @@ public class WriterTests
         var parsed = StanzaParser.ParseTaskHeader(header);
         Assert.Equal(header, StanzaWriter.ComposeTaskHeader(parsed));
 
-        // 带象限内序号的优先级同样互逆（§7.2.1）
-        var headerWithOrder = "(A3) 2026-08-07 完成登录模块 +Apollo #紧急";
-        Assert.Equal(headerWithOrder, StanzaWriter.ComposeTaskHeader(StanzaParser.ParseTaskHeader(headerWithOrder)));
+        // GUI 编辑文本不含优先级前缀：剥除后组合，前缀不出现（§7.2.1 文本形式仅供 CLI/文件）
+        Assert.Equal("2026-08-07 完成登录模块 +Apollo #紧急", StanzaWriter.ComposeTaskHeader(parsed, includePriority: false));
     }
 
     [Fact]

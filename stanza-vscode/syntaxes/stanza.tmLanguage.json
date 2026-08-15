@@ -75,8 +75,8 @@
       ]
     },
     "priority-with-date": {
-      "comment": "'(A1) 2026-08-07 ': quadrant priority (A-D, optional single-digit order) directly followed by due date, RFC §7.2",
-      "match": "^(\\([A-D]\\d?\\))( )(\\d{4}-\\d{2}-\\d{2})(?= )",
+      "comment": "'(A) 2026-08-07 ': quadrant priority (A-D) directly followed by due date, RFC §7.2",
+      "match": "^(\\([A-D]\\))( )(\\d{4}-\\d{2}-\\d{2})(?= )",
       "captures": {
         "1": {
           "name": "storage.modifier.priority.stanza"
@@ -87,8 +87,8 @@
       }
     },
     "priority": {
-      "comment": "'(A) ' or '(A1) ' at line start, exactly one trailing space, RFC §7.2.1",
-      "match": "^(\\([A-D]\\d?\\))(?= )",
+      "comment": "'(A) ' at line start, exactly one trailing space, RFC §7.2.1",
+      "match": "^(\\([A-D]\\))(?= )",
       "captures": {
         "1": {
           "name": "storage.modifier.priority.stanza"

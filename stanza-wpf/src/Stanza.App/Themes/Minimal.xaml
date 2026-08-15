@@ -20,6 +20,8 @@
     <SolidColorBrush x:Key="ChipBrush" Color="#FFF0F0F3"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#FFDC2626"/>
     <SolidColorBrush x:Key="DangerSoftBrush" Color="#FFFEF2F2"/>
+    <!-- 琥珀色系：任务标题 C 象限配色专用（与红/蓝/灰构成四象限的文字着色） -->
+    <SolidColorBrush x:Key="AmberBrush" Color="#FFB45309"/>
 
     <app:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
     <app:ZeroToVisibilityConverter x:Key="ZeroToVis"/>
@@ -364,11 +366,41 @@
                 <ControlTemplate TargetType="{x:Type MenuItem}">
                     <Border x:Name="Bg" Background="Transparent" CornerRadius="5" Padding="10,5"
                             SnapsToDevicePixels="True">
-                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                            <!-- 子菜单箭头：仅有子项时显示 -->
+                            <Path x:Name="Arrow" Grid.Column="1" Data="M0,0 L3.5,3.5 L0,7" Width="5" Height="8"
+                                  Stretch="Uniform" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.1"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed"/>
+                            <!-- 子菜单弹层：缺它则带子项的菜单永远无法展开；外观与 ContextMenu 一致 -->
+                            <Popup x:Name="SubMenuPopup" Grid.ColumnSpan="2" AllowsTransparency="True" Focusable="False"
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Right" VerticalOffset="-5">
+                                <Border Background="White" CornerRadius="8" Padding="4"
+                                        BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                                        SnapsToDevicePixels="True">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.16" Color="#FF1C1C1E"/>
+                                    </Border.Effect>
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSubmenuOpen" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="HasItems" Value="True">
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -398,6 +430,16 @@
         </Setter>
     </Style>
 
+    <!-- 优先级菜单项：Header/命令绑定到 PriorityOption，由 ItemsSource 生成
+         （ItemContainerStyle 沿 MenuItem 子菜单继承，象限项自动获得同一样式）。
+         命令经 PlacementTarget.Tag 桥接主窗口 DataContext（ContextMenu 在独立弹层视觉树中）。
+         任务右键菜单与底部工具栏共用此样式 -->
+    <Style x:Key="PriorityMenuItem" TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Setter Property="Header" Value="{Binding Label}"/>
+        <Setter Property="Command" Value="{Binding PlacementTarget.Tag.SetPriorityCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+        <Setter Property="CommandParameter" Value="{Binding .}"/>
+    </Style>
+
     <Style TargetType="{x:Type Separator}">
         <Setter Property="Template">
             <Setter.Value>
@@ -407,6 +449,10 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- 隐式 ScrollViewer：未使用自定义样式的 ScrollViewer（如侧栏项目/标签的滚动容器）
+         带着系统默认的虚线焦点框（Alt 触发焦点提示时可见），统一继承基座关闭 -->
+    <Style TargetType="{x:Type ScrollViewer}" BasedOn="{StaticResource StanzaControlBase}"/>
 
     <!-- 细滚动条（由 TaskScrollViewer 模板内的 ScrollBar 显式引用） -->
     <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource StanzaControlBase}">

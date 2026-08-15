@@ -40,14 +40,17 @@ public static class StanzaWriter
         return string.Join('\n', lines) + "\n";
     }
 
-    /// <summary>组合主行文本（供编辑器展示规范化主行）。</summary>
-    public static string ComposeTaskHeader(StanzaTask task) => ComposeMainLine(task);
+    /// <summary>组合主行文本（供编辑器展示规范化主行）。
+    /// <cparamref name="includePriority"/> 为 false 时省略优先级前缀——
+    /// GUI 的编辑文本不含优先级标记，优先级由结构化属性承载（§7.2.1 的文本形式仅供 CLI/文件）。</summary>
+    public static string ComposeTaskHeader(StanzaTask task, bool includePriority = true)
+        => ComposeMainLine(task, includePriority);
 
-    private static string ComposeMainLine(StanzaTask task)
+    private static string ComposeMainLine(StanzaTask task, bool includePriority = true)
     {
         var sb = new StringBuilder();
 
-        if (task.Priority is { } p) sb.Append('(').Append(p.ToString()).Append(") ");
+        if (includePriority && task.Priority is { } p) sb.Append('(').Append(p).Append(") ");
         if (task.DueDate is { } d) sb.Append(d.ToString("yyyy-MM-dd")).Append(' ');
 
         var description = task.Description ?? "";

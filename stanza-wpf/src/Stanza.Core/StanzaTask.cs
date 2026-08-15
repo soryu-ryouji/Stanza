@@ -3,8 +3,8 @@ namespace Stanza.Core;
 /// <summary>一条任务段落：主行元数据 + 续行备注（RFC §7）。</summary>
 public sealed class StanzaTask
 {
-    /// <summary>优先级（四象限字母 A–D + 可选的象限内序号 0–9，RFC §7.2.1），null 表示无优先级。仅在 DOING/WAIT 中有语义。</summary>
-    public StanzaPriority? Priority { get; set; }
+    /// <summary>优先级象限字母（A–D，RFC §7.2.1），null 表示无优先级。仅在 DOING/WAIT 中有语义。</summary>
+    public char? Priority { get; set; }
 
     /// <summary>截止日期，null 表示无。</summary>
     public DateOnly? DueDate { get; set; }

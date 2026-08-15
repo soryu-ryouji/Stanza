@@ -16,7 +16,7 @@ public sealed class TaskViewModel : ViewModelBase
     private bool _isExpanded;
 
     // 主行解析结果（只读，供展示）
-    private StanzaPriority? _priority;
+    private char? _priority;
     private DateOnly? _due;
     private string _description = "";
     private string? _project;
@@ -30,9 +30,10 @@ public sealed class TaskViewModel : ViewModelBase
 
     public static TaskViewModel FromModel(MainViewModel owner, StanzaTask model, TaskState state)
     {
-        var vm = new TaskViewModel(owner) { _state = state };
+        var vm = new TaskViewModel(owner) { _state = state, _priority = model.Priority };
         vm.LoadNotes(model.Notes);
-        vm.SetHeaderSilently(StanzaWriter.ComposeTaskHeader(model));
+        // GUI 的编辑文本不含优先级前缀（§7.2.1 的文本标记仅供 CLI/文件），优先级由 Priority 属性承载
+        vm.SetHeaderSilently(StanzaWriter.ComposeTaskHeader(model, includePriority: false));
         return vm;
     }
 
@@ -63,6 +64,7 @@ public sealed class TaskViewModel : ViewModelBase
             if (Set(ref _state, value))
             {
                 OnPropertyChanged(nameof(ShowPriority));
+                OnPropertyChanged(nameof(DisplayQuadrant));
                 OnPropertyChanged(nameof(IsOverdue));
                 OnPropertyChanged(nameof(IsActive));
                 OnPropertyChanged(nameof(IsDone));
@@ -106,15 +108,25 @@ public sealed class TaskViewModel : ViewModelBase
 
     private void RefreshParsed()
     {
+        // 用户手动输入的优先级前缀被接管为结构化属性并从编辑文本剥除（GUI 不展示文本标记）。
+        // 循环剥除以容忍 "(A1) (B) 任务" 这类连续前缀（后者覆盖前者）；
+        // 已知代价：剥除导致文本变短时光标位置可能轻微偏移，属次要的幂等输入路径
+        while (StanzaParser.TrySplitPriority(_headerText, out var typed, out var rest))
+        {
+            _priority = typed;
+            _headerText = rest;
+        }
+
         var m = StanzaParser.ParseTaskHeader(_headerText);
-        _priority = m.Priority;
         _due = m.DueDate;
         _description = m.Description;
         _project = m.Project;
         _tags = m.Tags.ToArray();
 
+        OnPropertyChanged(nameof(HeaderText));
         OnPropertyChanged(nameof(Priority));
         OnPropertyChanged(nameof(ShowPriority));
+        OnPropertyChanged(nameof(DisplayQuadrant));
         OnPropertyChanged(nameof(Due));
         OnPropertyChanged(nameof(DueDisplay));
         OnPropertyChanged(nameof(HasDue));
@@ -127,8 +139,25 @@ public sealed class TaskViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasAnyMeta));
     }
 
-    /// <summary>四象限优先级（RFC §7.2.1）；绑定展示时使用其文本形式（<c>A</c> 或 <c>A3</c>）。</summary>
-    public StanzaPriority? Priority => _priority;
+    /// <summary>四象限优先级（RFC §7.2.1）。GUI 中的结构化属性：编辑文本不含优先级前缀，
+    /// 通过右键菜单/工具栏设置；直接输入文本前缀会被自动接管到此属性。</summary>
+    public char? Priority
+    {
+        get => _priority;
+        set
+        {
+            if (Set(ref _priority, value))
+            {
+                OnPropertyChanged(nameof(ShowPriority));
+                OnPropertyChanged(nameof(DisplayQuadrant));
+                _owner.NotifyContentChanged();
+            }
+        }
+    }
+
+    /// <summary>用于标题着色的象限字母：仅在 DOING/WAIT 且有优先级时非 null，
+    /// 驱动标题文字按象限由强到弱配色（A 红 → D 淡灰）；其余情况保持默认墨色。</summary>
+    public char? DisplayQuadrant => ShowPriority ? Priority : null;
 
     /// <summary>优先级仅在 DOING/WAIT 中展示（RFC §7.2.1）。</summary>
     public bool ShowPriority => Priority != null && State is TaskState.Doing or TaskState.Wait;
@@ -147,8 +176,9 @@ public sealed class TaskViewModel : ViewModelBase
     public IReadOnlyList<string> Tags => _tags;
     public bool HasTags => _tags.Count > 0;
 
-    /// <summary>填写过任何元数据或存在时间戳属性时，展开视图才显示解析结果行。</summary>
-    public bool HasAnyMeta => Priority != null || Due != null || HasProject || HasTags || HasCreated || HasCompleted;
+    /// <summary>详情行存在可展示内容时，展开视图才显示元数据行。
+    /// 优先级不在其列：徽章固定在标题行右缘展示，不在详情元数据行中重复。</summary>
+    public bool HasAnyMeta => Due != null || HasProject || HasTags || HasCreated || HasCompleted;
 
     // ---- 时间戳属性（§7.4） ----
 
@@ -226,6 +256,7 @@ public sealed class TaskViewModel : ViewModelBase
     public StanzaTask ToModel()
     {
         var task = StanzaParser.ParseTaskHeader(HeaderText);
+        task.Priority = _priority;   // 编辑文本不含优先级前缀，以结构化属性为准
 
         // §7.4：时间戳属性集中写为主行之后的首批续行（创建在前，完成历史按序随后），与备注分离
         if (_createdAt is { } created)

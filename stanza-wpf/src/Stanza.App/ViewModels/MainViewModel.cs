@@ -62,6 +62,9 @@ public sealed class MainViewModel : ViewModelBase
         DeferSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Wait), _ => HasSelection);
         ActivateSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
         DeleteSelectionCommand = new RelayCommand(_ => DeleteTasksPermanently(SelectedTasks.ToList()), _ => HasSelection);
+        SetPriorityCommand = new RelayCommand(
+            p => { if (p is PriorityOption option) SetPriority(option); },
+            _ => HasSelection);
 
         Recents = new RecentFilesViewModel(
             openFile: OpenFile,
@@ -289,6 +292,30 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand DeferSelectionCommand { get; }
     public ICommand ActivateSelectionCommand { get; }
     public ICommand DeleteSelectionCommand { get; }
+    public ICommand SetPriorityCommand { get; }
+
+    // ---- 优先级 ----
+
+    /// <summary>优先级菜单选项（任务右键菜单与底部工具栏共用同一套选项与样式）。</summary>
+    public IReadOnlyList<PriorityOption> PriorityOptions { get; } = BuildPriorityOptions();
+
+    private static IReadOnlyList<PriorityOption> BuildPriorityOptions() => new[]
+    {
+        new PriorityOption("A  重要且紧急", 'A'),
+        new PriorityOption("B  重要不紧急", 'B'),
+        new PriorityOption("C  紧急不重要", 'C'),
+        new PriorityOption("D  不重要不紧急", 'D'),
+        new PriorityOption("清除优先级", null),
+    };
+
+    /// <summary>设置选中任务的优先级（仅限活跃状态任务）。</summary>
+    private void SetPriority(PriorityOption option)
+    {
+        var targets = SelectedTasks.Where(t => t.IsActive).ToList();
+        if (targets.Count == 0) return;
+        foreach (var t in targets) t.Priority = option.Value;
+        SettleSort();   // 排序键变化后重排（象限 → 截止日期）
+    }
 
     // ---- 展开状态 ----
 
@@ -528,8 +555,10 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (task.State == target) return;
         var m = StanzaParser.ParseTaskHeader(task.HeaderText);
+        m.Priority = task.Priority;   // 优先级由 VM 结构化属性承载（编辑文本不含前缀），交给 Core 规则裁决
         TaskTransitions.NormalizeForState(m, task.State, target, today);
-        task.HeaderText = StanzaWriter.ComposeTaskHeader(m);
+        task.Priority = m.Priority;   // 回读：进入 DONE/DELETE 时 Core 已按 §9 清除
+        task.HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
         // 主行解析不出备注，m.Notes 即本次规范化追加的时间戳增量（§7.4），转入属性而非备注
         foreach (var line in m.Notes)
         {
@@ -757,3 +786,7 @@ public sealed class MainViewModel : ViewModelBase
             _statusClearTimer.Start();
     }
 }
+
+/// <summary>优先级菜单选项：显示文本 + 取值（null 表示清除优先级）。
+/// 任务右键菜单与底部工具栏共用。</summary>
+public sealed record PriorityOption(string Label, char? Value);

@@ -117,7 +117,7 @@ public class ParserTests
         var doc = StanzaParser.Parse("# DONE\n\n(A) 2026-08-07 finished task\n");
         var task = Assert.Single(doc.FindBlock(TaskState.Done)!.Tasks);
         // 语法上解析出优先级（展示与排序由应用层忽略）
-        Assert.Equal(new StanzaPriority('A', null), task.Priority);
+        Assert.Equal('A', task.Priority);
         Assert.Equal(new DateOnly(2026, 8, 7), task.DueDate);
         Assert.Equal("finished task", task.Description);
     }
@@ -155,7 +155,7 @@ public class ParserTests
     {
         var doc = StanzaParser.Parse("# DOING\n\n(B) 2026-08-07 完成登录模块 +Apollo #紧急 #review\n");
         var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
-        Assert.Equal(new StanzaPriority('B', null), task.Priority);
+        Assert.Equal('B', task.Priority);
         Assert.Equal(new DateOnly(2026, 8, 7), task.DueDate);
         Assert.Equal("完成登录模块", task.Description);
         Assert.Equal("Apollo", task.Project);
@@ -181,18 +181,30 @@ public class ParserTests
     }
 
     [Fact]
-    public void Case22_PriorityWithOrder_ParsesQuadrantAndOrder()
+    public void Case22_Priority_ParsesQuadrant()
     {
-        var doc = StanzaParser.Parse("# DOING\n\n(A3) 提交报告\n");
+        var doc = StanzaParser.Parse("# DOING\n\n(A) 提交报告\n");
         var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
-        Assert.Equal(new StanzaPriority('A', 3), task.Priority);
+        Assert.Equal('A', task.Priority);
         Assert.Equal("提交报告", task.Description);
+    }
+
+    [Fact]
+    public void TrySplitPriority_SplitsPrefixFromEditableText()
+    {
+        // GUI 编辑文本剥除优先级前缀所依赖的拆分（§7.2.1）
+        Assert.True(StanzaParser.TrySplitPriority("(A) 2026-08-07 任务", out var p, out var rest));
+        Assert.Equal('A', p);
+        Assert.Equal("2026-08-07 任务", rest);
+
+        Assert.False(StanzaParser.TrySplitPriority("(E) 任务", out _, out var kept));
+        Assert.Equal("(E) 任务", kept);
     }
 
     [Theory]
     [InlineData("(E) 任务")]       // 象限字母超出 A–D
-    [InlineData("(A10) 任务")]     // 序号多于一位
-    [InlineData("(A-3) 任务")]     // 序号含连字符
+    [InlineData("(A3) 任务")]     // 附加级别数字（1.5.0 起级别语法移除）
+    [InlineData("(A-1) 任务")]    // 附加连字符数字
     public void Case23_InvalidQuadrantPriority_IsNotPriority(string line)
     {
         var doc = StanzaParser.Parse("# DOING\n\n" + line + "\n");

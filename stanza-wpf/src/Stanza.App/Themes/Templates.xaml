@@ -5,6 +5,47 @@
                     xmlns:app="clr-namespace:Stanza.App"
                     xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
 
+    <!-- 任务标题配色：按象限由强到弱（A 红 → B 蓝 → C 琥珀 → D 淡灰），无优先级或非活跃
+         状态保持默认墨色。优先级的强度由整行文字承担，不再使用徽章元素；0–9 级别由排序
+         位置表达，不做颜色编码（10 档色阶人眼无法区分，且浅灰对比度不达标） -->
+    <Style x:Key="TaskTitleText" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="A">
+                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="B">
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="C">
+                <Setter Property="Foreground" Value="{StaticResource AmberBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="D">
+                <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- 展开态标题编辑框：与折叠态同一套象限配色，输入时颜色实时跟随解析结果 -->
+    <Style x:Key="TaskTitleEditor" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="A">
+                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="B">
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="C">
+                <Setter Property="Foreground" Value="{StaticResource AmberBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="D">
+                <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- 任务卡片 -->
     <DataTemplate x:Key="TaskTemplate" DataType="{x:Type vm:TaskViewModel}">
         <!-- 普通态透明：任务行直接躺在灰色画布上，只有悬停/选中/展开才出现色面 -->
@@ -21,6 +62,9 @@
                               Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}"/>
                     <MenuItem Header="移到 DOING" Command="{Binding PlacementTarget.Tag.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}"/>
+                    <MenuItem Header="优先级" ItemContainerStyle="{StaticResource PriorityMenuItem}"
+                              ItemsSource="{Binding PlacementTarget.Tag.PriorityOptions, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
                     <MenuItem Header="废弃" InputGestureText="Backspace" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}"/>
                     <MenuItem Header="恢复" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
@@ -44,7 +88,6 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -53,14 +96,7 @@
                                       Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"
                                       Click="TaskCheck_Click"/>
 
-                            <Border Grid.Column="1" Width="20" Height="20" CornerRadius="5"
-                                    BorderBrush="#FFE5E7EB" BorderThickness="1" Margin="0,0,8,0"
-                                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-
-                            <TextBlock Grid.Column="2" Text="{Binding DueDisplay}" FontSize="12"
+                            <TextBlock Grid.Column="1" Text="{Binding DueDisplay}" FontSize="12"
                                        Foreground="{StaticResource FaintBrush}" Margin="0,0,10,0"
                                        VerticalAlignment="Center"
                                        Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
@@ -76,10 +112,9 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
-                            <TextBlock Grid.Column="3" Text="{Binding Description}" FontSize="14"
-                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Style="{StaticResource TaskTitleText}" Text="{Binding Description}"/>
 
-                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                                 <!-- 完成日期（仅 DONE 任务）：归档列表中最有用的生命周期信息 -->
                                 <TextBlock Text="{Binding CompletedDisplay}" FontSize="12"
                                            Foreground="{StaticResource FaintBrush}" Margin="6,0,0,0"
@@ -121,6 +156,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <!-- 勾选框顶对齐：与标题首行文字对齐（多行标题时停在首行），
                              避免行高变化时居中重定位造成的位移 -->
@@ -129,9 +165,14 @@
                                   Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"
                                   Click="TaskCheck_Click"/>
                         <!-- MinHeight 与折叠态行高一致，展开/收起交换时行高不跳动 -->
-                        <TextBox Grid.Column="1"
+                        <TextBox Grid.Column="1" Style="{StaticResource TaskTitleEditor}"
                                  Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
-                                 Tag="(A1) 2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
+                                 Tag="2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
+                        <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
+                        <Path Grid.Column="2" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
+                              StrokeThickness="1.2" Width="10" Height="7" Margin="6,7,0,0"
+                              VerticalAlignment="Top" ToolTip="含备注"
+                              Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
                     </Grid>
 
                     <!-- 详情面板：展开/收起动画；左缩进与标题文本对齐（勾选框 17 + 间距 10） -->
@@ -140,17 +181,11 @@
                                 behaviors:RevealBehavior.IsRevealed="{Binding IsExpanded}"
                                 behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
                                 behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
-                        <!-- 解析出的元数据：仅填写过的才显示 -->
+                        <!-- 解析出的元数据：仅填写过的才显示（优先级徽章在标题行右缘，不在此行） -->
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
                                     Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
-                            <Border Width="20" Height="20" CornerRadius="5"
-                                    BorderBrush="#FFE5E7EB" BorderThickness="1"
-                                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
                             <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1" Margin="6,0,0,0"
+                                    Padding="7,1"
                                     Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="{Binding DueDisplay}" FontSize="11"
                                            Foreground="{StaticResource GrayBrush}"/>
@@ -239,14 +274,8 @@
         <StackPanel Orientation="Horizontal">
             <Border Width="17" Height="17" CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"
                     BorderBrush="#FFC7C7CC" BorderThickness="1.2"/>
-            <Border Width="20" Height="20" CornerRadius="5" Margin="0,0,8,0"
-                    BorderBrush="#FFE5E7EB" BorderThickness="1"
-                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-            <TextBlock Text="{Binding Description}" FontSize="14" VerticalAlignment="Center"
-                       MaxWidth="520" TextTrimming="CharacterEllipsis"/>
+            <TextBlock Style="{StaticResource TaskTitleText}" Text="{Binding Description}"
+                       TextWrapping="NoWrap" MaxWidth="520" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
     </DataTemplate>
 

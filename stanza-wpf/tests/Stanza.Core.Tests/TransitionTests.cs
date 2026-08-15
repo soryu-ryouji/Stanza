@@ -7,7 +7,7 @@ public class TransitionTests
 {
     private static readonly DateOnly Today = new(2026, 2, 10);
 
-    private static StanzaPriority P(char quadrant, int? order = null) => new(quadrant, order);
+    private static char P(char quadrant) => quadrant;
 
     // ---- 规范化（§9） ----
 
@@ -141,29 +141,27 @@ public class TransitionTests
     }
 
     [Fact]
-    public void Case24_QuadrantOrder_SortsQuadrantThenOrder_NoOrderLast()
+    public void Case24_QuadrantSortsBeforeDueDate()
     {
-        // RFC §10.3 用例 24：象限字母 → 象限内序号（无序号排尾）
+        // RFC §10.3 用例 24：象限字母是第一排序键，截止日期其次
         var tasks = new[]
         {
-            new StanzaTask { Description = "B1", Priority = P('B', 1) },
-            new StanzaTask { Description = "A无序号", Priority = P('A') },
-            new StanzaTask { Description = "A9", Priority = P('A', 9) },
-            new StanzaTask { Description = "A0", Priority = P('A', 0) },
+            new StanzaTask { Description = "B早截止", Priority = P('B'), DueDate = new DateOnly(2026, 2, 1) },
+            new StanzaTask { Description = "A晚截止", Priority = P('A'), DueDate = new DateOnly(2026, 3, 1) },
         };
 
         var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
 
-        Assert.Equal(new[] { "A0", "A9", "A无序号", "B1" }, sorted.Select(t => t.Description));
+        Assert.Equal(new[] { "A晚截止", "B早截止" }, sorted.Select(t => t.Description));
     }
 
     [Fact]
-    public void ActiveTaskOrdering_SameQuadrantAndOrder_SortsByDueDate()
+    public void ActiveTaskOrdering_SameQuadrant_SortsByDueDate()
     {
         var tasks = new[]
         {
-            new StanzaTask { Description = "晚", Priority = P('A', 1), DueDate = new DateOnly(2026, 3, 1) },
-            new StanzaTask { Description = "早", Priority = P('A', 1), DueDate = new DateOnly(2026, 2, 1) },
+            new StanzaTask { Description = "晚", Priority = P('A'), DueDate = new DateOnly(2026, 3, 1) },
+            new StanzaTask { Description = "早", Priority = P('A'), DueDate = new DateOnly(2026, 2, 1) },
         };
 
         var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();

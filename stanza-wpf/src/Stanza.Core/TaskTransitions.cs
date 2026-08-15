@@ -30,8 +30,8 @@ public static class TaskTransitions
 
 /// <summary>
 /// 活跃区块（DOING/WAIT）的规范排序（RFC §7.2.1）：象限字母升序（无优先级排尾）→
-/// 象限内序号升序（无序号排尾）→ 截止日期升序（无日期排尾）。比较器只定义键序；
-/// 配合 OrderBy 使用时同键相对顺序不变（稳定排序），拖拽排序即依赖这一点只调整同优先级内的相对顺序。
+/// 截止日期升序（无日期排尾）。比较器只定义键序；配合 OrderBy 使用时同键相对顺序不变
+/// （稳定排序），拖拽排序即依赖这一点只调整同优先级内的相对顺序。
 /// </summary>
 public static class ActiveTaskOrdering
 {
@@ -39,11 +39,9 @@ public static class ActiveTaskOrdering
         => Compare(a.Priority, a.DueDate, b.Priority, b.DueDate);
 
     /// <summary>键值形式的重载，供调用方对非 <see cref="StanzaTask"/> 的视图模型复用同一规则。</summary>
-    public static int Compare(StanzaPriority? priorityA, DateOnly? dueA, StanzaPriority? priorityB, DateOnly? dueB)
+    public static int Compare(char? quadrantA, DateOnly? dueA, char? quadrantB, DateOnly? dueB)
     {
-        var c = (priorityA?.Quadrant ?? char.MaxValue).CompareTo(priorityB?.Quadrant ?? char.MaxValue);
-        if (c != 0) return c;
-        c = (priorityA?.Order ?? int.MaxValue).CompareTo(priorityB?.Order ?? int.MaxValue);
+        var c = (quadrantA ?? char.MaxValue).CompareTo(quadrantB ?? char.MaxValue);
         if (c != 0) return c;
         return (dueA ?? DateOnly.MaxValue).CompareTo(dueB ?? DateOnly.MaxValue);
     }

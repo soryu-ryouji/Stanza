@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace Stanza.Core;
 
 /// <summary>
-/// Stanza 解析器，严格遵循 RFC 1.4.0 §7.1 边界规则与 §10 实现指南。
+/// Stanza 解析器，严格遵循 RFC 1.5.0 §7.1 边界规则与 §10 实现指南。
 /// </summary>
 public static class StanzaParser
 {
@@ -137,33 +137,34 @@ public static class StanzaParser
     /// <summary>解析主行文本（供编辑器实时解析）。输入必须是不含换行的单行。</summary>
     public static StanzaTask ParseTaskHeader(string line) => ParseHeader(line);
 
-    /// <summary>尝试解析行首优先级（§7.2.1）：<c>(A) </c>或<c>(A3) </c>。
-    /// 象限字母仅限 A–D，序号仅限 0–9 单个数字且直接跟在字母后；
-    /// 其余形如 (E)、(A-3)、(A10) 的写法不识别，由调用方按描述处理。</summary>
-    private static bool TryParsePriority(string rest, out StanzaPriority priority, out int consumed)
+    /// <summary>从主行文本开头拆分优先级前缀（§7.2.1）：识别成功返回 true，
+    /// <cparamref name="remainder"/> 为剥除前缀后的剩余文本；未识别返回 false，remainder 为原文。
+    /// 供编辑器将优先级从可编辑文本中分离为结构化属性（GUI 不展示优先级文本标记）。</summary>
+    public static bool TrySplitPriority(string line, out char priority, out string remainder)
+    {
+        if (TryParsePriority(line, out priority, out var consumed))
+        {
+            remainder = line[consumed..];
+            return true;
+        }
+        remainder = line;
+        return false;
+    }
+
+    /// <summary>尝试解析行首优先级（§7.2.1）：<c>(A) </c>。
+    /// 象限字母仅限 A–D；其余形如 (E)、(A3) 的写法不识别，由调用方按描述处理。</summary>
+    private static bool TryParsePriority(string rest, out char priority, out int consumed)
     {
         priority = default;
         consumed = 0;
-        if (rest.Length < 4 || rest[0] != '('
-            || rest[1] < 'A' || rest[1] > 'D')
-            return false;
-
-        if (rest[2] == ')' && rest[3] == ' ')
+        if (rest.Length >= 4 && rest[0] == '('
+            && rest[1] >= 'A' && rest[1] <= 'D'
+            && rest[2] == ')' && rest[3] == ' ')
         {
-            priority = new StanzaPriority(rest[1], null);
+            priority = rest[1];
             consumed = 4;
             return true;
         }
-
-        if (rest.Length >= 5
-            && rest[2] >= '0' && rest[2] <= '9'
-            && rest[3] == ')' && rest[4] == ' ')
-        {
-            priority = new StanzaPriority(rest[1], rest[2] - '0');
-            consumed = 5;
-            return true;
-        }
-
         return false;
     }
 
@@ -173,8 +174,7 @@ public static class StanzaParser
         var task = new StanzaTask();
         var rest = line;
 
-        // 1. 优先级：(A)–(D) 四象限字母，可附加单位数象限内序号（如 (A3)），
-        //    右括号后必须紧跟一个空格（§7.2.1）
+        // 1. 优先级：(A)–(D) 四象限字母，右括号后必须紧跟一个空格（§7.2.1）
         if (TryParsePriority(rest, out var priority, out var consumed))
         {
             task.Priority = priority;

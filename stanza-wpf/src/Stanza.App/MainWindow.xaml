@@ -393,14 +393,16 @@
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="移到 WAIT"
                                     Command="{Binding DeferSelectionCommand}"
                                     Visibility="{Binding ScopeIsDoing, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M3,8 H12.5 M9.5,4.5 L13,8 L9.5,11.5" Width="16" Height="16"
+                                <!-- 暂停符：等待/挂起 -->
+                                <Path Data="M6,4.5 V11.5 M10,4.5 V11.5" Width="16" Height="16"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                      StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Button>
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="移到 DOING"
                                     Command="{Binding ActivateSelectionCommand}"
                                     Visibility="{Binding ScopeIsWaiting, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M3,8 H12.5 M9.5,4.5 L13,8 L9.5,11.5" Width="16" Height="16"
+                                <!-- 播放符：开始执行 -->
+                                <Path Data="M6,4.5 L11.5,8 L6,11.5 Z" Width="16" Height="16"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Button>
