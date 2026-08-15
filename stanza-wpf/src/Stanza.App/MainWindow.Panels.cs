@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Stanza.App.ViewModels;
+using Stanza.Core;
 
 namespace Stanza.App;
 
@@ -138,6 +139,132 @@ public partial class MainWindow
     {
         if (!ReferenceEquals(e.OriginalSource, sender)) return;
         RecentPopup.IsOpen = false;
+    }
+
+    // ==================== 标签/项目选择器 ====================
+
+    private FacetKind _pickerKind;
+
+    private sealed record PickerRow(string Display, string Name, bool Applied);
+
+    /// <summary>由右键菜单（标签…/项目…）在鼠标位置打开选择器（Themes/TaskTemplates 转发调用）。
+    /// 选择器是与主窗口同一视觉树的应用内浮层，不受 ContextMenu 关闭时的焦点回收影响。</summary>
+    internal void OpenFacetPicker(FacetKind kind)
+    {
+        if (!VM.HasSelection) return;
+        _pickerKind = kind;
+        FacetPickerInput.Tag = kind == FacetKind.Tag ? "标签" : "项目";
+        FacetPickerInput.Text = "";
+        FacetPickerError.Visibility = Visibility.Collapsed;
+        RefreshFacetPicker();
+
+        // 在鼠标附近落位，夹取到窗口内
+        // 参照物用 Root（始终已布局）：Collapsed 的浮层自身 ActualWidth/Height 为 0，不能作为参照
+        var pos = Mouse.GetPosition(Root);
+        Canvas.SetLeft(FacetPickerPanel,
+            Math.Clamp(pos.X, 0, Math.Max(0, Root.ActualWidth - FacetPickerPanel.Width - 8)));
+        Canvas.SetTop(FacetPickerPanel,
+            Math.Clamp(pos.Y, 0, Math.Max(0, Root.ActualHeight - 320)));
+
+        FacetPickerLayer.Visibility = Visibility.Visible;
+        // 与 ExitOverlay 同款：同一视觉树内直接聚焦输入框
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => Keyboard.Focus(FacetPickerInput)));
+    }
+
+    private bool FacetPickerOpen => FacetPickerLayer.Visibility == Visibility.Visible;
+
+    private void CloseFacetPicker() => FacetPickerLayer.Visibility = Visibility.Collapsed;
+
+    /// <summary>点选择器卡片以外的区域关闭（点卡片内部不处理，由行/按钮自身响应）。</summary>
+    private void FacetPickerLayer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!VisualTreeEx.IsWithin(e.OriginalSource as DependencyObject, FacetPickerPanel))
+            CloseFacetPicker();
+    }
+
+    private void RefreshFacetPicker()
+    {
+        var filter = FacetPickerInput.Text.Trim();
+        var prefix = _pickerKind == FacetKind.Tag ? "#" : "+";
+        FacetPickerList.ItemsSource = VM.FacetNames(_pickerKind)
+            .Where(n => filter.Length == 0 || n.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .Select(n => new PickerRow(prefix + n, n, VM.SelectionHasFacet(_pickerKind, n)))
+            .ToList();
+        FacetPickerClear.Visibility = VM.SelectionHasAnyFacet(_pickerKind) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void FacetPickerRow_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not PickerRow row) return;
+        if (_pickerKind == FacetKind.Tag)
+        {
+            VM.ToggleTag(row.Name);
+            RefreshFacetPicker();   // 浮层保持开启，便于连续切换多个标签
+        }
+        else
+        {
+            VM.SetProjectForSelection(row.Name);
+            CloseFacetPicker();
+        }
+    }
+
+    private void FacetPickerInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        FacetPickerError.Visibility = Visibility.Collapsed;
+        if (FacetPickerOpen) RefreshFacetPicker();
+    }
+
+    // 挂在弹层面板上（隧道）：焦点在输入框或列表行上时 Enter/Esc 都生效
+    private void FacetPicker_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            CloseFacetPicker();
+            return;
+        }
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        CommitFacetPickerInput();
+    }
+
+    /// <summary>回车提交输入：精确命中既有名称（大小写不敏感）则直接应用，否则按新名称创建（校验 RFC 名称规则）。</summary>
+    private void CommitFacetPickerInput()
+    {
+        var text = FacetPickerInput.Text.Trim();
+        if (text.Length == 0) return;
+
+        var existing = VM.FacetNames(_pickerKind)
+            .FirstOrDefault(n => string.Equals(n, text, StringComparison.OrdinalIgnoreCase));
+        var name = existing ?? text;
+
+        if (existing == null)
+        {
+            var valid = _pickerKind == FacetKind.Tag
+                ? StanzaPatterns.IsValidTagName(name)
+                : StanzaPatterns.IsValidProjectName(name);
+            if (!valid)
+            {
+                FacetPickerError.Text = _pickerKind == FacetKind.Tag
+                    ? "首字符必须是字母，可含字母、数字、_、-"
+                    : "字母或数字开头，可含字母、数字、_、-";
+                FacetPickerError.Visibility = Visibility.Visible;
+                return;
+            }
+        }
+
+        if (_pickerKind == FacetKind.Tag)
+            VM.ToggleTag(name);
+        else
+            VM.SetProjectForSelection(name);
+        CloseFacetPicker();   // 回车提交后关闭浮层（鼠标点选标签的连续切换路径不受影响）
+    }
+
+    private void FacetPickerClear_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pickerKind == FacetKind.Tag) VM.ClearTagsForSelection();
+        else VM.SetProjectForSelection(null);
+        CloseFacetPicker();
     }
 
     // ==================== 底部工具栏：清空二次确认 ====================

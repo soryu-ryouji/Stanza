@@ -63,7 +63,6 @@ public sealed class TaskViewModel : ViewModelBase
         {
             if (Set(ref _state, value))
             {
-                OnPropertyChanged(nameof(ShowPriority));
                 OnPropertyChanged(nameof(DisplayQuadrant));
                 OnPropertyChanged(nameof(IsOverdue));
                 OnPropertyChanged(nameof(IsActive));
@@ -86,7 +85,9 @@ public sealed class TaskViewModel : ViewModelBase
 
     // ---- 主行（内联元数据） ----
 
-    /// <summary>主行原文：(A1) 2026-08-07 描述 +项目 #标签。编辑时实时解析，展示层只读解析结果。</summary>
+    /// <summary>主行编辑文本：<c>2026-08-07 描述 +项目 #标签</c>。
+    /// 不含优先级前缀（§7.2.1 的前缀由 <see cref="Priority"/> 属性承载，输入前缀会被自动接管）。
+    /// 编辑时实时解析，展示层只读解析结果。</summary>
     public string HeaderText
     {
         get => _headerText;
@@ -125,7 +126,6 @@ public sealed class TaskViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HeaderText));
         OnPropertyChanged(nameof(Priority));
-        OnPropertyChanged(nameof(ShowPriority));
         OnPropertyChanged(nameof(DisplayQuadrant));
         OnPropertyChanged(nameof(Due));
         OnPropertyChanged(nameof(DueDisplay));
@@ -148,19 +148,14 @@ public sealed class TaskViewModel : ViewModelBase
         {
             if (Set(ref _priority, value))
             {
-                OnPropertyChanged(nameof(ShowPriority));
                 OnPropertyChanged(nameof(DisplayQuadrant));
                 _owner.NotifyContentChanged();
             }
         }
     }
 
-    /// <summary>用于标题着色的象限字母：仅在 DOING/WAIT 且有优先级时非 null，
-    /// 驱动标题文字按象限由强到弱配色（A 红 → D 淡灰）；其余情况保持默认墨色。</summary>
-    public char? DisplayQuadrant => ShowPriority ? Priority : null;
-
-    /// <summary>优先级仅在 DOING/WAIT 中展示（RFC §7.2.1）。</summary>
-    public bool ShowPriority => Priority != null && State is TaskState.Doing or TaskState.Wait;
+    /// <summary>用于标题着色的象限字母：仅在 DOING/WAIT 且有优先级时非 null（其余情况标题保持默认墨色）。</summary>
+    public char? DisplayQuadrant => State is TaskState.Doing or TaskState.Wait ? Priority : null;
 
     public DateOnly? Due => _due;
     public string DueDisplay => Due?.ToString("yyyy-MM-dd") ?? "";
@@ -176,20 +171,18 @@ public sealed class TaskViewModel : ViewModelBase
     public IReadOnlyList<string> Tags => _tags;
     public bool HasTags => _tags.Count > 0;
 
-    /// <summary>详情行存在可展示内容时，展开视图才显示元数据行。
-    /// 优先级不在其列：徽章固定在标题行右缘展示，不在详情元数据行中重复。</summary>
+    /// <summary>详情元数据行（截止/创建/完成/项目/标签）存在可展示内容时，展开视图才显示该行。
+    /// 优先级不在其列：它以标题文字颜色表达。</summary>
     public bool HasAnyMeta => Due != null || HasProject || HasTags || HasCreated || HasCompleted;
 
     // ---- 时间戳属性（§7.4） ----
 
-    public DateOnly? CreatedAt => _createdAt;
     public bool HasCreated => _createdAt != null;
     public string CreatedDisplay => _createdAt is { } c ? $"{TimestampKeywords.Canonical(TimestampKind.Created)} {c:yyyy-MM-dd}" : "";
 
-    /// <summary>最近一次完成时间；完整完成历史（含重开记录）保留在续行属性块中。</summary>
-    public DateOnly? CompletedAt => _completedDates.Count > 0 ? _completedDates[^1] : null;
     public bool HasCompleted => _completedDates.Count > 0;
-    public string CompletedDisplay => CompletedAt is { } c ? $"{TimestampKeywords.Canonical(TimestampKind.Completed)} {c:yyyy-MM-dd}" : "";
+    /// <summary>最近一次完成时间；完整完成历史（含重开记录）保留在续行属性块中。</summary>
+    public string CompletedDisplay => _completedDates.Count > 0 ? $"{TimestampKeywords.Canonical(TimestampKind.Completed)} {_completedDates[^1]:yyyy-MM-dd}" : "";
 
     /// <summary>折叠态仅在 DONE 任务上展示完成日期（重开后历史保留，但不宜在标题行展示）。</summary>
     public bool ShowCompleted => IsDone && HasCompleted;
@@ -213,14 +206,49 @@ public sealed class TaskViewModel : ViewModelBase
 
     private void NotifyTimestampsChanged()
     {
-        OnPropertyChanged(nameof(CreatedAt));
         OnPropertyChanged(nameof(HasCreated));
         OnPropertyChanged(nameof(CreatedDisplay));
-        OnPropertyChanged(nameof(CompletedAt));
         OnPropertyChanged(nameof(HasCompleted));
         OnPropertyChanged(nameof(CompletedDisplay));
         OnPropertyChanged(nameof(ShowCompleted));
         OnPropertyChanged(nameof(HasAnyMeta));
+    }
+
+    // ---- 批量标签/项目操作（右键菜单） ----
+
+    /// <summary>为任务添加标签；已存在同名标签时不变。经 解析→修改→重组 往返，规则由 Core 承载。</summary>
+    public void AddTag(string tag)
+    {
+        var m = StanzaParser.ParseTaskHeader(HeaderText);
+        if (m.Tags.Contains(tag)) return;
+        m.Tags.Add(tag);
+        HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
+    }
+
+    /// <summary>把任务移到指定项目（§7.2.4 每条任务至多一个项目，直接替换）；传 null 清除项目。</summary>
+    public void SetProject(string? project)
+    {
+        var m = StanzaParser.ParseTaskHeader(HeaderText);
+        if (m.Project == project) return;
+        m.Project = project;
+        HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
+    }
+
+    /// <summary>从任务移除标签；不含该标签时不变。</summary>
+    public void RemoveTag(string tag)
+    {
+        var m = StanzaParser.ParseTaskHeader(HeaderText);
+        if (!m.Tags.Remove(tag)) return;
+        HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
+    }
+
+    /// <summary>清除任务的全部标签（选择器的「清除」按钮）。</summary>
+    public void ClearTags()
+    {
+        if (_tags.Count == 0) return;
+        var m = StanzaParser.ParseTaskHeader(HeaderText);
+        m.Tags.Clear();
+        HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
     }
 
     // ---- 备注 ----

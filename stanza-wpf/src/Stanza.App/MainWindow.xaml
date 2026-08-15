@@ -545,6 +545,59 @@
                 </StackPanel>
             </Border>
         </Grid>
+        <!-- 标签/项目选择器：右键「标签…/项目…」在鼠标位置展开的应用内浮层。
+             与窗口同一视觉树（不用独立 Popup，规避跨 HWND 的焦点/失活时序问题）；
+             点卡片以外区域关闭。顶部输入框过滤或新建，列表 ✓ 为选中任务当前已拥有 -->
+        <Canvas x:Name="FacetPickerLayer" Visibility="Collapsed" Background="Transparent"
+                PreviewMouseLeftButtonDown="FacetPickerLayer_PreviewMouseDown">
+            <Border x:Name="FacetPickerPanel" Width="200" Padding="5"
+                    Background="{StaticResource DarkPanelBrush}"
+                    CornerRadius="8"
+                    BorderBrush="{StaticResource DarkPanelBorderBrush}" BorderThickness="1"
+                    SnapsToDevicePixels="True"
+                    PreviewKeyDown="FacetPicker_KeyDown">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
+                </Border.Effect>
+                <StackPanel>
+                    <TextBox x:Name="FacetPickerInput" FontSize="12" Margin="2,0" TextAlignment="Center"
+                             Foreground="{StaticResource OnDarkTextBrush}"
+                             TextChanged="FacetPickerInput_TextChanged"/>
+                    <TextBlock x:Name="FacetPickerError" FontSize="11" Margin="6,2,6,0" Visibility="Collapsed"
+                               Foreground="{StaticResource DangerBrush}"/>
+                    <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="FacetPickerList" Margin="0,2">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource PickerRowButton}"
+                                            HorizontalContentAlignment="Stretch"
+                                            Click="FacetPickerRow_Click">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Display}" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                                            <Path Data="M1,4 L3.5,6.5 L8,1" Width="9" Height="8" Stretch="Uniform"
+                                                  Stroke="{StaticResource AccentBrush}" StrokeThickness="1.4"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                  Visibility="{Binding Applied, Converter={StaticResource BoolToVis}}"/>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <Button x:Name="FacetPickerClear" Style="{StaticResource PickerRowButton}"
+                            Background="{StaticResource DarkPanelRaisedBrush}"
+                            HorizontalContentAlignment="Center" Margin="0,2,0,0"
+                            Click="FacetPickerClear_Click">
+                        <!-- 显式 TextBlock：字符串内容自动生成的 TextBlock 会被隐式样式的墨色
+                             盖住按钮前景色，必须显式绑定 -->
+                        <TextBlock Text="清除"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
         </Border>
     </Grid>

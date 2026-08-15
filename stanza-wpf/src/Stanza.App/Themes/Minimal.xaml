@@ -15,19 +15,26 @@
     <SolidColorBrush x:Key="AccentBrush" Color="#FF2E7DE9"/>
     <SolidColorBrush x:Key="AccentDarkBrush" Color="#FF1D6FD8"/>
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#FFEAF3FD"/>
+    <!-- 任务卡片选中底色：比 AccentSoft 深两档，选中态在灰画布上清晰可辨 -->
+    <SolidColorBrush x:Key="TaskSelectedBrush" Color="#FFCFE3FC"/>
     <!-- 文本选中底色：浅蓝，比 AccentSoft 深，选中区域清晰可辨且保持柔和 -->
     <SolidColorBrush x:Key="AccentSelectBrush" Color="#FFBFDDF9"/>
     <SolidColorBrush x:Key="ChipBrush" Color="#FFF0F0F3"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#FFDC2626"/>
     <SolidColorBrush x:Key="DangerSoftBrush" Color="#FFFEF2F2"/>
-    <!-- 琥珀色系：任务标题 C 象限配色专用（与红/蓝/灰构成四象限的文字着色） -->
-    <SolidColorBrush x:Key="AmberBrush" Color="#FFB45309"/>
+    <!-- 深色浮层面板（标签/项目选择器）：参考 Things 3 选择器，降低纯白面板在浅灰画布上的刺眼感 -->
+    <SolidColorBrush x:Key="DarkPanelBrush" Color="#FF2C2C30"/>
+    <SolidColorBrush x:Key="DarkPanelRaisedBrush" Color="#FF3A3A40"/>
+    <SolidColorBrush x:Key="DarkPanelBorderBrush" Color="#FF45454B"/>
+    <SolidColorBrush x:Key="OnDarkTextBrush" Color="#FFF5F5F7"/>
+
 
     <app:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
     <app:ZeroToVisibilityConverter x:Key="ZeroToVis"/>
     <app:StateToBrushConverter x:Key="StateToBrush"/>
     <app:StateToNameConverter x:Key="StateToName"/>
     <app:StatusKindToBrushConverter x:Key="StatusToBrush"/>
+    <app:QuadrantToBrushConverter x:Key="QuadrantToBrush"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
     <!-- ============ 自定义控件样式的公共基座 ============ -->
@@ -65,8 +72,9 @@
                             <ScrollViewer x:Name="PART_ContentHost" Margin="-2,0,0,0"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           VerticalScrollBarVisibility="Hidden"/>
-                            <!-- 占位提示：借用 Tag 属性传文本 -->
+                            <!-- 占位提示：借用 Tag 属性传文本，对齐方式跟随 TextAlignment -->
                             <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}"
+                                       TextAlignment="{TemplateBinding TextAlignment}"
                                        Foreground="{StaticResource FaintBrush}"
                                        Margin="0,4,0,0" VerticalAlignment="Top"
                                        IsHitTestVisible="False" Visibility="Collapsed"/>
@@ -101,6 +109,35 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
                             <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.35"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 深色浮层上的行按钮（标签/项目选择器）：白字，悬停强调蓝底（Things 3 选择器行） -->
+    <Style x:Key="PickerRowButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource OnDarkTextBrush}"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="5"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35"/>
@@ -326,7 +363,7 @@
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource TaskSelectedBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -364,23 +401,44 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type MenuItem}">
-                    <Border x:Name="Bg" Background="Transparent" CornerRadius="5" Padding="10,5"
+                    <!-- Things 风格：图标 + 文字，高亮为强调蓝底白字（图标描边随 Foreground 联动） -->
+                    <Border x:Name="Bg" Background="Transparent" CornerRadius="5" Padding="8,5"
                             SnapsToDevicePixels="True">
                         <Grid>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                            <!-- 图标：Icon 只传几何数据字符串，由模板内 Path 用 TemplateBinding 渲染。
+                                 不要把 Path 元素放进 Icon 再用 RelativeSource 绑前景色——游离属性值元素
+                                 上的祖先绑定在真实宿主时序下会求值失败（图标隐形，实测 stroke=null） -->
+                            <!-- 图标：字体字形（Segoe Fluent Icons，WinUI FontIcon 同款方案），
+                                 颜色经 TemplateBinding 随 Foreground 联动，高亮自动反白；Icon 传字形码 -->
+                            <TextBlock x:Name="IconGlyph" Text="{TemplateBinding Icon}"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <!-- 显式 TextBlock 绑定菜单项前景色：隐式 TextBlock 样式的墨色会盖住
+                                 继承值，否则高亮（蓝底）时文字不变白 -->
+                            <ContentPresenter Grid.Column="1" Content="{TemplateBinding Header}" VerticalAlignment="Center">
+                                <ContentPresenter.ContentTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type MenuItem}}}"/>
+                                    </DataTemplate>
+                                </ContentPresenter.ContentTemplate>
+                            </ContentPresenter>
                             <!-- 子菜单箭头：仅有子项时显示 -->
-                            <Path x:Name="Arrow" Grid.Column="1" Data="M0,0 L3.5,3.5 L0,7" Width="5" Height="8"
+                            <Path x:Name="Arrow" Grid.Column="2" Data="M0,0 L3.5,3.5 L0,7" Width="5" Height="8"
                                   Stretch="Uniform" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.1"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed"/>
-                            <!-- 子菜单弹层：缺它则带子项的菜单永远无法展开；外观与 ContextMenu 一致 -->
-                            <Popup x:Name="SubMenuPopup" Grid.ColumnSpan="2" AllowsTransparency="True" Focusable="False"
+                            <!-- 子菜单弹层：缺它则带子项的菜单永远无法展开；外观与 ContextMenu 一致。
+                                 HorizontalOffset 让子菜单贴靠一级菜单右缘并留出间隙（不重叠） -->
+                            <Popup x:Name="SubMenuPopup" Grid.ColumnSpan="3" AllowsTransparency="True" Focusable="False"
                                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
-                                   Placement="Right" VerticalOffset="-5">
+                                   Placement="Right" HorizontalOffset="16" VerticalOffset="-5">
                                 <Border Background="White" CornerRadius="8" Padding="4"
                                         BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
                                         SnapsToDevicePixels="True">
@@ -393,14 +451,29 @@
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- 高亮且有子项时立即展开子菜单：默认行为走系统 MenuShowDelay（~400ms），
+                             鼠标连续下划时明显不跟手。父项在子菜单导航期间保持高亮，不会误关 -->
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsHighlighted" Value="True"/>
+                                <Condition Property="HasItems" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <Setter Property="IsSubmenuOpen" Value="True"/>
+                        </MultiTrigger>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
                         </Trigger>
+                        <!-- 子菜单展开期间父项保持高亮（蓝底白字），标识当前所在的菜单路径 -->
                         <Trigger Property="IsSubmenuOpen" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource HoverBrush}"/>
+                            <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="White"/>
                         </Trigger>
                         <Trigger Property="HasItems" Value="True">
                             <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="Icon" Value="{x:Null}">
+                            <Setter TargetName="IconGlyph" Property="Visibility" Value="Collapsed"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -415,14 +488,34 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type MenuItem}">
-                    <Border x:Name="Bg" Background="Transparent" CornerRadius="5" Padding="10,5"
+                    <Border x:Name="Bg" Background="Transparent" CornerRadius="5" Padding="8,5"
                             SnapsToDevicePixels="True">
-                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="IconGlyph" Text="{TemplateBinding Icon}"
+                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ContentPresenter Grid.Column="1" Content="{TemplateBinding Header}" VerticalAlignment="Center">
+                                <ContentPresenter.ContentTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type MenuItem}}}"/>
+                                    </DataTemplate>
+                                </ContentPresenter.ContentTemplate>
+                            </ContentPresenter>
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource DangerSoftBrush}"/>
                             <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                        </Trigger>
+                        <Trigger Property="Icon" Value="{x:Null}">
+                            <Setter TargetName="IconGlyph" Property="Visibility" Value="Collapsed"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

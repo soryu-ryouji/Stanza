@@ -157,6 +157,9 @@ public partial class MainWindow
         // 退出确认遮罩打开时，按键交给遮罩处理（ExitOverlay_KeyDown）
         if (ExitOverlay.Visibility == Visibility.Visible) return;
 
+        // 标签/项目选择器打开时，Enter/Esc 交给选择器（提交/关闭），不经由列表的展开/收起逻辑
+        if (FacetPickerLayer.Visibility == Visibility.Visible) return;
+
         if (e.Key == Key.Escape)
         {
             if (_taskDragging) { CancelTaskDrag(); e.Handled = true; }

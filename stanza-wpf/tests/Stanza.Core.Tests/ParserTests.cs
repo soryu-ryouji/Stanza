@@ -189,6 +189,28 @@ public class ParserTests
         Assert.Equal("提交报告", task.Description);
     }
 
+    [Theory]
+    [InlineData("紧急", true)]
+    [InlineData("my_tag", true)]
+    [InlineData("a-1", true)]
+    [InlineData("v2", true)]
+    [InlineData("1", false)]      // 首字符必须是字母（§7.2.5）
+    [InlineData("1号", false)]
+    [InlineData("a b", false)]    // 不允许空格
+    [InlineData("", false)]
+    public void IsValidTagName_Rules(string name, bool expected)
+        => Assert.Equal(expected, StanzaPatterns.IsValidTagName(name));
+
+    [Theory]
+    [InlineData("Apollo", true)]
+    [InlineData("2026计划", true)]  // 项目名允许数字开头（§7.2.4）
+    [InlineData("dev-ops_2", true)]
+    [InlineData("a+b", false)]
+    [InlineData("a b", false)]
+    [InlineData("", false)]
+    public void IsValidProjectName_Rules(string name, bool expected)
+        => Assert.Equal(expected, StanzaPatterns.IsValidProjectName(name));
+
     [Fact]
     public void TrySplitPriority_SplitsPrefixFromEditableText()
     {

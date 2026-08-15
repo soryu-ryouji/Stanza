@@ -294,6 +294,54 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand DeleteSelectionCommand { get; }
     public ICommand SetPriorityCommand { get; }
 
+    // ---- 标签/项目选择器（右键「标签…/项目…」弹出） ----
+
+    /// <summary>内置常用标签（参考 Things 3）：仅作为选择器候选展示，不写入文件；
+    /// 被应用后才成为文档中的真实标签（§7.2.5）。</summary>
+    private static readonly string[] PresetTags = { "日常", "家庭", "办公", "重要", "待定" };
+
+    /// <summary>某类 facet 在选择器中的候选名称：标签为内置常用项在前、文档既有项随后（去重）；
+    /// 项目无内置项，与侧栏聚合列表同序。</summary>
+    public IReadOnlyList<string> FacetNames(FacetKind kind)
+        => kind == FacetKind.Tag
+            ? PresetTags.Concat(Tags.Select(t => t.Name)).Distinct().ToList()
+            : Projects.Select(p => p.Name).ToList();
+
+    /// <summary>选中任务是否全部带有该名称（标签：全部拥有；项目：全部属于）。驱动选择器的 ✓ 标记。</summary>
+    public bool SelectionHasFacet(FacetKind kind, string name)
+        => SelectedTasks.Count > 0 && SelectedTasks.All(t =>
+            kind == FacetKind.Tag ? t.Tags.Contains(name) : t.ProjectName == name);
+
+    /// <summary>选中任务中是否存在任何该类 facet（驱动选择器「清除」按钮的显示）。</summary>
+    public bool SelectionHasAnyFacet(FacetKind kind)
+        => SelectedTasks.Any(t => kind == FacetKind.Tag ? t.Tags.Count > 0 : t.ProjectName != null);
+
+    /// <summary>切换选中任务的标签：全部已拥有则移除，否则添加。</summary>
+    public void ToggleTag(string name)
+    {
+        var remove = SelectionHasFacet(FacetKind.Tag, name);
+        foreach (var t in SelectedTasks)
+        {
+            if (remove) t.RemoveTag(name);
+            else t.AddTag(name);
+        }
+        RefreshFacets();
+    }
+
+    /// <summary>把选中任务移到指定项目；null 表示清除项目。</summary>
+    public void SetProjectForSelection(string? name)
+    {
+        foreach (var t in SelectedTasks) t.SetProject(name);
+        RefreshFacets();
+    }
+
+    /// <summary>清除选中任务的全部标签。</summary>
+    public void ClearTagsForSelection()
+    {
+        foreach (var t in SelectedTasks) t.ClearTags();
+        RefreshFacets();
+    }
+
     // ---- 优先级 ----
 
     /// <summary>优先级菜单选项（任务右键菜单与底部工具栏共用同一套选项与样式）。</summary>
@@ -790,3 +838,4 @@ public sealed class MainViewModel : ViewModelBase
 /// <summary>优先级菜单选项：显示文本 + 取值（null 表示清除优先级）。
 /// 任务右键菜单与底部工具栏共用。</summary>
 public sealed record PriorityOption(string Label, char? Value);
+

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Stanza.App.ViewModels;
 
 namespace Stanza.App.Themes;
 
@@ -20,6 +21,21 @@ public partial class TaskTemplates : ResourceDictionary
             && Window.GetWindow(checkBox) is MainWindow window)
         {
             window.HandleTaskCheck(checkBox, e);
+        }
+    }
+
+    // ContextMenu 在独立弹层视觉树中，Window.GetWindow 无法直接到达窗口，
+    // 经 PlacementTarget（任务卡片，位于正常视觉树）中转
+    private void FacetMenu_TagClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Tag);
+
+    private void FacetMenu_ProjectClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Project);
+
+    private static void ForwardFacetClick(object sender, FacetKind kind)
+    {
+        if (sender is MenuItem { Parent: ContextMenu { PlacementTarget: { } target } }
+            && Window.GetWindow(target) is MainWindow window)
+        {
+            window.OpenFacetPicker(kind);
         }
     }
 }

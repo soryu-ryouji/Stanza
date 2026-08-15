@@ -5,45 +5,19 @@
                     xmlns:app="clr-namespace:Stanza.App"
                     xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
 
-    <!-- 任务标题配色：按象限由强到弱（A 红 → B 蓝 → C 琥珀 → D 淡灰），无优先级或非活跃
-         状态保持默认墨色。优先级的强度由整行文字承担，不再使用徽章元素；0–9 级别由排序
-         位置表达，不做颜色编码（10 档色阶人眼无法区分，且浅灰对比度不达标） -->
+    <!-- 任务标题配色：象限 → 文字颜色（A 红 → B 蓝 → C 琥珀 → D 淡灰），映射的唯一来源是
+         QuadrantToBrushConverter；无优先级或非活跃状态为默认墨色。优先级强度由整行文字承担，
+         不使用徽章元素；同象限内的先后由排序位置表达，不做颜色编码 -->
     <Style x:Key="TaskTitleText" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="A">
-                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="B">
-                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="C">
-                <Setter Property="Foreground" Value="{StaticResource AmberBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="D">
-                <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
-            </DataTrigger>
-        </Style.Triggers>
+        <Setter Property="Foreground" Value="{Binding DisplayQuadrant, Converter={StaticResource QuadrantToBrush}}"/>
     </Style>
 
     <!-- 展开态标题编辑框：与折叠态同一套象限配色，输入时颜色实时跟随解析结果 -->
     <Style x:Key="TaskTitleEditor" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="A">
-                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="B">
-                <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="C">
-                <Setter Property="Foreground" Value="{StaticResource AmberBrush}"/>
-            </DataTrigger>
-            <DataTrigger Binding="{Binding DisplayQuadrant}" Value="D">
-                <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
-            </DataTrigger>
-        </Style.Triggers>
+        <Setter Property="Foreground" Value="{Binding DisplayQuadrant, Converter={StaticResource QuadrantToBrush}}"/>
     </Style>
 
     <!-- 任务卡片 -->
@@ -56,23 +30,34 @@
                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
             <Border.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="完成" Command="{Binding PlacementTarget.Tag.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="移到 WAIT" Command="{Binding PlacementTarget.Tag.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="移到 DOING" Command="{Binding PlacementTarget.Tag.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="优先级" ItemContainerStyle="{StaticResource PriorityMenuItem}"
+                    <MenuItem Icon="&#xE73E;" Header="完成" Command="{Binding PlacementTarget.Tag.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE769;" Header="移到 WAIT" Command="{Binding PlacementTarget.Tag.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE768;" Header="移到 DOING" Command="{Binding PlacementTarget.Tag.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE7C1;" Header="优先级" ItemContainerStyle="{StaticResource PriorityMenuItem}"
                               ItemsSource="{Binding PlacementTarget.Tag.PriorityOptions, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="废弃" InputGestureText="Backspace" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}"/>
-                    <MenuItem Header="恢复" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}"/>
+                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE8EC;" Header="标签…" Click="FacetMenu_TagClick">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE8B7;" Header="项目…" Click="FacetMenu_ProjectClick">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE74D;" Header="废弃" InputGestureText="Backspace" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}">
+                    </MenuItem>
+                    <MenuItem Icon="&#xE7A7;" Header="恢复" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                              Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
                     <Separator Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="彻底删除" InputGestureText="Delete" Style="{StaticResource DangerMenuItem}"
+                    <MenuItem Icon="&#xE711;" Header="彻底删除" InputGestureText="Delete" Style="{StaticResource DangerMenuItem}"
                               Command="{Binding PlacementTarget.Tag.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
-                              Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
+                              Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}">
+                    </MenuItem>
                 </ContextMenu>
             </Border.ContextMenu>
             <Grid>
@@ -120,11 +105,6 @@
                                            Foreground="{StaticResource FaintBrush}" Margin="6,0,0,0"
                                            VerticalAlignment="Center"
                                            Visibility="{Binding ShowCompleted, Converter={StaticResource BoolToVis}}"/>
-                                <!-- 备注标记（Things 风格：只提示存在，不渲染内容） -->
-                                <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
-                                      StrokeThickness="1.2" Width="10" Height="7" Margin="6,0,0,0"
-                                      VerticalAlignment="Center" ToolTip="含备注"
-                                      Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
                                 <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
                                         Padding="7,1" Margin="6,0,0,0"
                                         Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
@@ -147,6 +127,12 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <!-- 备注标记固定在行尾最右缘（Things 风格：只提示存在，不渲染内容），
+                                     不被项目/标签 chip 推移，位置恒定便于扫读 -->
+                                <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
+                                      StrokeThickness="1.2" Width="10" Height="7" Margin="6,0,0,0"
+                                      VerticalAlignment="Center" ToolTip="含备注"
+                                      Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -181,7 +167,7 @@
                                 behaviors:RevealBehavior.IsRevealed="{Binding IsExpanded}"
                                 behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
                                 behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
-                        <!-- 解析出的元数据：仅填写过的才显示（优先级徽章在标题行右缘，不在此行） -->
+                        <!-- 解析出的元数据：仅填写过的才显示（优先级不在此行，以标题文字颜色表达） -->
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
                                     Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
                             <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
@@ -242,7 +228,7 @@
                 <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}"/>
             </DataTrigger>
             <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
-                <Setter TargetName="Card" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                <Setter TargetName="Card" Property="Background" Value="{StaticResource TaskSelectedBrush}"/>
             </DataTrigger>
             <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                 <Setter TargetName="ReadHeader" Property="Visibility" Value="Collapsed"/>

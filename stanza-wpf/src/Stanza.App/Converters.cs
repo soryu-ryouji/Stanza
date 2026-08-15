@@ -72,6 +72,32 @@ public sealed class StatusKindToBrushConverter : IValueConverter
     private static Brush Freeze(Brush b) { b.Freeze(); return b; }
 }
 
+/// <summary>优先级象限 → 标题文字颜色（A 红 → B 蓝 → C 琥珀 → D 淡灰）。
+/// 该映射的唯一来源；null/未知值返回默认墨色。色值与 Minimal.xaml 画板保持一致。</summary>
+public sealed class QuadrantToBrushConverter : IValueConverter
+{
+    private static readonly Brush Ink = Freeze(new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1E)));
+    private static readonly Brush Danger = Freeze(new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26)));
+    private static readonly Brush Accent = Freeze(new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0xE9)));
+    private static readonly Brush Amber = Freeze(new SolidColorBrush(Color.FromRgb(0xB4, 0x53, 0x09)));
+    private static readonly Brush Faint = Freeze(new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)));
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is char q ? q switch
+        {
+            'A' => Danger,
+            'B' => Accent,
+            'C' => Amber,
+            'D' => Faint,
+            _ => Ink,
+        } : Ink;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+
+    private static Brush Freeze(Brush b) { b.Freeze(); return b; }
+}
+
 /// <summary>状态枚举 → 区块名（面板视图分组头）。</summary>
 public sealed class StateToNameConverter : IValueConverter
 {
