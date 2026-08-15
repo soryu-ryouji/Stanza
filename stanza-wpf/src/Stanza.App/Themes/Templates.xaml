@@ -153,7 +153,8 @@
                         <!-- MinHeight 与折叠态行高一致，展开/收起交换时行高不跳动 -->
                         <TextBox Grid.Column="1" Style="{StaticResource TaskTitleEditor}"
                                  Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
-                                 Tag="2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
+                                 Tag="2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"
+                                 PreviewKeyDown="TaskTitleEditor_PreviewKeyDown"/>
                         <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
                         <Path Grid.Column="2" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
                               StrokeThickness="1.2" Width="10" Height="7" Margin="6,7,0,0"
@@ -213,11 +214,13 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <!-- 备注：透明融进详情卡，与卡片同一色面，空内容时水印提示 -->
+                        <!-- 备注：透明融进详情卡，与卡片同一色面，空内容时水印提示。
+                             Enter 提交任务、Shift+Enter 换行（HandleTaskNotesKey） -->
                         <TextBox Text="{Binding NotesText, UpdateSourceTrigger=PropertyChanged}"
                                  Tag="备注" Margin="0,6,0,0" FontSize="14"
                                  AcceptsReturn="True" TextWrapping="Wrap"
-                                 MinHeight="40" VerticalContentAlignment="Top"/>
+                                 MinHeight="40" VerticalContentAlignment="Top"
+                                 PreviewKeyDown="TaskNotesEditor_PreviewKeyDown"/>
                     </StackPanel>
                 </Grid>
             </Grid>

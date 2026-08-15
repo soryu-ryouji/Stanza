@@ -15,17 +15,6 @@
         DragLeave="Window_DragLeave" Drop="Window_Drop"
         Closing="Window_Closing">
 
-    <Window.InputBindings>
-        <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}"/>
-        <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding OpenCommand}"/>
-        <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding NewTaskCommand}"/>
-        <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding NewDocumentCommand}"/>
-        <KeyBinding Key="D1" Modifiers="Ctrl" Command="{Binding SelectBlockCommand}" CommandParameter="1"/>
-        <KeyBinding Key="D2" Modifiers="Ctrl" Command="{Binding SelectBlockCommand}" CommandParameter="2"/>
-        <KeyBinding Key="D3" Modifiers="Ctrl" Command="{Binding SelectBlockCommand}" CommandParameter="3"/>
-        <KeyBinding Key="D4" Modifiers="Ctrl" Command="{Binding SelectBlockCommand}" CommandParameter="4"/>
-    </Window.InputBindings>
-
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

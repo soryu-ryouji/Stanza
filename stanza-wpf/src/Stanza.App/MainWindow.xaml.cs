@@ -156,12 +156,18 @@ public partial class MainWindow : Window
         {
             e.Handled = true;
             ExitSave_Click(sender, e);
+            return;
         }
-        else if (e.Key == Key.Escape)
+        if (e.Key == Key.Escape)
         {
             e.Handled = true;
             HideExitOverlay();
+            return;
         }
+
+        // 模态遮罩拥有键盘输入：焦点导航/激活键（Tab、Enter、Space）之外不穿透到主界面
+        if (e.Key is not (Key.Tab or Key.Enter or Key.Space))
+            e.Handled = true;
     }
 
     // ==================== 文件对话框 ====================

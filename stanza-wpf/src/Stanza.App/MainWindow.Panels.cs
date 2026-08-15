@@ -223,9 +223,16 @@ public partial class MainWindow
             CloseFacetPicker();
             return;
         }
-        if (e.Key != Key.Enter) return;
-        e.Handled = true;
-        CommitFacetPickerInput();
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            CommitFacetPickerInput();
+            return;
+        }
+        // 焦点不在输入框时（如点击列表行后）拦截 Delete/Backspace，避免穿透到主列表删除任务；
+        // 在输入框时放行，由编辑框自身消化（过滤输入的删字）
+        if ((e.Key is Key.Back or Key.Delete) && e.OriginalSource is not TextBoxBase)
+            e.Handled = true;
     }
 
     /// <summary>回车提交输入：精确命中既有名称（大小写不敏感）则直接应用，否则按新名称创建（校验 RFC 名称规则）。</summary>

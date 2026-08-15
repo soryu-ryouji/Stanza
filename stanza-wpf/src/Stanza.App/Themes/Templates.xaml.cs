@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Stanza.App.ViewModels;
 
 namespace Stanza.App.Themes;
@@ -22,6 +23,19 @@ public partial class TaskTemplates : ResourceDictionary
         {
             window.HandleTaskCheck(checkBox, e);
         }
+    }
+
+    // 标题/备注编辑框的按键在隧道阶段转发（先于编辑框自身消化）：Tab 在两者间切换、Enter 提交
+    private void TaskTitleEditor_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is TextBox box && Window.GetWindow(box) is MainWindow window)
+            window.HandleTaskTitleKey(box, e);
+    }
+
+    private void TaskNotesEditor_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is TextBox box && Window.GetWindow(box) is MainWindow window)
+            window.HandleTaskNotesKey(box, e);
     }
 
     // ContextMenu 在独立弹层视觉树中，Window.GetWindow 无法直接到达窗口，

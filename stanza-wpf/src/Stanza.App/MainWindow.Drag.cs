@@ -33,7 +33,7 @@ public partial class MainWindow
     {
         PreviewMouseMove += OnPreviewMouseMove;
         PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
-        PreviewKeyDown += OnPreviewKeyDown;
+        KeyDown += OnKeyDown;
     }
 
     // ==================== 按下与判定 ====================
@@ -152,13 +152,20 @@ public partial class MainWindow
         _downTask = null;
     }
 
-    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    // 挂在窗口 KeyDown（冒泡方向）：焦点控件先处理，这里只收到无人认领的键——
+    // 编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、按钮的 Enter/Space、
+    // 浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判
+    private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        // 退出确认遮罩打开时，按键交给遮罩处理（ExitOverlay_KeyDown）
-        if (ExitOverlay.Visibility == Visibility.Visible) return;
-
-        // 标签/项目选择器打开时，Enter/Esc 交给选择器（提交/关闭），不经由列表的展开/收起逻辑
-        if (FacetPickerLayer.Visibility == Visibility.Visible) return;
+        // 应用级快捷键：查键位表分发到命令（Keymap.cs）
+        if (Keymap.Resolve(e.Key, Keyboard.Modifiers) is { } entry
+            && VM.CommandFor(entry.Command) is { } command
+            && command.CanExecute(entry.Parameter))
+        {
+            command.Execute(entry.Parameter);
+            e.Handled = true;
+            return;
+        }
 
         if (e.Key == Key.Escape)
         {
@@ -180,18 +187,10 @@ public partial class MainWindow
 
         if (e.Key == Key.Enter)
         {
-            // 备注框（AcceptsReturn）里 Enter 是换行；按钮上 Enter 是激活，均不拦截
-            if (e.OriginalSource is TextBoxBase { AcceptsReturn: true }
-                || e.OriginalSource is ButtonBase)
-                return;
-
+            // 多行备注框的 Enter 是换行、按钮上的 Enter 是激活——都被控件消化，到不了这里
             if (VM.ExpandedTask != null)
             {
-                // 确认编辑：收起详情；空草稿被移除时焦点回到列表
-                VM.CollapseExpanded();
-                var keep = VM.SelectedTask;
-                if (keep != null) FocusContainerOf(keep);
-                else (TaskList as UIElement).Focus();
+                CommitExpandedEdit();
                 e.Handled = true;
                 return;
             }
@@ -207,8 +206,8 @@ public partial class MainWindow
         }
 
         // Backspace：移入 DELETE（回收站语义，§9）；Delete：彻底删除（任意区块）。
-        // 文本编辑中不拦截——这两个键首先是编辑键
-        if (e.OriginalSource is TextBoxBase || !VM.HasSelection) return;
+        // 编辑框内这两个键由编辑框消化，不会到达这里
+        if (!VM.HasSelection) return;
 
         if (e.Key == Key.Back && VM.DiscardSelectionCommand.CanExecute(null))
         {
@@ -224,6 +223,39 @@ public partial class MainWindow
             FocusTaskAtIndex(index);
             e.Handled = true;
         }
+    }
+
+    /// <summary>标题编辑框按键（模板转发）：Tab 固定移交给备注编辑框——不走默认遍历
+    /// （可能把焦点带出卡片）。Shift+Tab 保持默认。</summary>
+    internal void HandleTaskTitleKey(TextBox box, KeyEventArgs e)
+    {
+        if (e.Key != Key.Tab || Keyboard.Modifiers != ModifierKeys.None) return;
+        var item = VisualTreeEx.FindVisualAncestor<ListBoxItem>(box);
+        var notes = item == null
+            ? null
+            : VisualTreeEx.FindVisualChildren<TextBox>(item).FirstOrDefault(t => t.AcceptsReturn);
+        if (notes == null) return;
+        notes.Focus();
+        notes.CaretIndex = notes.Text.Length;
+        e.Handled = true;
+    }
+
+    /// <summary>备注编辑框按键（模板转发）：Enter 提交任务（与标题框 Enter 一致）；
+    /// Shift+Enter 换行，交给编辑框自身处理。</summary>
+    internal void HandleTaskNotesKey(TextBox box, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None) return;
+        e.Handled = true;   // 隧道阶段拦截，编辑框不会插入换行
+        CommitExpandedEdit();
+    }
+
+    /// <summary>确认当前展开的编辑：收起详情；空草稿被移除时焦点回到列表。</summary>
+    private void CommitExpandedEdit()
+    {
+        VM.CollapseExpanded();
+        var keep = VM.SelectedTask;
+        if (keep != null) FocusContainerOf(keep);
+        else (TaskList as UIElement).Focus();
     }
 
     /// <summary>当前区块任务列表中第一个选中项的索引（删除/流转后用于焦点落位）。</summary>

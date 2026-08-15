@@ -294,6 +294,17 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand DeleteSelectionCommand { get; }
     public ICommand SetPriorityCommand { get; }
 
+    /// <summary>键位表命令 ID → 命令实例（Keymap 分发用；ID 是后续用户键位文件的稳定标识）。</summary>
+    public ICommand? CommandFor(AppCommand command) => command switch
+    {
+        AppCommand.Save => SaveCommand,
+        AppCommand.Open => OpenCommand,
+        AppCommand.NewTask => NewTaskCommand,
+        AppCommand.NewDocument => NewDocumentCommand,
+        AppCommand.SelectBlock => SelectBlockCommand,
+        _ => null,
+    };
+
     // ---- 标签/项目选择器（右键「标签…/项目…」弹出） ----
 
     /// <summary>内置常用标签（参考 Things 3）：仅作为选择器候选展示，不写入文件；
