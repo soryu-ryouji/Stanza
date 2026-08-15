@@ -16,7 +16,7 @@ public sealed class TaskViewModel : ViewModelBase
     private bool _isExpanded;
 
     // 主行解析结果（只读，供展示）
-    private char? _priority;
+    private StanzaPriority? _priority;
     private DateOnly? _due;
     private string _description = "";
     private string? _project;
@@ -84,7 +84,7 @@ public sealed class TaskViewModel : ViewModelBase
 
     // ---- 主行（内联元数据） ----
 
-    /// <summary>主行原文：(A) 2026-08-07 描述 +项目 #标签。编辑时实时解析，展示层只读解析结果。</summary>
+    /// <summary>主行原文：(A1) 2026-08-07 描述 +项目 #标签。编辑时实时解析，展示层只读解析结果。</summary>
     public string HeaderText
     {
         get => _headerText;
@@ -127,7 +127,8 @@ public sealed class TaskViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasAnyMeta));
     }
 
-    public char? Priority => _priority;
+    /// <summary>四象限优先级（RFC §7.2.1）；绑定展示时使用其文本形式（<c>A</c> 或 <c>A3</c>）。</summary>
+    public StanzaPriority? Priority => _priority;
 
     /// <summary>优先级仅在 DOING/WAIT 中展示（RFC §7.2.1）。</summary>
     public bool ShowPriority => Priority != null && State is TaskState.Doing or TaskState.Wait;

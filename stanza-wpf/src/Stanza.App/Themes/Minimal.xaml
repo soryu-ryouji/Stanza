@@ -28,6 +28,14 @@
     <app:StatusKindToBrushConverter x:Key="StatusToBrush"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+    <!-- ============ 自定义控件样式的公共基座 ============ -->
+    <!-- 统一关闭虚线焦点框：FocusVisualStyle 的默认值是系统点线样式（实测：自定义样式
+         不会摆脱它，应用级覆盖 SystemParameters.FocusVisualStyleKey 资源也无效），
+         因此所有可交互控件样式统一 BasedOn 此基座，不再逐个写 FocusVisualStyle="{x:Null}" -->
+    <Style x:Key="StanzaControlBase" TargetType="{x:Type Control}">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    </Style>
+
     <!-- ============ 文本 ============ -->
     <Style TargetType="{x:Type TextBlock}">
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
@@ -73,7 +81,7 @@
     </Style>
 
     <!-- ============ 幽灵按钮（无边框，悬停浅底） ============ -->
-    <Style x:Key="GhostButton" TargetType="{x:Type Button}">
+    <Style x:Key="GhostButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource GrayBrush}"/>
         <Setter Property="Padding" Value="10,5"/>
@@ -102,14 +110,13 @@
     </Style>
 
     <!-- 对话框主要操作按钮：实心强调色 -->
-    <Style x:Key="PrimaryButton" TargetType="{x:Type Button}">
+    <Style x:Key="PrimaryButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="Padding" Value="16,6"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
@@ -131,13 +138,12 @@
     </Style>
 
     <!-- 对话框危险操作按钮：红色文字，悬停淡红底 -->
-    <Style x:Key="DialogDangerButton" TargetType="{x:Type Button}">
+    <Style x:Key="DialogDangerButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
         <Setter Property="Padding" Value="10,5"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Button}">
@@ -159,7 +165,7 @@
     </Style>
 
     <!-- ============ 窗口控制按钮 ============ -->
-    <Style x:Key="WindowButton" TargetType="{x:Type Button}">
+    <Style x:Key="WindowButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Width" Value="44"/>
         <Setter Property="Height" Value="38"/>
         <Setter Property="Background" Value="Transparent"/>
@@ -199,7 +205,7 @@
     </Style>
 
     <!-- ============ 工具栏图标按钮 ============ -->
-    <Style x:Key="ToolIconButton" TargetType="{x:Type Button}">
+    <Style x:Key="ToolIconButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Width" Value="32"/>
         <Setter Property="Height" Value="28"/>
         <Setter Property="Margin" Value="2,0"/>
@@ -226,7 +232,7 @@
         </Setter>
     </Style>
 
-    <Style x:Key="DangerToolIconButton" TargetType="{x:Type Button}">
+    <Style x:Key="DangerToolIconButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Width" Value="32"/>
         <Setter Property="Height" Value="28"/>
         <Setter Property="Margin" Value="2,0"/>
@@ -254,7 +260,7 @@
     </Style>
 
     <!-- ============ 任务勾选框 ============ -->
-    <Style x:Key="TaskCheckBox" TargetType="{x:Type CheckBox}">
+    <Style x:Key="TaskCheckBox" TargetType="{x:Type CheckBox}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="Focusable" Value="False"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -284,17 +290,15 @@
     </Style>
 
     <!-- ============ 列表 ============ -->
-    <Style TargetType="{x:Type ListBox}">
+    <Style TargetType="{x:Type ListBox}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     </Style>
 
-    <Style TargetType="{x:Type ListBoxItem}">
+    <Style TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Padding" Value="0"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -305,11 +309,10 @@
     </Style>
 
     <!-- 侧栏条目 -->
-    <Style x:Key="SidebarItemStyle" TargetType="{x:Type ListBoxItem}">
+    <Style x:Key="SidebarItemStyle" TargetType="{x:Type ListBoxItem}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Margin" Value="6,1"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -330,7 +333,7 @@
     </Style>
 
     <!-- ============ 右键菜单 ============ -->
-    <Style TargetType="{x:Type ContextMenu}">
+    <Style TargetType="{x:Type ContextMenu}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="White"/>
         <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -352,7 +355,7 @@
         </Setter>
     </Style>
 
-    <Style TargetType="{x:Type MenuItem}">
+    <Style TargetType="{x:Type MenuItem}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -373,7 +376,7 @@
         </Setter>
     </Style>
 
-    <Style x:Key="DangerMenuItem" TargetType="{x:Type MenuItem}">
+    <Style x:Key="DangerMenuItem" TargetType="{x:Type MenuItem}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -406,7 +409,7 @@
     </Style>
 
     <!-- 细滚动条（由 TaskScrollViewer 模板内的 ScrollBar 显式引用） -->
-    <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}">
+    <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Width" Value="6"/>
         <Setter Property="Opacity" Value="0"/>
@@ -441,7 +444,7 @@
     </Style>
 
     <!-- 任务列表用 ScrollViewer：滚动条列常驻（Auto 宽），不影响内容布局 -->
-    <Style x:Key="TaskScrollViewer" TargetType="{x:Type ScrollViewer}">
+    <Style x:Key="TaskScrollViewer" TargetType="{x:Type ScrollViewer}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -470,8 +473,7 @@
     </Style>
 
     <!-- 任务列表：使用定制 ScrollViewer -->
-    <!-- 任务列表：BasedOn 隐式 ListBox 样式以继承 FocusVisualStyle=null 等基础设置，
-         否则空列表获得焦点时会画出主题默认的虚线焦点框 -->
+    <!-- 任务列表：BasedOn 隐式 ListBox 样式以继承基座（StanzaControlBase）等基础设置 -->
     <Style x:Key="TaskListBox" TargetType="{x:Type ListBox}"
            BasedOn="{StaticResource {x:Type ListBox}}">
         <Setter Property="Template">

@@ -7,12 +7,14 @@ public class TransitionTests
 {
     private static readonly DateOnly Today = new(2026, 2, 10);
 
+    private static StanzaPriority P(char quadrant, int? order = null) => new(quadrant, order);
+
     // ---- 规范化（§9） ----
 
     [Fact]
     public void NormalizeForState_EnteringDone_RemovesPriorityAndAppendsCompletionDate()
     {
-        var task = new StanzaTask { Priority = 'A', DueDate = new DateOnly(2026, 3, 1) };
+        var task = new StanzaTask { Priority = P('A'), DueDate = new DateOnly(2026, 3, 1) };
         task.Notes.Add("    已有备注");
 
         TaskTransitions.NormalizeForState(task, TaskState.Doing, TaskState.Done, Today);
@@ -26,7 +28,7 @@ public class TransitionTests
     [Fact]
     public void NormalizeForState_EnteringDelete_RemovesPriorityWithoutCompletionDate()
     {
-        var task = new StanzaTask { Priority = 'B' };
+        var task = new StanzaTask { Priority = P('B') };
 
         TaskTransitions.NormalizeForState(task, TaskState.Doing, TaskState.Delete, Today);
 
@@ -39,12 +41,12 @@ public class TransitionTests
     [InlineData(TaskState.Wait)]
     public void NormalizeForState_EnteringActiveState_KeepsMetadata(TaskState target)
     {
-        var task = new StanzaTask { Priority = 'C', DueDate = new DateOnly(2026, 3, 1) };
+        var task = new StanzaTask { Priority = P('C'), DueDate = new DateOnly(2026, 3, 1) };
         task.Notes.Add("    2026-02-01 完成");
 
         TaskTransitions.NormalizeForState(task, TaskState.Done, target, Today);
 
-        Assert.Equal('C', task.Priority);
+        Assert.Equal(P('C'), task.Priority);
         Assert.Equal(new DateOnly(2026, 3, 1), task.DueDate);
         Assert.Equal(new[] { "    2026-02-01 完成" }, task.Notes);   // 完成记录保留
     }
@@ -98,8 +100,8 @@ public class TransitionTests
         var tasks = new[]
         {
             new StanzaTask { Description = "无优先级" },
-            new StanzaTask { Description = "B", Priority = 'B' },
-            new StanzaTask { Description = "A", Priority = 'A' },
+            new StanzaTask { Description = "B", Priority = P('B') },
+            new StanzaTask { Description = "A", Priority = P('A') },
         };
 
         var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
@@ -112,9 +114,9 @@ public class TransitionTests
     {
         var tasks = new[]
         {
-            new StanzaTask { Description = "无日期", Priority = 'A' },
-            new StanzaTask { Description = "晚", Priority = 'A', DueDate = new DateOnly(2026, 3, 1) },
-            new StanzaTask { Description = "早", Priority = 'A', DueDate = new DateOnly(2026, 2, 1) },
+            new StanzaTask { Description = "无日期", Priority = P('A') },
+            new StanzaTask { Description = "晚", Priority = P('A'), DueDate = new DateOnly(2026, 3, 1) },
+            new StanzaTask { Description = "早", Priority = P('A'), DueDate = new DateOnly(2026, 2, 1) },
         };
 
         var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
@@ -128,14 +130,45 @@ public class TransitionTests
         // 拖拽排序依赖稳定性：同优先级同日期的任务相对顺序不变
         var tasks = new[]
         {
-            new StanzaTask { Description = "一", Priority = 'A' },
-            new StanzaTask { Description = "二", Priority = 'A' },
-            new StanzaTask { Description = "三", Priority = 'A' },
+            new StanzaTask { Description = "一", Priority = P('A') },
+            new StanzaTask { Description = "二", Priority = P('A') },
+            new StanzaTask { Description = "三", Priority = P('A') },
         };
 
         var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
 
         Assert.Equal(new[] { "一", "二", "三" }, sorted.Select(t => t.Description));
+    }
+
+    [Fact]
+    public void Case24_QuadrantOrder_SortsQuadrantThenOrder_NoOrderLast()
+    {
+        // RFC §10.3 用例 24：象限字母 → 象限内序号（无序号排尾）
+        var tasks = new[]
+        {
+            new StanzaTask { Description = "B1", Priority = P('B', 1) },
+            new StanzaTask { Description = "A无序号", Priority = P('A') },
+            new StanzaTask { Description = "A9", Priority = P('A', 9) },
+            new StanzaTask { Description = "A0", Priority = P('A', 0) },
+        };
+
+        var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
+
+        Assert.Equal(new[] { "A0", "A9", "A无序号", "B1" }, sorted.Select(t => t.Description));
+    }
+
+    [Fact]
+    public void ActiveTaskOrdering_SameQuadrantAndOrder_SortsByDueDate()
+    {
+        var tasks = new[]
+        {
+            new StanzaTask { Description = "晚", Priority = P('A', 1), DueDate = new DateOnly(2026, 3, 1) },
+            new StanzaTask { Description = "早", Priority = P('A', 1), DueDate = new DateOnly(2026, 2, 1) },
+        };
+
+        var sorted = tasks.OrderBy(t => t, Comparer<StanzaTask>.Create(ActiveTaskOrdering.Compare)).ToList();
+
+        Assert.Equal(new[] { "早", "晚" }, sorted.Select(t => t.Description));
     }
 
     // ---- 端到端：规范化后经写出/解析仍成立（不变量 #3 + #4） ----

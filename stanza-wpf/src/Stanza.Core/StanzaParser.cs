@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace Stanza.Core;
 
 /// <summary>
-/// Stanza 解析器，严格遵循 RFC 1.0.0 §7.1 边界规则与 §10 实现指南。
+/// Stanza 解析器，严格遵循 RFC 1.4.0 §7.1 边界规则与 §10 实现指南。
 /// </summary>
 public static class StanzaParser
 {
@@ -137,19 +137,48 @@ public static class StanzaParser
     /// <summary>解析主行文本（供编辑器实时解析）。输入必须是不含换行的单行。</summary>
     public static StanzaTask ParseTaskHeader(string line) => ParseHeader(line);
 
+    /// <summary>尝试解析行首优先级（§7.2.1）：<c>(A) </c>或<c>(A3) </c>。
+    /// 象限字母仅限 A–D，序号仅限 0–9 单个数字且直接跟在字母后；
+    /// 其余形如 (E)、(A-3)、(A10) 的写法不识别，由调用方按描述处理。</summary>
+    private static bool TryParsePriority(string rest, out StanzaPriority priority, out int consumed)
+    {
+        priority = default;
+        consumed = 0;
+        if (rest.Length < 4 || rest[0] != '('
+            || rest[1] < 'A' || rest[1] > 'D')
+            return false;
+
+        if (rest[2] == ')' && rest[3] == ' ')
+        {
+            priority = new StanzaPriority(rest[1], null);
+            consumed = 4;
+            return true;
+        }
+
+        if (rest.Length >= 5
+            && rest[2] >= '0' && rest[2] <= '9'
+            && rest[3] == ')' && rest[4] == ' ')
+        {
+            priority = new StanzaPriority(rest[1], rest[2] - '0');
+            consumed = 5;
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>解析主行：优先级 → 日期 → 描述主体（含 +项目 与 #标签）（§7.2）。</summary>
     private static StanzaTask ParseHeader(string line)
     {
         var task = new StanzaTask();
         var rest = line;
 
-        // 1. 优先级：(A)–(Z)，右括号后必须紧跟一个空格（§7.2.1）
-        if (rest.Length >= 4 && rest[0] == '('
-            && rest[1] >= 'A' && rest[1] <= 'Z'
-            && rest[2] == ')' && rest[3] == ' ')
+        // 1. 优先级：(A)–(D) 四象限字母，可附加单位数象限内序号（如 (A3)），
+        //    右括号后必须紧跟一个空格（§7.2.1）
+        if (TryParsePriority(rest, out var priority, out var consumed))
         {
-            task.Priority = rest[1];
-            rest = rest[4..];
+            task.Priority = priority;
+            rest = rest[consumed..];
         }
 
         // 2. 日期：严格的 YYYY-MM-DD 且为合法日期才占据日期位（§7.2.2）

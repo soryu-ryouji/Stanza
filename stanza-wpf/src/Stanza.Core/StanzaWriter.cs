@@ -47,7 +47,7 @@ public static class StanzaWriter
     {
         var sb = new StringBuilder();
 
-        if (task.Priority is { } p) sb.Append('(').Append(p).Append(") ");
+        if (task.Priority is { } p) sb.Append('(').Append(p.ToString()).Append(") ");
         if (task.DueDate is { } d) sb.Append(d.ToString("yyyy-MM-dd")).Append(' ');
 
         var description = task.Description ?? "";

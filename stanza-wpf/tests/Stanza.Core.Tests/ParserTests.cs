@@ -117,7 +117,7 @@ public class ParserTests
         var doc = StanzaParser.Parse("# DONE\n\n(A) 2026-08-07 finished task\n");
         var task = Assert.Single(doc.FindBlock(TaskState.Done)!.Tasks);
         // 语法上解析出优先级（展示与排序由应用层忽略）
-        Assert.Equal('A', task.Priority);
+        Assert.Equal(new StanzaPriority('A', null), task.Priority);
         Assert.Equal(new DateOnly(2026, 8, 7), task.DueDate);
         Assert.Equal("finished task", task.Description);
     }
@@ -155,7 +155,7 @@ public class ParserTests
     {
         var doc = StanzaParser.Parse("# DOING\n\n(B) 2026-08-07 完成登录模块 +Apollo #紧急 #review\n");
         var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
-        Assert.Equal('B', task.Priority);
+        Assert.Equal(new StanzaPriority('B', null), task.Priority);
         Assert.Equal(new DateOnly(2026, 8, 7), task.DueDate);
         Assert.Equal("完成登录模块", task.Description);
         Assert.Equal("Apollo", task.Project);
@@ -178,6 +178,27 @@ public class ParserTests
         var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
         Assert.Null(task.Priority);
         Assert.Equal("(A)no space here", task.Description);
+    }
+
+    [Fact]
+    public void Case22_PriorityWithOrder_ParsesQuadrantAndOrder()
+    {
+        var doc = StanzaParser.Parse("# DOING\n\n(A3) 提交报告\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
+        Assert.Equal(new StanzaPriority('A', 3), task.Priority);
+        Assert.Equal("提交报告", task.Description);
+    }
+
+    [Theory]
+    [InlineData("(E) 任务")]       // 象限字母超出 A–D
+    [InlineData("(A10) 任务")]     // 序号多于一位
+    [InlineData("(A-3) 任务")]     // 序号含连字符
+    public void Case23_InvalidQuadrantPriority_IsNotPriority(string line)
+    {
+        var doc = StanzaParser.Parse("# DOING\n\n" + line + "\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
+        Assert.Null(task.Priority);
+        Assert.Equal(line, task.Description);
     }
 
     [Fact]

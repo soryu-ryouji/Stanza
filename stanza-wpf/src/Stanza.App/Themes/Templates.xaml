@@ -131,7 +131,7 @@
                         <!-- MinHeight 与折叠态行高一致，展开/收起交换时行高不跳动 -->
                         <TextBox Grid.Column="1"
                                  Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
-                                 Tag="(A) 2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
+                                 Tag="(A1) 2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
                     </Grid>
 
                     <!-- 详情面板：展开/收起动画；左缩进与标题文本对齐（勾选框 17 + 间距 10） -->

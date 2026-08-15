@@ -1,17 +1,17 @@
 # Stanza for VS Code
 
-**Stanza** 纯文本任务管理格式的 VS Code 语言支持插件（规范全文见同仓库 `stanza-rfc/Stanza-RFC-1.2.0.md`）。Stanza 受 TODO.txt 启发，通过状态区块（DOING / WAIT / DONE / DELETE）与段落式任务组织待办事项，单文件、纯文本、无锁定。
+**Stanza** 纯文本任务管理格式的 VS Code 语言支持插件（规范全文见同仓库 `stanza-rfc/Stanza-RFC-1.4.0.md`）。Stanza 受 TODO.txt 启发，通过状态区块（DOING / WAIT / DONE / DELETE）与段落式任务组织待办事项，单文件、纯文本、无锁定。
 
 ## 功能
 
 ### 语法高亮
 
-高亮规则与 Stanza RFC 1.2.0 严格对齐：
+高亮规则与 Stanza RFC 1.4.0 严格对齐：
 
 | 元素 | 示例 | 说明 |
 | ---- | ---- | ---- |
 | 区块标题 | `# DOING` `# WAIT` `# DONE` `# DELETE` | 状态名大小写不敏感，容忍行尾空白 |
-| 优先级 | `(A)` – `(Z)` | 仅在行首识别，右括号后恰一个空格 |
+| 优先级 | `(A)` – `(D)`、`(A1)` | 四象限字母，可附加单位数象限内序号；仅在行首识别，右括号后恰一个空格 |
 | 截止日期 | `2026-08-07` | 行首或紧跟优先级之后 |
 | 项目 | `+Apollo` | `+` 前必须是行首或空白，`C++`、`A+B` 不误判 |
 | 标签 | `#紧急` `#my_tag` | 首字符必须是字母（`#1` 不识别），支持中文、数字、`_`、`-` |
@@ -143,14 +143,14 @@ VSCodium、Cursor 等编辑器使用 [Open VSX](https://open-vsx.org/) 市场：
 ```stanza
 # DOING
 
-(A) 2026-08-07 完成登录模块的单元测试 +Apollo #紧急
+(A1) 2026-08-07 完成登录模块的单元测试 +Apollo #紧急
     2026-08-05 创建
     先跑通现有测试用例
     再补充边界情况
 
     测试数据在共享盘的 testdata 目录
 
-(B) 2026-08-07 预约周五下午的牙医 +生活
+(C1) 2026-08-07 预约周五下午的牙医 +生活
     2026-08-06 创建
     记得带医保卡
 
@@ -176,7 +176,7 @@ VSCodium、Cursor 等编辑器使用 [Open VSX](https://open-vsx.org/) 市场：
 
 ## 相关链接
 
-- Stanza RFC 1.2.0 规范全文：同仓库 `stanza-rfc/Stanza-RFC-1.2.0.md`
+- Stanza RFC 1.4.0 规范全文：同仓库 `stanza-rfc/Stanza-RFC-1.4.0.md`
 - [TODO.txt](http://todotxt.org/)（Stanza 的灵感来源）
 
 ## License

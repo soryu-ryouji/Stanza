@@ -534,7 +534,7 @@
                                Text="{Binding FileName, StringFormat=若现在退出，「{0}」的更改将丢失。}"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
                         <Button Style="{StaticResource GhostButton}" Content="取消" MinWidth="56"
-                                FocusVisualStyle="{x:Null}" Click="ExitCancel_Click"/>
+                                Click="ExitCancel_Click"/>
                         <Button Style="{StaticResource DialogDangerButton}" Content="不保存" MinWidth="56"
                                 Margin="8,0,0,0" Click="ExitDiscard_Click"/>
                         <Button x:Name="ExitSaveButton" Style="{StaticResource PrimaryButton}" Content="保存"

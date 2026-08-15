@@ -132,7 +132,13 @@ public partial class MainWindow
     private void RecentButton_Click(object sender, RoutedEventArgs e)
         => RecentPopup.IsOpen = !RecentPopup.IsOpen;
 
-    private void RecentItem_Click(object sender, RoutedEventArgs e) => RecentPopup.IsOpen = false;
+    // 条目内「移除」按钮的 Click 会冒泡到行按钮，但其 OriginalSource 是移除按钮自身；
+    // 仅条目本体（或底部「新建文件」按钮）被点击时才关闭弹层——移除记录后弹层保持开启，便于连续清理
+    private void RecentItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, sender)) return;
+        RecentPopup.IsOpen = false;
+    }
 
     // ==================== 底部工具栏：清空二次确认 ====================
 
