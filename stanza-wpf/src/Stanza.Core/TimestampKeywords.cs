@@ -8,7 +8,7 @@ public enum TimestampKind
     /// <summary>创建时间：任务创建时写入，应当为第一条续行；多条时取第一条。</summary>
     Created,
 
-    /// <summary>完成时间：每次进入 DONE 时在续行末尾追加；取最后一条，其余为完成历史。</summary>
+    /// <summary>完成时间：每次进入 DONE 时在属性块末尾追加（既有时间戳行之后、备注之前）；取最后一条，其余为完成历史。</summary>
     Completed,
 }
 

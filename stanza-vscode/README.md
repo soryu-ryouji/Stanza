@@ -1,12 +1,12 @@
 # Stanza for VS Code
 
-**Stanza** 纯文本任务管理格式的 VS Code 语言支持插件（规范全文见同仓库 `stanza-rfc/Stanza-RFC-1.1.0.md`）。Stanza 受 TODO.txt 启发，通过状态区块（DOING / WAIT / DONE / DELETE）与段落式任务组织待办事项，单文件、纯文本、无锁定。
+**Stanza** 纯文本任务管理格式的 VS Code 语言支持插件（规范全文见同仓库 `stanza-rfc/Stanza-RFC-1.2.0.md`）。Stanza 受 TODO.txt 启发，通过状态区块（DOING / WAIT / DONE / DELETE）与段落式任务组织待办事项，单文件、纯文本、无锁定。
 
 ## 功能
 
 ### 语法高亮
 
-高亮规则与 Stanza RFC 1.1.0 严格对齐：
+高亮规则与 Stanza RFC 1.2.0 严格对齐：
 
 | 元素 | 示例 | 说明 |
 | ---- | ---- | ---- |
@@ -176,7 +176,7 @@ VSCodium、Cursor 等编辑器使用 [Open VSX](https://open-vsx.org/) 市场：
 
 ## 相关链接
 
-- Stanza RFC 1.1.0 规范全文：同仓库 `stanza-rfc/Stanza-RFC-1.1.0.md`
+- Stanza RFC 1.2.0 规范全文：同仓库 `stanza-rfc/Stanza-RFC-1.2.0.md`
 - [TODO.txt](http://todotxt.org/)（Stanza 的灵感来源）
 
 ## License

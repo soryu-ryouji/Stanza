@@ -6,9 +6,9 @@ namespace Stanza.Core;
 /// </summary>
 public static class TaskTransitions
 {
-    /// <summary>§9：状态流转时规范化任务。进入 DONE/DELETE 移除优先级；进入 DONE 在备注末尾
-    /// 追加完成时间戳行（§7.4，规范续行形式，4 空格缩进）。同状态内移动不触发任何变更。
-    /// 既有续行（含创建时间戳、历史完成时间戳）一律保留。</summary>
+    /// <summary>§9：状态流转时规范化任务。进入 DONE/DELETE 移除优先级；进入 DONE 追加完成
+    /// 时间戳行（§7.4.3，规范续行形式，4 空格缩进；写出层负责将其归位到主行之后的属性块）。
+    /// 同状态内移动不触发任何变更。既有续行（含创建时间戳、历史完成时间戳）一律保留。</summary>
     /// <param name="today">完成日期的取值，由调用方注入以保证可测试。</param>
     public static void NormalizeForState(StanzaTask task, TaskState from, TaskState to, DateOnly today)
     {

@@ -19,7 +19,7 @@ public class TransitionTests
 
         Assert.Null(task.Priority);
         Assert.Equal(new DateOnly(2026, 3, 1), task.DueDate);   // 截止日期保留
-        // 完成日期追加在备注末尾，规范续行形式（4 空格缩进）
+        // 追加完成时间戳行，规范续行形式（4 空格缩进）；写出层负责归位到主行之后的属性块（§7.4.3）
         Assert.Equal(new[] { "    已有备注", "    2026-02-10 完成" }, task.Notes);
     }
 
