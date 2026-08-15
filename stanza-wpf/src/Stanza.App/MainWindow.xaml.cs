@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Stanza.App.Services;
 using Stanza.App.ViewModels;
 
 namespace Stanza.App;
@@ -51,6 +52,11 @@ public partial class MainWindow : Window
 
         InitializeRecentPopup();
         InitializeDragInput();
+
+        // 动态文本：语言 / 键位变化时刷新（含快捷键的 tooltip 与空态提示）
+        Loc.Changed += (_, _) => RefreshShortcutHints();
+        Keymap.Current.Changed += (_, _) => RefreshShortcutHints();
+        RefreshShortcutHints();
     }
 
     /// <summary>供命令行参数 / 拖放调用。</summary>
@@ -105,6 +111,7 @@ public partial class MainWindow : Window
 
     private void ShowExitOverlay()
     {
+        ExitHintText.Text = Loc.Format("Exit_Hint", VM.FileName);
         ExitOverlay.Visibility = Visibility.Visible;
         ExitOverlay.BeginAnimation(UIElement.OpacityProperty,
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));

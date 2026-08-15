@@ -4,6 +4,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using Stanza.App.Services;
 using Stanza.App.ViewModels;
 using Stanza.Core;
 
@@ -153,7 +154,7 @@ public partial class MainWindow
     {
         if (!VM.HasSelection) return;
         _pickerKind = kind;
-        FacetPickerInput.Tag = kind == FacetKind.Tag ? "标签" : "项目";
+        FacetPickerInput.Tag = Loc.Get(kind == FacetKind.Tag ? "Picker_Tag" : "Picker_Project");
         FacetPickerInput.Text = "";
         FacetPickerError.Visibility = Visibility.Collapsed;
         RefreshFacetPicker();
@@ -252,9 +253,9 @@ public partial class MainWindow
                 : StanzaPatterns.IsValidProjectName(name);
             if (!valid)
             {
-                FacetPickerError.Text = _pickerKind == FacetKind.Tag
-                    ? "首字符必须是字母，可含字母、数字、_、-"
-                    : "字母或数字开头，可含字母、数字、_、-";
+                FacetPickerError.Text = Loc.Get(_pickerKind == FacetKind.Tag
+                    ? "Picker_ErrorTag"
+                    : "Picker_ErrorProject");
                 FacetPickerError.Visibility = Visibility.Visible;
                 return;
             }
@@ -286,7 +287,7 @@ public partial class MainWindow
             // 第一次点击：进入待确认状态（图标变红 + 提示变化），3 秒无操作自动恢复
             _clearArmed = true;
             ClearButton.Foreground = (System.Windows.Media.Brush)FindResource("DangerBrush");
-            ClearButton.ToolTip = "再次点击确认清空";
+            ClearButton.ToolTip = Loc.Get("Tip_ClearConfirm");
             _clearTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _clearTimer.Tick -= ClearTimer_Tick;
             _clearTimer.Tick += ClearTimer_Tick;
@@ -305,7 +306,7 @@ public partial class MainWindow
         _clearTimer?.Stop();
         _clearArmed = false;
         ClearButton.ClearValue(Control.ForegroundProperty);
-        ClearButton.ToolTip = "清空";
+        ClearButton.ToolTip = Loc.Get("Tip_Clear");
     }
 
     // ==================== 文件拖放 ====================

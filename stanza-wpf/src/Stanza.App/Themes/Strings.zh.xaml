@@ -1,0 +1,111 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- 侧栏 -->
+    <sys:String x:Key="Sidebar_Projects">项目</sys:String>
+    <sys:String x:Key="Sidebar_Tags">标签</sys:String>
+    <sys:String x:Key="Tip_ToggleSection">收起 / 展开</sys:String>
+
+    <!-- 工具按钮 -->
+    <sys:String x:Key="Gesture_Suffix">（{0}）</sys:String>
+    <sys:String x:Key="Tip_OpenFile">打开文件</sys:String>
+    <sys:String x:Key="Tip_NewFile">新建文件</sys:String>
+    <sys:String x:Key="Tip_RecentFiles">最近打开的文件</sys:String>
+    <sys:String x:Key="Tip_Settings">设置</sys:String>
+    <sys:String x:Key="Tip_RemoveRecent">从列表移除</sys:String>
+    <sys:String x:Key="Recent_Empty">暂无最近文件</sys:String>
+    <sys:String x:Key="Tip_Minimize">最小化</sys:String>
+    <sys:String x:Key="Tip_Maximize">最大化 / 还原</sys:String>
+    <sys:String x:Key="Tip_CloseWindow">关闭</sys:String>
+
+    <!-- 任务区工具栏 -->
+    <sys:String x:Key="Tip_AddTask">添加任务</sys:String>
+    <sys:String x:Key="Tip_Clear">清空</sys:String>
+    <sys:String x:Key="Tip_ClearConfirm">再次点击确认清空</sys:String>
+    <sys:String x:Key="Tip_Complete">完成</sys:String>
+    <sys:String x:Key="Tip_Defer">移到 等待中</sys:String>
+    <sys:String x:Key="Tip_Activate">移到 进行中</sys:String>
+    <sys:String x:Key="Tip_Restore">恢复</sys:String>
+    <sys:String x:Key="Tip_Discard">废弃（Backspace）</sys:String>
+    <sys:String x:Key="Tip_Delete">彻底删除（Delete）</sys:String>
+    <sys:String x:Key="Tip_HasNotes">含备注</sys:String>
+
+    <!-- 空态 / 欢迎 / 拖放（{0} 为快捷键，由代码填入） -->
+    <sys:String x:Key="Empty_NoTasks">这里还没有任务&#x0a;{0} 或点击下方按钮新建</sys:String>
+    <sys:String x:Key="Welcome_Tagline">极简的纯文本任务管理</sys:String>
+    <sys:String x:Key="Welcome_OpenHint">将 .stanza 文件拖入窗口，或按 {0} 打开</sys:String>
+    <sys:String x:Key="Welcome_NewHint">{0} 新建文件</sys:String>
+    <sys:String x:Key="Drop_Hint">松开以打开文件</sys:String>
+
+    <!-- 退出确认遮罩 -->
+    <sys:String x:Key="Exit_Title">有未保存的更改</sys:String>
+    <sys:String x:Key="Exit_Hint">若现在退出，「{0}」的更改将丢失。</sys:String>
+    <sys:String x:Key="Exit_Cancel">取消</sys:String>
+    <sys:String x:Key="Exit_Discard">不保存</sys:String>
+    <sys:String x:Key="Exit_Save">保存</sys:String>
+
+    <!-- 标签/项目选择器 -->
+    <sys:String x:Key="Picker_Clear">清除</sys:String>
+    <sys:String x:Key="Picker_Tag">标签</sys:String>
+    <sys:String x:Key="Picker_Project">项目</sys:String>
+    <sys:String x:Key="Picker_ErrorTag">首字符必须是字母，可含字母、数字、_、-</sys:String>
+    <sys:String x:Key="Picker_ErrorProject">字母或数字开头，可含字母、数字、_、-</sys:String>
+
+    <!-- 状态区块显示名（英文保持 RFC 令牌原样） -->
+    <sys:String x:Key="State_DOING">进行中</sys:String>
+    <sys:String x:Key="State_WAIT">等待中</sys:String>
+    <sys:String x:Key="State_DONE">已完成</sys:String>
+    <sys:String x:Key="State_DELETE">回收站</sys:String>
+
+    <!-- 任务右键菜单 -->
+    <sys:String x:Key="Menu_Complete">完成</sys:String>
+    <sys:String x:Key="Menu_Defer">移到 等待中</sys:String>
+    <sys:String x:Key="Menu_Activate">移到 进行中</sys:String>
+    <sys:String x:Key="Menu_Priority">优先级</sys:String>
+    <sys:String x:Key="Menu_Tags">标签…</sys:String>
+    <sys:String x:Key="Menu_Project">项目…</sys:String>
+    <sys:String x:Key="Menu_Discard">废弃</sys:String>
+    <sys:String x:Key="Menu_Restore">恢复</sys:String>
+    <sys:String x:Key="Menu_Delete">彻底删除</sys:String>
+
+    <!-- 编辑框水印 -->
+    <sys:String x:Key="Watermark_TaskDraft">2026-08-07 任务描述 +项目 #标签</sys:String>
+    <sys:String x:Key="Watermark_Notes">备注</sys:String>
+
+    <!-- 状态栏 -->
+    <sys:String x:Key="Status_Missing">文件已不存在，已从列表移除</sys:String>
+    <sys:String x:Key="Status_Warnings">已忽略 {0} 行无效内容</sys:String>
+    <sys:String x:Key="Status_OpenFailed">打开失败：{0}</sys:String>
+    <sys:String x:Key="Status_Saving">保存中…</sys:String>
+    <sys:String x:Key="Status_Saved">已保存 {0}</sys:String>
+    <sys:String x:Key="Status_SaveFailed">保存失败：{0}</sys:String>
+    <sys:String x:Key="Status_Dirty">未保存更改</sys:String>
+    <sys:String x:Key="File_Untitled">未命名.stanza</sys:String>
+
+    <!-- 优先级菜单 -->
+    <sys:String x:Key="Priority_A">A  重要且紧急</sys:String>
+    <sys:String x:Key="Priority_B">B  重要不紧急</sys:String>
+    <sys:String x:Key="Priority_C">C  紧急不重要</sys:String>
+    <sys:String x:Key="Priority_D">D  不重要不紧急</sys:String>
+    <sys:String x:Key="Priority_Clear">清除优先级</sys:String>
+
+    <!-- 设置面板 -->
+    <sys:String x:Key="Settings_Title">设置</sys:String>
+    <sys:String x:Key="Settings_Language">语言</sys:String>
+    <sys:String x:Key="Settings_Shortcuts">快捷键</sys:String>
+    <sys:String x:Key="Settings_Recording">按下快捷键…</sys:String>
+    <sys:String x:Key="Settings_NeedModifier">需要修饰键（Ctrl/Shift/Alt）或功能键</sys:String>
+    <sys:String x:Key="Settings_Conflict">{0} 已分配给「{1}」</sys:String>
+    <sys:String x:Key="Settings_Reassign">移过来</sys:String>
+    <sys:String x:Key="Settings_Reset">重置</sys:String>
+    <sys:String x:Key="Settings_NoneGesture">未设置</sys:String>
+
+    <!-- 快捷键命令名 -->
+    <sys:String x:Key="Cmd_Save">保存</sys:String>
+    <sys:String x:Key="Cmd_Open">打开文件</sys:String>
+    <sys:String x:Key="Cmd_NewTask">新建任务</sys:String>
+    <sys:String x:Key="Cmd_NewDocument">新建文件</sys:String>
+    <sys:String x:Key="Cmd_SelectBlock">切换到 {0}</sys:String>
+
+</ResourceDictionary>

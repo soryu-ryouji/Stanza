@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using Stanza.App.Services;
 using Stanza.App.ViewModels;
 using Stanza.Core;
 
@@ -98,11 +99,11 @@ public sealed class QuadrantToBrushConverter : IValueConverter
     private static Brush Freeze(Brush b) { b.Freeze(); return b; }
 }
 
-/// <summary>状态枚举 → 区块名（面板视图分组头）。</summary>
+/// <summary>状态枚举 → 本地化的区块名（面板视图分组头）。</summary>
 public sealed class StateToNameConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is TaskState s ? TaskStateNames.ToHeader(s) : "";
+        => value is TaskState s ? Loc.StateName(s) : "";
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

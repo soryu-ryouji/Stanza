@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Stanza.App.Services;
 using Stanza.Core;
 
 namespace Stanza.App.ViewModels;
@@ -19,7 +20,11 @@ public sealed class BlockViewModel : ViewModelBase
 
     public TaskState State { get; }
 
-    public string Name => TaskStateNames.ToHeader(State);
+    /// <summary>区块显示名（本地化；仅用于展示，逻辑判断一律用 State）。语言切换后经 RefreshName 刷新。</summary>
+    public string Name => Loc.StateName(State);
+
+    /// <summary>语言切换时重发 Name 变更（侧栏列表与大标题随绑定刷新）。</summary>
+    internal void RefreshName() => OnPropertyChanged(nameof(Name));
 
     /// <summary>源文件中是否存在该区块（决定空区块是否写回，RFC §6.3）。</summary>
     public bool ExistedInSource { get; set; }

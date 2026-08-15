@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using Stanza.App.Services;
 
 namespace Stanza.App;
 
@@ -8,6 +9,9 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // 先应用语言（合并对应字符串字典），再建窗口——XAML 的 DynamicResource 在建窗时求值
+        Loc.SetLanguage(SettingsStore.Load().Language);
 
         var window = new MainWindow();
 

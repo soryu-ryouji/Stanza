@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Stanza.App.Services;
 using Stanza.Core;
 
 namespace Stanza.App.ViewModels;
@@ -68,7 +69,7 @@ public sealed class MainViewModel : ViewModelBase
 
         Recents = new RecentFilesViewModel(
             openFile: OpenFile,
-            notifyMissing: _ => SetStatus(SaveStatus.Info, "文件已不存在，已从列表移除"));
+            notifyMissing: _ => SetStatus(SaveStatus.Info, Loc.Get("Status_Missing")));
 
         // 面板视图按状态分段：按 TaskState 原始值分组（组头模板自行转换名称与颜色），
         // 组顺序由 _panelTasks 的填充顺序决定（RebuildPanel 始终按规范序重建）
@@ -77,6 +78,14 @@ public sealed class MainViewModel : ViewModelBase
 
         _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
         _autoSaveTimer.Tick += (_, _) => { _autoSaveTimer.Stop(); Save(); };
+
+        // 语言切换：区块显示名（侧栏 / 大标题）与面板分组头（转换器）随当前语言重算
+        Loc.Changed += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ScopeTitle));
+            foreach (var block in Blocks) block.RefreshName();
+            PanelView.Refresh();
+        };
 
         _statusClearTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _statusClearTimer.Tick += (_, _) =>
@@ -360,11 +369,11 @@ public sealed class MainViewModel : ViewModelBase
 
     private static IReadOnlyList<PriorityOption> BuildPriorityOptions() => new[]
     {
-        new PriorityOption("A  重要且紧急", 'A'),
-        new PriorityOption("B  重要不紧急", 'B'),
-        new PriorityOption("C  紧急不重要", 'C'),
-        new PriorityOption("D  不重要不紧急", 'D'),
-        new PriorityOption("清除优先级", null),
+        new PriorityOption("Priority_A", 'A'),
+        new PriorityOption("Priority_B", 'B'),
+        new PriorityOption("Priority_C", 'C'),
+        new PriorityOption("Priority_D", 'D'),
+        new PriorityOption("Priority_Clear", null),
     };
 
     /// <summary>设置选中任务的优先级（仅限活跃状态任务）。</summary>
@@ -435,11 +444,11 @@ public sealed class MainViewModel : ViewModelBase
             SetStatus(doc.Warnings.Count > 0
                 ? SaveStatus.Info
                 : SaveStatus.None,
-                doc.Warnings.Count > 0 ? $"已忽略 {doc.Warnings.Count} 行无效内容" : "");
+                doc.Warnings.Count > 0 ? Loc.Format("Status_Warnings", doc.Warnings.Count) : "");
         }
         catch (Exception ex)
         {
-            SetStatus(SaveStatus.Error, $"打开失败：{ex.Message}");
+            SetStatus(SaveStatus.Error, Loc.Format("Status_OpenFailed", ex.Message));
         }
     }
 
@@ -471,7 +480,7 @@ public sealed class MainViewModel : ViewModelBase
             CollapseExpanded();
             RefreshFacets();
             FilePath = null;
-            FileName = "未命名.stanza";
+            FileName = Loc.Get("File_Untitled");
             HasDocument = true;
             IsDirty = false;
             SetStatus(SaveStatus.None, "");
@@ -498,7 +507,7 @@ public sealed class MainViewModel : ViewModelBase
 
         try
         {
-            SetStatus(SaveStatus.Saving, "保存中…");
+            SetStatus(SaveStatus.Saving, Loc.Get("Status_Saving"));
             var doc = new StanzaDocument();
             foreach (var b in Blocks)
             {
@@ -514,11 +523,11 @@ public sealed class MainViewModel : ViewModelBase
                 if (!b.ExistedInSource && b.Tasks.Any(t => !t.IsEmpty))
                     b.ExistedInSource = true;
             IsDirty = false;
-            SetStatus(SaveStatus.Saved, $"已保存 {DateTime.Now:HH:mm}");
+            SetStatus(SaveStatus.Saved, Loc.Format("Status_Saved", DateTime.Now.ToString("HH:mm")));
         }
         catch (Exception ex)
         {
-            SetStatus(SaveStatus.Error, $"保存失败：{ex.Message}");
+            SetStatus(SaveStatus.Error, Loc.Format("Status_SaveFailed", ex.Message));
         }
     }
 
@@ -536,7 +545,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_suppressDirty) return;
         IsDirty = true;
-        SetStatus(SaveStatus.Dirty, "未保存更改");
+        SetStatus(SaveStatus.Dirty, Loc.Get("Status_Dirty"));
         // 新文档尚无路径，等用户显式 Ctrl+S 再弹保存对话框
         if (FilePath != null)
         {
@@ -848,5 +857,9 @@ public sealed class MainViewModel : ViewModelBase
 
 /// <summary>优先级菜单选项：显示文本 + 取值（null 表示清除优先级）。
 /// 任务右键菜单与底部工具栏共用。</summary>
-public sealed record PriorityOption(string Label, char? Value);
+/// <summary>优先级菜单项。Label 按当前语言即时取值（右键菜单每次打开时重新求值，无需刷新）。</summary>
+public sealed record PriorityOption(string LabelKey, char? Value)
+{
+    public string Label => Loc.Get(LabelKey);
+}
 

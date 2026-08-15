@@ -118,7 +118,7 @@
                                 <Button Style="{StaticResource GhostButton}" Margin="8,4,8,0" Padding="8,3"
                                         HorizontalContentAlignment="Left"
                                         Command="{Binding ToggleFacetSectionCommand}" CommandParameter="projects"
-                                        ToolTip="收起 / 展开"
+                                        ToolTip="{DynamicResource Tip_ToggleSection}"
                                         Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="M1.5,3 L4.5,6 L7.5,3" Width="9" Height="9" Stretch="Uniform"
@@ -138,7 +138,7 @@
                                                 </Style>
                                             </Path.Style>
                                         </Path>
-                                        <TextBlock Text="项目" FontSize="11" Foreground="{StaticResource FaintBrush}"/>
+                                        <TextBlock Text="{DynamicResource Sidebar_Projects}" FontSize="11" Foreground="{StaticResource FaintBrush}"/>
                                     </StackPanel>
                                 </Button>
                                 <ListBox x:Name="ProjectList" ItemsSource="{Binding Projects}"
@@ -150,7 +150,7 @@
                                 <Button Style="{StaticResource GhostButton}" Margin="8,10,8,0" Padding="8,3"
                                         HorizontalContentAlignment="Left"
                                         Command="{Binding ToggleFacetSectionCommand}" CommandParameter="tags"
-                                        ToolTip="收起 / 展开"
+                                        ToolTip="{DynamicResource Tip_ToggleSection}"
                                         Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="M1.5,3 L4.5,6 L7.5,3" Width="9" Height="9" Stretch="Uniform"
@@ -170,7 +170,7 @@
                                                 </Style>
                                             </Path.Style>
                                         </Path>
-                                        <TextBlock Text="标签" FontSize="11" Foreground="{StaticResource FaintBrush}"/>
+                                        <TextBlock Text="{DynamicResource Sidebar_Tags}" FontSize="11" Foreground="{StaticResource FaintBrush}"/>
                                     </StackPanel>
                                 </Button>
                                 <ListBox x:Name="TagList" ItemsSource="{Binding Tags}"
@@ -182,29 +182,39 @@
                             </StackPanel>
                         </ScrollViewer>
 
-                    <!-- 左下角：打开文件 / 新建文件 / 最近文件 -->
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="8,6">
-                        <Button Style="{StaticResource ToolIconButton}" ToolTip="打开文件（Ctrl+O）"
-                                Command="{Binding OpenCommand}">
-                            <Path Data="M2.5,4 H6.5 L8.5,6.5 H13.5 V12.5 H2.5 Z" Width="16" Height="16"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                  StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                        </Button>
-                        <Button Style="{StaticResource ToolIconButton}" ToolTip="新建文件（Ctrl+Shift+N）"
-                                Command="{Binding NewDocumentCommand}">
-                            <Path Data="M4.5,2.5 H9.5 L11.5,4.5 V13.5 H4.5 Z M9.5,2.5 V4.5 H11.5 M8,7.5 V10.5 M6.5,9 H9.5"
+                    <!-- 左下角：打开 / 新建 / 最近（左）+ 设置（右）；含快捷键的 tooltip 由代码按当前键位合成 -->
+                    <Grid Grid.Row="2" Margin="8,6">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="OpenButton" Style="{StaticResource ToolIconButton}"
+                                    Command="{Binding OpenCommand}">
+                                <Path Data="M2.5,4 H6.5 L8.5,6.5 H13.5 V12.5 H2.5 Z" Width="16" Height="16"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                      StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Button>
+                            <Button x:Name="NewDocButton" Style="{StaticResource ToolIconButton}"
+                                    Command="{Binding NewDocumentCommand}">
+                                <Path Data="M4.5,2.5 H9.5 L11.5,4.5 V13.5 H4.5 Z M9.5,2.5 V4.5 H11.5 M8,7.5 V10.5 M6.5,9 H9.5"
+                                      Width="16" Height="16"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                      StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Button>
+                            <Button x:Name="RecentButton" Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_RecentFiles}"
+                                    Click="RecentButton_Click">
+                                <Path Data="M8,2.8 A5.2,5.2 0 1 0 8,13.2 A5.2,5.2 0 1 0 8,2.8 M8,5.2 V8 L10.2,9.2"
+                                      Width="16" Height="16"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                      StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Button>
+                        </StackPanel>
+                        <Button HorizontalAlignment="Right" Style="{StaticResource ToolIconButton}"
+                                ToolTip="{DynamicResource Tip_Settings}" Click="SettingsButton_Click">
+                            <!-- 齿轮：中心圆 + 八向齿 -->
+                            <Path Data="M8,5.4 A2.6,2.6 0 1 0 8,10.6 A2.6,2.6 0 1 0 8,5.4 M8,1.8 V3.6 M8,12.4 V14.2 M1.8,8 H3.6 M12.4,8 H14.2 M3.6,3.6 L4.9,4.9 M11.1,11.1 L12.4,12.4 M12.4,3.6 L11.1,4.9 M4.9,11.1 L3.6,12.4"
                                   Width="16" Height="16"
                                   Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                  StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                  StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                         </Button>
-                        <Button x:Name="RecentButton" Style="{StaticResource ToolIconButton}" ToolTip="最近打开的文件"
-                                Click="RecentButton_Click">
-                            <Path Data="M8,2.8 A5.2,5.2 0 1 0 8,13.2 A5.2,5.2 0 1 0 8,2.8 M8,5.2 V8 L10.2,9.2"
-                                  Width="16" Height="16"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                  StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                        </Button>
-                    </StackPanel>
+                    </Grid>
                     </Grid>
                     <Popup x:Name="RecentPopup" PlacementTarget="{Binding ElementName=RecentButton}"
                            Placement="Top" AllowsTransparency="True">
@@ -244,7 +254,7 @@
                                                     <Button x:Name="RemoveButton" Content="×" FontSize="11"
                                                             Grid.Column="1" VerticalAlignment="Center"
                                                             Style="{StaticResource GhostButton}" Padding="6,1"
-                                                            ToolTip="从列表移除"
+                                                            ToolTip="{DynamicResource Tip_RemoveRecent}"
                                                             Command="{Binding DataContext.Recents.RemoveCommand, RelativeSource={RelativeSource AncestorType={x:Type Popup}}}"
                                                             CommandParameter="{Binding Path}"
                                                             Opacity="0" IsHitTestVisible="False"/>
@@ -259,14 +269,13 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Text="暂无最近文件" FontSize="11" Padding="8,6"
+                                <TextBlock Text="{DynamicResource Recent_Empty}" FontSize="11" Padding="8,6"
                                            Foreground="{StaticResource FaintBrush}"
                                            Visibility="{Binding Recents.Items.Count, Converter={StaticResource ZeroToVis}}"/>
                                 <!-- 固定在列表底部的新建入口，点击后关闭弹层 -->
                                 <Separator/>
-                                <Button Style="{StaticResource GhostButton}" Content="新建文件"
+                                <Button x:Name="RecentNewButton" Style="{StaticResource GhostButton}" Content="{DynamicResource Tip_NewFile}"
                                         HorizontalContentAlignment="Left" Padding="8,5"
-                                        ToolTip="新建文件（Ctrl+Shift+N）"
                                         Command="{Binding NewDocumentCommand}"
                                         Click="RecentItem_Click"/>
                             </StackPanel>
@@ -342,9 +351,8 @@
                     </ListBox.GroupStyle>
                 </ListBox>
 
-                <TextBlock Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <TextBlock x:Name="EmptyHint" Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
                            TextAlignment="Center" Foreground="{StaticResource FaintBrush}" LineHeight="22"
-                           Text="这里还没有任务&#x0a;Ctrl + N 或点击下方按钮新建"
                            Visibility="{Binding ScopeHasTasks, Converter={StaticResource InverseBoolToVis}}"/>
 
                 <!-- 底部工具栏：无选中时显示列表级操作，有选中时切换为任务操作（居中、纯图标） -->
@@ -353,14 +361,14 @@
                     <Grid>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                                     Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="添加任务（Ctrl+N）"
+                            <Button x:Name="AddTaskButton" Style="{StaticResource ToolIconButton}"
                                     Command="{Binding NewTaskCommand}"
                                     Visibility="{Binding ShowAddTask, Converter={StaticResource BoolToVis}}">
                                 <Path Data="M4,8 H12 M8,4 V12" Width="16" Height="16"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Button>
-                            <Button x:Name="ClearButton" Style="{StaticResource DangerToolIconButton}" ToolTip="清空"
+                            <Button x:Name="ClearButton" Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Clear}"
                                     Click="ClearButton_Click"
                                     IsEnabled="{Binding SelectedBlock.HasTasks}"
                                     Visibility="{Binding ShowClear, Converter={StaticResource BoolToVis}}">
@@ -372,14 +380,14 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                                     Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="完成"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Complete}"
                                     Command="{Binding CompleteSelectionCommand}"
                                     Visibility="{Binding ScopeIsActive, Converter={StaticResource BoolToVis}}">
                                 <Path Data="M3,8.5 L6.5,12 L13,4.5" Width="16" Height="16"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Button>
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="移到 WAIT"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Defer}"
                                     Command="{Binding DeferSelectionCommand}"
                                     Visibility="{Binding ScopeIsDoing, Converter={StaticResource BoolToVis}}">
                                 <!-- 暂停符：等待/挂起 -->
@@ -387,7 +395,7 @@
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Button>
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="移到 DOING"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Activate}"
                                     Command="{Binding ActivateSelectionCommand}"
                                     Visibility="{Binding ScopeIsWaiting, Converter={StaticResource BoolToVis}}">
                                 <!-- 播放符：开始执行 -->
@@ -395,14 +403,14 @@
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Button>
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="恢复"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Restore}"
                                     Command="{Binding RestoreSelectionCommand}"
                                     Visibility="{Binding ScopeIsArchive, Converter={StaticResource BoolToVis}}">
                                 <Path Data="M12.5,8 H3.5 M6.5,4.5 L3,8 L6.5,11.5" Width="16" Height="16"
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Button>
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="废弃（Backspace）"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Discard}"
                                     Command="{Binding DiscardSelectionCommand}"
                                     Visibility="{Binding ScopeIsDeleted, Converter={StaticResource InverseBoolToVis}}">
                                 <Path Data="M4,5 H12 M5,5 V12.5 Q5,13 5.5,13 H10.5 Q11,13 11,12.5 V5 M6.5,5 V4 Q6.5,3 7,3 H9 Q9.5,3 9.5,4 V5"
@@ -410,7 +418,7 @@
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Button>
-                            <Button Style="{StaticResource DangerToolIconButton}" ToolTip="彻底删除（Delete）"
+                            <Button Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Delete}"
                                     Command="{Binding DeleteSelectionCommand}"
                                     Visibility="{Binding ScopeIsDeleted, Converter={StaticResource BoolToVis}}">
                                 <Path Data="M4,4 L12,12 M12,4 L4,12" Width="16" Height="16"
@@ -429,11 +437,11 @@
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="Stanza" FontSize="30" FontWeight="SemiBold"
                                FontFamily="Helvetica, Segoe UI" HorizontalAlignment="Center"/>
-                    <TextBlock Text="极简的纯文本任务管理" Foreground="{StaticResource FaintBrush}"
+                    <TextBlock Text="{DynamicResource Welcome_Tagline}" Foreground="{StaticResource FaintBrush}"
                                HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                    <TextBlock Text="将 .stanza 文件拖入窗口，或按 Ctrl + O 打开" FontSize="14"
+                    <TextBlock x:Name="WelcomeOpenHint" FontSize="14"
                                Foreground="{StaticResource GrayBrush}" Margin="0,36,0,0" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Ctrl + Shift + N 新建文件" FontSize="11"
+                    <TextBlock x:Name="WelcomeNewHint" FontSize="11"
                                Foreground="{StaticResource FaintBrush}" Margin="0,12,0,0" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
@@ -468,15 +476,15 @@
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-            <Button Style="{StaticResource WindowButton}" Click="Min_Click" ToolTip="最小化">
+            <Button Style="{StaticResource WindowButton}" Click="Min_Click" ToolTip="{DynamicResource Tip_Minimize}">
                 <Path Data="M0,0 H8" Stroke="{StaticResource GrayBrush}" StrokeThickness="1"
                       Width="8" Height="8" Stretch="Uniform"/>
             </Button>
-            <Button Style="{StaticResource WindowButton}" Click="Max_Click" ToolTip="最大化 / 还原">
+            <Button Style="{StaticResource WindowButton}" Click="Max_Click" ToolTip="{DynamicResource Tip_Maximize}">
                 <Path Data="M0,0 H8 V8 H0 Z" Stroke="{StaticResource GrayBrush}" StrokeThickness="1"
                       Width="8" Height="8" Stretch="Uniform"/>
             </Button>
-            <Button Style="{StaticResource WindowCloseButton}" Click="Close_Click" ToolTip="关闭">
+            <Button Style="{StaticResource WindowCloseButton}" Click="Close_Click" ToolTip="{DynamicResource Tip_CloseWindow}">
                 <Path Data="M0,0 L8,8 M8,0 L0,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                       StrokeThickness="1" Width="8" Height="8" Stretch="Uniform"/>
             </Button>
@@ -497,9 +505,84 @@
         <Border x:Name="DropOverlay" Background="#F6F6FFFF" Opacity="0.97"
                 BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
                 Visibility="Collapsed" IsHitTestVisible="False">
-            <TextBlock Text="松开以打开文件" FontSize="16" Foreground="{StaticResource AccentBrush}"
+            <TextBlock Text="{DynamicResource Drop_Hint}" FontSize="16" Foreground="{StaticResource AccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Border>
+
+        <!-- 设置：语言 + 快捷键。与退出遮罩同款应用内浮层：模态收编键盘、Esc/点空白关闭；
+             快捷键行由代码构建（MainWindow.Settings.cs），录制中的按键被吃掉不穿透。
+             位于退出遮罩之前：关窗确认层始终在最上 -->
+        <Grid x:Name="SettingsOverlay" Visibility="Collapsed"
+              KeyboardNavigation.TabNavigation="Cycle"
+              PreviewKeyDown="Settings_KeyDown">
+            <Border Background="#401C1C1E" PreviewMouseLeftButtonDown="Settings_DimMouseDown"/>
+            <Border x:Name="SettingsCard" Width="440" Padding="24,20,24,16"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="White" CornerRadius="12"
+                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.22" Color="#FF1C1C1E"/>
+                </Border.Effect>
+                <Border.Resources>
+                    <!-- 语言选项：chip 式单选 -->
+                    <Style x:Key="LangChip" TargetType="{x:Type RadioButton}">
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type RadioButton}">
+                                    <Border x:Name="Chip" Padding="12,3" CornerRadius="11"
+                                            BorderThickness="1" BorderBrush="{StaticResource LineBrush}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Chip" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                                            <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Border.Resources>
+                <ScrollViewer MaxHeight="480" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Settings_Title}" FontSize="15" FontWeight="SemiBold"/>
+
+                        <TextBlock Text="{DynamicResource Settings_Language}" FontSize="11" Margin="0,16,0,6"
+                                   Foreground="{StaticResource FaintBrush}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="LangZh" Content="中文" Style="{StaticResource LangChip}"
+                                         Margin="0,0,8,0" Checked="Lang_Checked"/>
+                            <RadioButton x:Name="LangEn" Content="English" Style="{StaticResource LangChip}"
+                                         Checked="Lang_Checked"/>
+                        </StackPanel>
+
+                        <Grid Margin="0,18,0,4">
+                            <TextBlock Text="{DynamicResource Settings_Shortcuts}" FontSize="11"
+                                       Foreground="{StaticResource FaintBrush}"/>
+                            <!-- 录制/错误提示：与「快捷键」标题同行右缘 -->
+                            <TextBlock x:Name="RecordingHint" HorizontalAlignment="Right" FontSize="11"
+                                       Visibility="Collapsed"/>
+                        </Grid>
+                        <StackPanel x:Name="KeymapRows"/>
+
+                        <!-- 键位冲突确认条 -->
+                        <Border x:Name="ConflictBar" Visibility="Collapsed" Margin="0,12,0,0"
+                                Background="{StaticResource AccentSoftBrush}" CornerRadius="6" Padding="10,7">
+                            <StackPanel>
+                                <TextBlock x:Name="ConflictText" FontSize="11.5" TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                    <Button Style="{StaticResource GhostButton}" Content="{DynamicResource Exit_Cancel}"
+                                            FontSize="11.5" Padding="8,2" Click="ConflictCancel_Click"/>
+                                    <Button Style="{StaticResource PrimaryButton}" Content="{DynamicResource Settings_Reassign}"
+                                            FontSize="11.5" Padding="10,2" Margin="8,0,0,0" Click="ConflictConfirm_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
 
         <!-- 退出确认遮罩：未保存更改时关闭窗口的应用内确认层（代替原生 MessageBox） -->
         <Grid x:Name="ExitOverlay" Visibility="Collapsed" Opacity="0"
@@ -519,16 +602,15 @@
                     <ScaleTransform x:Name="ExitCardScale" ScaleX="0.96" ScaleY="0.96"/>
                 </Border.RenderTransform>
                 <StackPanel>
-                    <TextBlock Text="有未保存的更改" FontSize="15" FontWeight="SemiBold"/>
-                    <TextBlock Margin="0,7,0,0" FontSize="12.5" Foreground="{StaticResource GrayBrush}"
-                               TextWrapping="Wrap"
-                               Text="{Binding FileName, StringFormat=若现在退出，「{0}」的更改将丢失。}"/>
+                    <TextBlock Text="{DynamicResource Exit_Title}" FontSize="15" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="ExitHintText" Margin="0,7,0,0" FontSize="12.5" Foreground="{StaticResource GrayBrush}"
+                               TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                        <Button Style="{StaticResource GhostButton}" Content="取消" MinWidth="56"
+                        <Button Style="{StaticResource GhostButton}" Content="{DynamicResource Exit_Cancel}" MinWidth="56"
                                 Click="ExitCancel_Click"/>
-                        <Button Style="{StaticResource DialogDangerButton}" Content="不保存" MinWidth="56"
+                        <Button Style="{StaticResource DialogDangerButton}" Content="{DynamicResource Exit_Discard}" MinWidth="56"
                                 Margin="8,0,0,0" Click="ExitDiscard_Click"/>
-                        <Button x:Name="ExitSaveButton" Style="{StaticResource PrimaryButton}" Content="保存"
+                        <Button x:Name="ExitSaveButton" Style="{StaticResource PrimaryButton}" Content="{DynamicResource Exit_Save}"
                                 MinWidth="64" Margin="12,0,0,0" Click="ExitSave_Click"/>
                     </StackPanel>
                 </StackPanel>
@@ -581,7 +663,7 @@
                             Click="FacetPickerClear_Click">
                         <!-- 显式 TextBlock：字符串内容自动生成的 TextBlock 会被隐式样式的墨色
                              盖住按钮前景色，必须显式绑定 -->
-                        <TextBlock Text="清除"
+                        <TextBlock Text="{DynamicResource Picker_Clear}"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                     </Button>
                 </StackPanel>

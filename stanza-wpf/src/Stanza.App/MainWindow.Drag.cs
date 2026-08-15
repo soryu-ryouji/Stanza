@@ -158,7 +158,7 @@ public partial class MainWindow
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         // 应用级快捷键：查键位表分发到命令（Keymap.cs）
-        if (Keymap.Resolve(e.Key, Keyboard.Modifiers) is { } entry
+        if (Keymap.Current.Resolve(e.Key, Keyboard.Modifiers) is { } entry
             && VM.CommandFor(entry.Command) is { } command
             && command.CanExecute(entry.Parameter))
         {
