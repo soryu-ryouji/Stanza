@@ -43,6 +43,40 @@ public partial class MainWindow
         }
     }
 
+    // ==================== 侧栏：项目/标签选择互斥 ====================
+
+    // 两个列表的选中互斥由代码管理，SelectedItem 不设绑定：单向/双向绑定写入不在 Items 中的值时，
+    // Selector 会保留旧选中（等待条目出现），造成两个列表同时「选中」的假象
+    private bool _syncingFacetSelection;
+
+    private void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingFacetSelection) return;
+        if (ProjectList.SelectedItem is FacetItemViewModel f) VM.SelectedFacet = f;
+    }
+
+    private void TagList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingFacetSelection) return;
+        if (TagList.SelectedItem is FacetItemViewModel f) VM.SelectedFacet = f;
+    }
+
+    /// <summary>SelectedFacet 变化后同步两个列表的可见选中：当前选中的项目/标签高亮，另一个列表清空。</summary>
+    private void SyncFacetSelection()
+    {
+        var f = VM.SelectedFacet;
+        _syncingFacetSelection = true;
+        try
+        {
+            ProjectList.SelectedItem = f is { Kind: FacetKind.Project } ? f : null;
+            TagList.SelectedItem = f is { Kind: FacetKind.Tag } ? f : null;
+        }
+        finally
+        {
+            _syncingFacetSelection = false;
+        }
+    }
+
     // ==================== 勾选完成 ====================
 
     /// <summary>由 Themes/TaskTemplates 资源字典中的勾选框转发调用。</summary>

@@ -72,6 +72,16 @@ public sealed class StatusKindToBrushConverter : IValueConverter
     private static Brush Freeze(Brush b) { b.Freeze(); return b; }
 }
 
+/// <summary>状态枚举 → 区块名（面板视图分组头）。</summary>
+public sealed class StateToNameConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is TaskState s ? TaskStateNames.ToHeader(s) : "";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>任务列表模板选择：任务是卡片，GapItem 是拖拽位置预览。</summary>
 public sealed class TaskListTemplateSelector : DataTemplateSelector
 {

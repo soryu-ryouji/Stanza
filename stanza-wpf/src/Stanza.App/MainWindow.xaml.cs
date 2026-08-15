@@ -29,6 +29,12 @@ public partial class MainWindow : Window
         // 同时保持方向键导航可用
         vm.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(MainViewModel.SelectedFacet))
+            {
+                DisarmClear();   // 进入/离开面板时取消清空的待确认状态
+                SyncFacetSelection();
+                return;
+            }
             if (e.PropertyName != nameof(MainViewModel.SelectedBlock)) return;
             DisarmClear();   // 切换区块时取消清空的待确认状态
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>

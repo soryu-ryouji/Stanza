@@ -140,6 +140,7 @@ public sealed class TaskViewModel : ViewModelBase
     public string Description => _description;
 
     public bool HasProject => _project != null;
+    public string? ProjectName => _project;
     public string ProjectDisplay => "+" + _project;
 
     public IReadOnlyList<string> Tags => _tags;

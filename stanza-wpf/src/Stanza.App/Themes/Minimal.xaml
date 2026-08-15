@@ -24,6 +24,7 @@
     <app:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
     <app:ZeroToVisibilityConverter x:Key="ZeroToVis"/>
     <app:StateToBrushConverter x:Key="StateToBrush"/>
+    <app:StateToNameConverter x:Key="StateToName"/>
     <app:StatusKindToBrushConverter x:Key="StatusToBrush"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 

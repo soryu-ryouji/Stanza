@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Text;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Stanza.Core;
@@ -14,7 +16,12 @@ public sealed class MainViewModel : ViewModelBase
     private bool _suppressDirty;
 
     private BlockViewModel? _selectedBlock;
+    private FacetItemViewModel? _selectedFacet;
     private TaskViewModel? _selectedTask;
+
+    /// <summary>面板视图（选中项目/标签时）的任务集：始终按区块规范序填充，分组视图直接建立在其上。
+    /// 元素类型为 object 以兼容拖拽时的占位项（与区块 Items 一致）。</summary>
+    private readonly ObservableCollection<object> _panelTasks = new();
     private TaskViewModel? _expandedTask;
     private IReadOnlyList<TaskViewModel> _selectedTasks = Array.Empty<TaskViewModel>();
     private bool _hasDocument;
@@ -23,17 +30,25 @@ public sealed class MainViewModel : ViewModelBase
     private bool _isDirty;
     private string _statusText = "";
     private SaveStatus _statusKind = SaveStatus.None;
+    private bool _projectsExpanded = true;
+    private bool _tagsExpanded = true;
 
     public MainViewModel()
     {
         SaveCommand = new RelayCommand(_ => Save(), _ => HasDocument);
         OpenCommand = new RelayCommand(_ => OpenInteractive());
         NewDocumentCommand = new RelayCommand(_ => NewDocument());
-        NewTaskCommand = new RelayCommand(_ => CreateTaskAtEnd(), _ => HasDocument && SelectedBlock != null);
+        NewTaskCommand = new RelayCommand(_ => CreateTaskAtEnd(),
+            _ => HasDocument && (SelectedBlock != null || SelectedFacet != null));
         SelectBlockCommand = new RelayCommand(p =>
         {
             if (p is string s && int.TryParse(s, out var i) && i >= 1 && i <= Blocks.Count)
                 SelectedBlock = Blocks[i - 1];
+        });
+        ToggleFacetSectionCommand = new RelayCommand(p =>
+        {
+            if (p is "tags") TagsExpanded = !TagsExpanded;
+            else ProjectsExpanded = !ProjectsExpanded;
         });
         ClearBlockCommand = new RelayCommand(
             _ => ClearSelectedBlock(),
@@ -42,7 +57,7 @@ public sealed class MainViewModel : ViewModelBase
         CompleteSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Done, normalize: true), _ => HasSelection);
         DiscardSelectionCommand = new RelayCommand(
             _ => TransitionTasks(SelectedTasks.ToList(), TaskState.Delete, normalize: true),
-            _ => HasSelection && SelectedBlock?.IsDeleted != true);   // 已在 DELETE 区块时无需再废弃
+            _ => HasSelection && ScopeState != TaskState.Delete);   // 已废弃的任务无需再废弃
         RestoreSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
         DeferSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Wait), _ => HasSelection);
         ActivateSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
@@ -51,6 +66,11 @@ public sealed class MainViewModel : ViewModelBase
         Recents = new RecentFilesViewModel(
             openFile: OpenFile,
             notifyMissing: _ => SetStatus(SaveStatus.Info, "文件已不存在，已从列表移除"));
+
+        // 面板视图按状态分段：按 TaskState 原始值分组（组头模板自行转换名称与颜色），
+        // 组顺序由 _panelTasks 的填充顺序决定（RebuildPanel 始终按规范序重建）
+        PanelView = new ListCollectionView(_panelTasks);
+        PanelView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TaskViewModel.State)));
 
         _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
         _autoSaveTimer.Tick += (_, _) => { _autoSaveTimer.Stop(); Save(); };
@@ -76,11 +96,105 @@ public sealed class MainViewModel : ViewModelBase
         set
         {
             if (!Set(ref _selectedBlock, value)) return;
+            // 区块视图与面板视图互斥：选中区块时退出项目/标签面板
+            if (value != null && _selectedFacet != null)
+            {
+                _selectedFacet = null;
+                OnPropertyChanged(nameof(SelectedFacet));
+                RebuildPanel();
+            }
             // 切走区块时展开的空草稿视为放弃（焦点已离开），直接移除；非空任务保持展开状态
             if (ExpandedTask != null && ExpandedTask.IsEmpty)
                 CollapseExpanded();
+            NotifyScopeChanged();
         }
     }
+
+    /// <summary>侧栏选中的项目/标签；非 null 时任务区显示按状态分段的聚合面板。</summary>
+    public FacetItemViewModel? SelectedFacet
+    {
+        get => _selectedFacet;
+        set
+        {
+            if (!Set(ref _selectedFacet, value)) return;
+            if (value != null)
+            {
+                // 与区块选择互斥
+                if (_selectedBlock != null)
+                {
+                    _selectedBlock = null;
+                    OnPropertyChanged(nameof(SelectedBlock));
+                }
+                // 进入面板时放弃未填写的空草稿（它还不属于任何项目/标签）
+                if (ExpandedTask != null && ExpandedTask.IsEmpty)
+                    CollapseExpanded();
+            }
+            RebuildPanel();
+            NotifyScopeChanged();
+        }
+    }
+
+    // ---- 项目/标签面板 ----
+
+    /// <summary>侧栏「项目」列表（按任务数降序）。</summary>
+    public ObservableCollection<FacetItemViewModel> Projects { get; } = new();
+
+    /// <summary>侧栏「标签」列表（按任务数降序）。</summary>
+    public ObservableCollection<FacetItemViewModel> Tags { get; } = new();
+
+    public bool HasProjects => Projects.Count > 0;
+    public bool HasTags => Tags.Count > 0;
+
+    /// <summary>侧栏「项目」分组是否展开。</summary>
+    public bool ProjectsExpanded
+    {
+        get => _projectsExpanded;
+        private set
+        {
+            if (Set(ref _projectsExpanded, value))
+                OnPropertyChanged(nameof(ShowProjects));
+        }
+    }
+
+    /// <summary>侧栏「标签」分组是否展开。</summary>
+    public bool TagsExpanded
+    {
+        get => _tagsExpanded;
+        private set
+        {
+            if (Set(ref _tagsExpanded, value))
+                OnPropertyChanged(nameof(ShowTags));
+        }
+    }
+
+    /// <summary>分组列表可见性 = 有内容且处于展开状态。</summary>
+    public bool ShowProjects => HasProjects && _projectsExpanded;
+    public bool ShowTags => HasTags && _tagsExpanded;
+
+    /// <summary>面板视图的分组视图（按状态分段，DOING/WAIT/DONE/DELETE 依次排列）。</summary>
+    public ListCollectionView PanelView { get; }
+
+    /// <summary>面板任务集。拖拽时由视图直接操作（插入/移动占位项），与区块 Items 同等待遇。</summary>
+    public ObservableCollection<object> PanelItems => _panelTasks;
+
+    /// <summary>任务区数据源：区块视图为区块任务集，面板视图为按状态分组的全局匹配集。</summary>
+    public object? TaskListSource => _selectedFacet != null ? PanelView : _selectedBlock?.Items;
+
+    // 标题区与工具栏的作用域属性：区块模式取区块状态，面板模式取面板/首个选中任务的状态
+    public string ScopeTitle => _selectedFacet?.Token ?? _selectedBlock?.Name ?? "";
+    public int ScopeTaskCount => _selectedFacet != null ? _panelTasks.Count : _selectedBlock?.TaskCount ?? 0;
+    public bool ScopeHasTasks => ScopeTaskCount > 0;
+    public bool ShowAddTask => _selectedFacet != null || _selectedBlock?.IsActiveList == true;
+    public bool ShowClear => _selectedFacet == null && _selectedBlock?.IsArchiveList == true;
+
+    private TaskState? ScopeState =>
+        _selectedFacet != null ? _selectedTasks.FirstOrDefault()?.State : _selectedBlock?.State;
+
+    public bool ScopeIsActive => ScopeState is TaskState.Doing or TaskState.Wait;
+    public bool ScopeIsDoing => ScopeState is TaskState.Doing;
+    public bool ScopeIsWaiting => ScopeState is TaskState.Wait;
+    public bool ScopeIsArchive => ScopeState is TaskState.Done or TaskState.Delete;
+    public bool ScopeIsDeleted => ScopeState is TaskState.Delete;
 
     /// <summary>选中的任务（高亮）。选中与展开是两个独立状态。</summary>
     public TaskViewModel? SelectedTask
@@ -98,6 +212,8 @@ public sealed class MainViewModel : ViewModelBase
             _selectedTasks = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelection));
+            // 面板模式下工具栏可见性取决于首个选中任务的状态
+            NotifyScopeChanged();
         }
     }
 
@@ -165,6 +281,7 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand NewDocumentCommand { get; }
     public ICommand NewTaskCommand { get; }
     public ICommand SelectBlockCommand { get; }
+    public ICommand ToggleFacetSectionCommand { get; }
     public ICommand ClearBlockCommand { get; }
     public ICommand CompleteSelectionCommand { get; }
     public ICommand DiscardSelectionCommand { get; }
@@ -201,6 +318,7 @@ public sealed class MainViewModel : ViewModelBase
             NotifyContentChanged();
         }
         SettleSort();
+        RefreshFacets();   // 编辑落定后更新项目/标签归属
     }
 
     /// <summary>任务被移走或删除前调用：解除展开/选中状态（收起不清空草稿——任务尚在流转中）。</summary>
@@ -261,10 +379,11 @@ public sealed class MainViewModel : ViewModelBase
         {
             Blocks.Clear();
             foreach (var state in TaskStateNames.CanonicalOrder)
-                Blocks.Add(new BlockViewModel(state, existedInSource: true));
+                Blocks.Add(CreateBlock(state, existedInSource: true));
             SelectedBlock = Blocks[0];
             SelectedTask = null;
             CollapseExpanded();
+            RefreshFacets();
             FilePath = null;
             FileName = "未命名.stanza";
             HasDocument = true;
@@ -360,6 +479,15 @@ public sealed class MainViewModel : ViewModelBase
 
     private void CreateTaskAtEnd()
     {
+        if (_selectedFacet is { } facet)
+        {
+            // 面板视图下新建：落到 DOING 末尾（§9），主行预填对应的 +项目/#标签
+            var doing = Blocks.First(b => b.State == TaskState.Doing);
+            var task = CreateTask(doing, int.MaxValue);
+            task.HeaderText = facet.Token + " ";
+            RefreshFacets();   // 让新草稿出现在面板中
+            return;
+        }
         if (SelectedBlock == null) return;
         CreateTask(SelectedBlock, int.MaxValue);   // §9：新任务追加到区块末尾
     }
@@ -390,6 +518,7 @@ public sealed class MainViewModel : ViewModelBase
             foreach (var task in tasks) targetBlock.InsertTask(int.MaxValue, task);
         }
         SettleSort();
+        RefreshFacets();
         NotifyContentChanged();
     }
 
@@ -419,6 +548,7 @@ public sealed class MainViewModel : ViewModelBase
         NormalizeForTarget(task, target.State, DateOnly.FromDateTime(DateTime.Today));
         target.InsertTask(index, task);
         SettleSort();
+        RefreshFacets();
         NotifyContentChanged();
     }
 
@@ -430,6 +560,7 @@ public sealed class MainViewModel : ViewModelBase
             BlockOf(task).RemoveTask(task);
             DetachTask(task);
         }
+        RefreshFacets();
         NotifyContentChanged();
     }
 
@@ -440,6 +571,7 @@ public sealed class MainViewModel : ViewModelBase
         if (block == null || block.State is not (TaskState.Done or TaskState.Delete)) return;
         foreach (var task in block.Tasks.ToList()) DetachTask(task);
         block.Items.Clear();
+        RefreshFacets();
         NotifyContentChanged();
     }
 
@@ -453,6 +585,7 @@ public sealed class MainViewModel : ViewModelBase
         foreach (var block in Blocks.Where(b => TaskTransitions.IsActiveState(b.State)))
             changed |= ApplySort(block);
         if (changed) NotifyContentChanged();
+        RebuildPanel();   // 面板内顺序跟随区块排序
     }
 
     private static bool ApplySort(BlockViewModel block)
@@ -470,6 +603,123 @@ public sealed class MainViewModel : ViewModelBase
 
     // ---- 内部 ----
 
+    /// <summary>创建区块并挂钩计数变化：任务增减时同步标题区计数与面板计数。</summary>
+    private BlockViewModel CreateBlock(TaskState state, bool existedInSource)
+    {
+        var block = new BlockViewModel(state, existedInSource);
+        block.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(BlockViewModel.TaskCount))
+            {
+                OnPropertyChanged(nameof(ScopeTaskCount));
+                OnPropertyChanged(nameof(ScopeHasTasks));
+            }
+        };
+        return block;
+    }
+
+    // ---- 项目/标签聚合 ----
+
+    /// <summary>重算侧栏项目/标签列表与面板内容。
+    /// 触发点：文档加载/新建、任务增删与流转、任务编辑收起。
+    /// 不在主行每次按键时刷新——避免正在编辑的任务因解析结果变化而中途从面板消失。</summary>
+    private void RefreshFacets()
+    {
+        var all = Blocks.SelectMany(b => b.Tasks).ToList();
+        RebuildFacetList(Projects, all.Where(t => t.ProjectName != null).Select(t => t.ProjectName!), FacetKind.Project);
+        RebuildFacetList(Tags, all.SelectMany(t => t.Tags), FacetKind.Tag);
+        OnPropertyChanged(nameof(HasProjects));
+        OnPropertyChanged(nameof(HasTags));
+        OnPropertyChanged(nameof(ShowProjects));
+        OnPropertyChanged(nameof(ShowTags));
+
+        // 当前项目/标签已没有任何任务：退出面板，回到首个有任务的区块
+        if (_selectedFacet != null && !Projects.Contains(_selectedFacet) && !Tags.Contains(_selectedFacet))
+        {
+            SelectedFacet = null;
+            SelectedBlock = Blocks.FirstOrDefault(b => b.HasTasks) ?? Blocks.FirstOrDefault();
+        }
+        RebuildPanel();
+        NotifyScopeChanged();
+    }
+
+    /// <summary>重建侧栏列表：复用同名实例（选中/悬停状态随之保留），仅更新计数并按需增删移动。</summary>
+    private static void RebuildFacetList(
+        ObservableCollection<FacetItemViewModel> list, IEnumerable<string> names, FacetKind kind)
+    {
+        var counts = names
+            .GroupBy(n => n, StringComparer.Ordinal)
+            .Select(g => (Name: g.Key, Count: g.Count()))
+            .OrderByDescending(x => x.Count)
+            .ThenBy(x => x.Name, StringComparer.Ordinal)
+            .ToList();
+
+        for (var i = list.Count - 1; i >= 0; i--)
+            if (counts.All(c => c.Name != list[i].Name))
+                list.RemoveAt(i);
+
+        for (var i = 0; i < counts.Count; i++)
+        {
+            var (name, count) = counts[i];
+            var existing = list.FirstOrDefault(f => f.Name == name);
+            if (existing == null)
+            {
+                list.Insert(Math.Min(i, list.Count), new FacetItemViewModel(kind, name) { Count = count });
+            }
+            else
+            {
+                existing.Count = count;
+                if (list.IndexOf(existing) != i)
+                    list.Move(list.IndexOf(existing), i);
+            }
+        }
+    }
+
+    /// <summary>重建面板任务集（按区块规范序填充，组顺序随之确定）。
+    /// 增量对齐而非清空重填：未变化项保留容器、选中状态与滚动位置，避免视图跳动。</summary>
+    private void RebuildPanel()
+    {
+        var matches = _selectedFacet is { } facet
+            ? Blocks.SelectMany(b => b.Tasks).Where(facet.Matches).ToList()
+            : new List<TaskViewModel>();
+        SyncPanel(matches);
+        OnPropertyChanged(nameof(ScopeTaskCount));
+        OnPropertyChanged(nameof(ScopeHasTasks));
+    }
+
+    /// <summary>把面板列表增量对齐到目标序列：删除消失项、插入新项、移动错位项。</summary>
+    private void SyncPanel(List<TaskViewModel> target)
+    {
+        for (var i = _panelTasks.Count - 1; i >= 0; i--)
+            if (_panelTasks[i] is not TaskViewModel t || !target.Contains(t))
+                _panelTasks.RemoveAt(i);
+
+        // 逐位对齐：目标项在列表中存在则移动，不存在则插入（位置 i 之前的位次已对齐，目标项只可能更靠后）
+        for (var i = 0; i < target.Count; i++)
+        {
+            if (i < _panelTasks.Count && ReferenceEquals(_panelTasks[i], target[i])) continue;
+            var existing = _panelTasks.IndexOf(target[i]);
+            if (existing >= 0) _panelTasks.Move(existing, i);
+            else _panelTasks.Insert(i, target[i]);
+        }
+    }
+
+    /// <summary>标题区、任务区数据源与工具栏作用域属性的统一通知。</summary>
+    private void NotifyScopeChanged()
+    {
+        OnPropertyChanged(nameof(TaskListSource));
+        OnPropertyChanged(nameof(ScopeTitle));
+        OnPropertyChanged(nameof(ScopeTaskCount));
+        OnPropertyChanged(nameof(ScopeHasTasks));
+        OnPropertyChanged(nameof(ShowAddTask));
+        OnPropertyChanged(nameof(ShowClear));
+        OnPropertyChanged(nameof(ScopeIsActive));
+        OnPropertyChanged(nameof(ScopeIsDoing));
+        OnPropertyChanged(nameof(ScopeIsWaiting));
+        OnPropertyChanged(nameof(ScopeIsArchive));
+        OnPropertyChanged(nameof(ScopeIsDeleted));
+    }
+
     private void LoadDocument(StanzaDocument doc)
     {
         _suppressDirty = true;
@@ -479,7 +729,7 @@ public sealed class MainViewModel : ViewModelBase
             foreach (var state in TaskStateNames.CanonicalOrder)
             {
                 var modelBlock = doc.FindBlock(state);
-                var block = new BlockViewModel(state, modelBlock != null);
+                var block = CreateBlock(state, modelBlock != null);
                 if (modelBlock != null)
                     foreach (var t in modelBlock.Tasks)
                         block.Items.Add(TaskViewModel.FromModel(this, t, state));
@@ -489,6 +739,7 @@ public sealed class MainViewModel : ViewModelBase
             SelectedTask = null;
             CollapseExpanded();
             SettleSort();
+            RefreshFacets();
         }
         finally
         {
