@@ -45,7 +45,7 @@ public partial class MainWindow
         if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(source)?.DataContext is not TaskViewModel task)
             return;
 
-        // 点击其他任务：收起当前展开的详情面板（点自身、输入框、勾选框不受影响）
+        // 点击其他任务：收起当前展开的详情面板（点自身、输入框、勾选框不受影响；空草稿随之移除）
         if (VM.ExpandedTask != null && VM.ExpandedTask != task)
             VM.CollapseExpanded();
 
@@ -149,8 +149,8 @@ public partial class MainWindow
                 ResetPressState();
                 if (VM.ExpandedTask != null || VM.SelectedTask != null)
                 {
-                    // Esc 退出编辑：与 Enter 同一出口——空草稿（新创建未填写）随之移除
-                    if (VM.ExpandedTask != null) VM.ConfirmTaskEdit(VM.ExpandedTask);
+                    // Esc 退出编辑（空草稿随之移除）
+                    VM.CollapseExpanded();
                     VM.SelectedTask = null;
                     Keyboard.ClearFocus();
                     e.Handled = true;
@@ -169,7 +169,7 @@ public partial class MainWindow
             if (VM.ExpandedTask != null)
             {
                 // 确认编辑：收起详情；空草稿被移除时焦点回到列表
-                VM.ConfirmTaskEdit(VM.ExpandedTask);
+                VM.CollapseExpanded();
                 var keep = VM.SelectedTask;
                 if (keep != null) FocusContainerOf(keep);
                 else (TaskList as UIElement).Focus();
@@ -260,8 +260,9 @@ public partial class MainWindow
         _dragBlock = VM.Blocks.First(b => b.Items.Contains(task));
         _originalIndex = _dragBlock.Items.IndexOf(task);
 
-        // 拖拽前收起展开态，让幽灵与占位保持紧凑
-        if (VM.ExpandedTask == task) VM.CollapseExpanded();
+        // 拖拽前收起展开态，让幽灵与占位保持紧凑。空草稿不收起：
+        // 收起会将其移除，拖拽又会把它插回，行为怪异
+        if (VM.ExpandedTask == task && !task.IsEmpty) VM.CollapseExpanded();
         VM.SelectedTask = null;
 
         var container = TaskList.ItemContainerGenerator.ContainerFromItem(task) as FrameworkElement;

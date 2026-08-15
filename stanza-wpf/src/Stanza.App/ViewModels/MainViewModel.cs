@@ -73,7 +73,13 @@ public sealed class MainViewModel : ViewModelBase
     public BlockViewModel? SelectedBlock
     {
         get => _selectedBlock;
-        set => Set(ref _selectedBlock, value);
+        set
+        {
+            if (!Set(ref _selectedBlock, value)) return;
+            // 切走区块时展开的空草稿视为放弃（焦点已离开），直接移除；非空任务保持展开状态
+            if (ExpandedTask != null && ExpandedTask.IsEmpty)
+                CollapseExpanded();
+        }
     }
 
     /// <summary>选中的任务（高亮）。选中与展开是两个独立状态。</summary>
@@ -172,36 +178,39 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>展开指定任务（同时收起之前展开的任务）。</summary>
     public void ExpandTask(TaskViewModel task)
     {
-        if (ExpandedTask != null && ExpandedTask != task)
-            ExpandedTask.IsExpanded = false;
+        if (ExpandedTask != task) CollapseExpanded();   // 收起前一个；空草稿随之移除
+        if (ExpandedTask == task) return;
         ExpandedTask = task;
         task.IsExpanded = true;
         SettleSort();
     }
 
+    /// <summary>收起展开的任务；空草稿（未填写任何内容的新任务）随之移除——
+    /// 空任务没有持久化价值：保存时按 IsEmpty 过滤，主行为空也无法写出（§7 / §10.3）。
+    /// 所有失焦路径（Enter/Esc/点空白/点其他任务/切换区块）都经由此处获得该行为。</summary>
     public void CollapseExpanded()
     {
         if (ExpandedTask == null) return;
-        ExpandedTask.IsExpanded = false;
+        var task = ExpandedTask;
+        task.IsExpanded = false;
         ExpandedTask = null;
+        if (task.IsEmpty)
+        {
+            Blocks.FirstOrDefault(b => b.Items.Contains(task))?.RemoveTask(task);
+            if (SelectedTask == task) SelectedTask = null;
+            NotifyContentChanged();
+        }
         SettleSort();
     }
 
-    /// <summary>确认编辑（Enter）：收起详情；内容为空的新草稿直接移除
-    /// （空任务无法持久化：保存时按 IsEmpty 过滤，主行为空也无法表示）。</summary>
-    public void ConfirmTaskEdit(TaskViewModel task)
-    {
-        CollapseExpanded();
-        if (!task.IsEmpty) return;
-        Blocks.FirstOrDefault(b => b.Items.Contains(task))?.RemoveTask(task);
-        if (SelectedTask == task) SelectedTask = null;
-        NotifyContentChanged();
-    }
-
-    /// <summary>任务被移走或删除前调用：收起并解除展开/选中状态。</summary>
+    /// <summary>任务被移走或删除前调用：解除展开/选中状态（收起不清空草稿——任务尚在流转中）。</summary>
     private void DetachTask(TaskViewModel task)
     {
-        if (ExpandedTask == task) CollapseExpanded();
+        if (ExpandedTask == task)
+        {
+            task.IsExpanded = false;
+            ExpandedTask = null;
+        }
         if (SelectedTask == task) SelectedTask = null;
     }
 
@@ -339,8 +348,8 @@ public sealed class MainViewModel : ViewModelBase
     public TaskViewModel CreateTask(BlockViewModel block, int index)
     {
         var task = new TaskViewModel(this) { State = block.State };
-        // §7.4 / §9：创建时间戳写为第一条续行；任务未被填写就被放弃时按空任务过滤（IsEmpty 忽略时间戳行）
-        task.NotesText = TaskTransitions.TimestampLine(TimestampKind.Created, DateOnly.FromDateTime(DateTime.Today));
+        // §7.4 / §9：写入创建时间戳（存为续行属性，不在备注编辑器中显示）；任务未被填写就被放弃时按空任务过滤
+        task.SetCreated(DateOnly.FromDateTime(DateTime.Today));
         block.InsertTask(index, task);
         SelectedTask = task;
         ExpandTask(task);   // 新任务总是展开待编辑
@@ -385,15 +394,20 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>§9 规范化：规则在 Core（<see cref="TaskTransitions.NormalizeForState"/>），
-    /// 这里只做模型 ↔ 编辑器文本的往返（主行重组为规范顺序，追加的备注转为顶格显示形式）。</summary>
+    /// 这里只做模型 ↔ 编辑器文本的往返（主行重组为规范顺序，追加的时间戳增量转为任务属性）。</summary>
     private static void NormalizeForTarget(TaskViewModel task, TaskState target, DateOnly today)
     {
         if (task.State == target) return;
         var m = StanzaParser.ParseTaskHeader(task.HeaderText);
         TaskTransitions.NormalizeForState(m, task.State, target, today);
         task.HeaderText = StanzaWriter.ComposeTaskHeader(m);
-        // 主行解析不出备注，m.Notes 即本次规范化追加的增量（完成时间戳行，§7.4）
-        foreach (var line in m.Notes) task.AppendNote(line.TrimStart());
+        // 主行解析不出备注，m.Notes 即本次规范化追加的时间戳增量（§7.4），转入属性而非备注
+        foreach (var line in m.Notes)
+        {
+            if (!StanzaParser.TryMatchTimestampLine(line, out var date, out var kind)) continue;
+            if (kind == TimestampKind.Created) task.SetCreated(date);
+            else task.AppendCompleted(date);
+        }
     }
 
     /// <summary>完成：移至 DONE 顶部并规范化（§9）。</summary>

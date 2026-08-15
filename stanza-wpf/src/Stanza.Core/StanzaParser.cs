@@ -121,7 +121,9 @@ public static class StanzaParser
     public static bool IsTimestampLine(string line)
         => TryMatchTimestampLine(line, out _, out _);
 
-    private static bool TryMatchTimestampLine(string line, out DateOnly date, out TimestampKind kind)
+    /// <summary>尝试把时间戳行解析为日期与语义类型（§7.4 整行匹配，容忍前导/尾随空白；日期必须合法）。
+    /// 供展示层将时间戳从续行中分离为结构化属性。</summary>
+    public static bool TryMatchTimestampLine(string line, out DateOnly date, out TimestampKind kind)
     {
         date = default;
         kind = default;

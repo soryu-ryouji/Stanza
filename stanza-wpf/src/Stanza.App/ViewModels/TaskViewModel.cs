@@ -22,17 +22,35 @@ public sealed class TaskViewModel : ViewModelBase
     private string? _project;
     private IReadOnlyList<string> _tags = Array.Empty<string>();
 
+    // 时间戳属性（§7.4：以续行形式集中存储在主行之后，与备注分离，不在备注编辑器中显示）
+    private DateOnly? _createdAt;
+    private readonly List<DateOnly> _completedDates = new();
+
     public TaskViewModel(MainViewModel owner) => _owner = owner;
 
     public static TaskViewModel FromModel(MainViewModel owner, StanzaTask model, TaskState state)
     {
-        var vm = new TaskViewModel(owner)
-        {
-            _state = state,
-            _notesText = DedentNotes(model.Notes),
-        };
+        var vm = new TaskViewModel(owner) { _state = state };
+        vm.LoadNotes(model.Notes);
         vm.SetHeaderSilently(StanzaWriter.ComposeTaskHeader(model));
         return vm;
+    }
+
+    /// <summary>加载续行：时间戳行分离为结构化属性（§7.4）——第一条创建行记入创建时间，
+    /// 完成行按序构成完成历史；其余续行（含多余的创建行，§7.4.3）按备注原样保留。</summary>
+    private void LoadNotes(List<string> notes)
+    {
+        var rest = new List<string>();
+        foreach (var note in notes)
+        {
+            if (StanzaParser.TryMatchTimestampLine(note, out var date, out var kind))
+            {
+                if (kind == TimestampKind.Completed) { _completedDates.Add(date); continue; }
+                if (_createdAt == null) { _createdAt = date; continue; }
+            }
+            rest.Add(note);
+        }
+        _notesText = DedentNotes(rest);
     }
 
     // ---- 状态 ----
@@ -52,6 +70,7 @@ public sealed class TaskViewModel : ViewModelBase
                 OnPropertyChanged(nameof(CanRestore));
                 OnPropertyChanged(nameof(IsDoing));
                 OnPropertyChanged(nameof(IsWaiting));
+                OnPropertyChanged(nameof(ShowCompleted));
             }
         }
     }
@@ -126,8 +145,51 @@ public sealed class TaskViewModel : ViewModelBase
     public IReadOnlyList<string> Tags => _tags;
     public bool HasTags => _tags.Count > 0;
 
-    /// <summary>填写过任何元数据时，展开视图才显示解析结果行。</summary>
-    public bool HasAnyMeta => Priority != null || Due != null || HasProject || HasTags;
+    /// <summary>填写过任何元数据或存在时间戳属性时，展开视图才显示解析结果行。</summary>
+    public bool HasAnyMeta => Priority != null || Due != null || HasProject || HasTags || HasCreated || HasCompleted;
+
+    // ---- 时间戳属性（§7.4） ----
+
+    public DateOnly? CreatedAt => _createdAt;
+    public bool HasCreated => _createdAt != null;
+    public string CreatedDisplay => _createdAt is { } c ? $"{TimestampKeywords.Canonical(TimestampKind.Created)} {c:yyyy-MM-dd}" : "";
+
+    /// <summary>最近一次完成时间；完整完成历史（含重开记录）保留在续行属性块中。</summary>
+    public DateOnly? CompletedAt => _completedDates.Count > 0 ? _completedDates[^1] : null;
+    public bool HasCompleted => _completedDates.Count > 0;
+    public string CompletedDisplay => CompletedAt is { } c ? $"{TimestampKeywords.Canonical(TimestampKind.Completed)} {c:yyyy-MM-dd}" : "";
+
+    /// <summary>折叠态仅在 DONE 任务上展示完成日期（重开后历史保留，但不宜在标题行展示）。</summary>
+    public bool ShowCompleted => IsDone && HasCompleted;
+
+    /// <summary>写入创建时间（§7.4.3：每个任务至多一条，既有创建时间不被覆盖）。</summary>
+    public void SetCreated(DateOnly date)
+    {
+        if (_createdAt != null) return;
+        _createdAt = date;
+        NotifyTimestampsChanged();
+        _owner.NotifyContentChanged();
+    }
+
+    /// <summary>追加一条完成时间（§7.4.3：每次进入 DONE 追加一条，历史完整保留）。</summary>
+    public void AppendCompleted(DateOnly date)
+    {
+        _completedDates.Add(date);
+        NotifyTimestampsChanged();
+        _owner.NotifyContentChanged();
+    }
+
+    private void NotifyTimestampsChanged()
+    {
+        OnPropertyChanged(nameof(CreatedAt));
+        OnPropertyChanged(nameof(HasCreated));
+        OnPropertyChanged(nameof(CreatedDisplay));
+        OnPropertyChanged(nameof(CompletedAt));
+        OnPropertyChanged(nameof(HasCompleted));
+        OnPropertyChanged(nameof(CompletedDisplay));
+        OnPropertyChanged(nameof(ShowCompleted));
+        OnPropertyChanged(nameof(HasAnyMeta));
+    }
 
     // ---- 备注 ----
 
@@ -154,20 +216,20 @@ public sealed class TaskViewModel : ViewModelBase
         set => Set(ref _isExpanded, value);
     }
 
-    /// <summary>是否完全没有内容（保存时丢弃）。时间戳行是工具写入的元数据，不计为内容（§7.4）。</summary>
+    /// <summary>是否完全没有内容（保存时丢弃）。时间戳是工具写入的属性，不计为内容（§7.4）。</summary>
     public bool IsEmpty =>
         HeaderText.Trim().Length == 0
-        && NotesText.Split('\n').All(line => line.Trim().Length == 0 || StanzaParser.IsTimestampLine(line));
-
-    public void AppendNote(string line)
-    {
-        var current = NotesText.TrimEnd();
-        NotesText = current.Length == 0 ? line : current + "\n" + line;
-    }
+        && NotesText.Split('\n').All(line => line.Trim().Length == 0);
 
     public StanzaTask ToModel()
     {
         var task = StanzaParser.ParseTaskHeader(HeaderText);
+
+        // §7.4：时间戳属性集中写为主行之后的首批续行（创建在前，完成历史按序随后），与备注分离
+        if (_createdAt is { } created)
+            task.Notes.Add("    " + TaskTransitions.TimestampLine(TimestampKind.Created, created));
+        foreach (var d in _completedDates)
+            task.Notes.Add("    " + TaskTransitions.TimestampLine(TimestampKind.Completed, d));
 
         // 编辑器中不显示缩进；写出时统一加 4 空格缩进（§7.3 续行必须缩进），空白行保持为空串
         foreach (var line in (NotesText ?? "").Replace("\r\n", "\n").Split('\n'))
@@ -175,7 +237,7 @@ public sealed class TaskViewModel : ViewModelBase
         while (task.Notes.Count > 0 && task.Notes[^1].Length == 0)
             task.Notes.RemoveAt(task.Notes.Count - 1);
 
-        StanzaParser.ExtractTimestamps(task);   // 保持 CreatedAt/CompletedAt 与备注一致（§7.4）
+        StanzaParser.ExtractTimestamps(task);   // 保持 CreatedAt/CompletedAt 与续行一致（§7.4）
         return task;
     }
 

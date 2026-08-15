@@ -35,8 +35,8 @@ public partial class MainWindow
 
         if (VM.SelectedTask != null || VM.ExpandedTask != null)
         {
-            // 点击空白退出编辑：与 Enter/Esc 同一出口——空草稿随之移除
-            if (VM.ExpandedTask != null) VM.ConfirmTaskEdit(VM.ExpandedTask);
+            // 点击空白退出编辑（空草稿随之移除）
+            VM.CollapseExpanded();
             VM.SelectedTask = null;
             // 只清焦点：把焦点交给 ListBox 会让它聚焦首项并把视图跳回顶部
             Keyboard.ClearFocus();

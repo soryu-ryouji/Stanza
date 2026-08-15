@@ -80,6 +80,11 @@
                                        TextWrapping="Wrap" VerticalAlignment="Center"/>
 
                             <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- 完成日期（仅 DONE 任务）：归档列表中最有用的生命周期信息 -->
+                                <TextBlock Text="{Binding CompletedDisplay}" FontSize="12"
+                                           Foreground="{StaticResource FaintBrush}" Margin="6,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding ShowCompleted, Converter={StaticResource BoolToVis}}"/>
                                 <!-- 备注标记（Things 风格：只提示存在，不渲染内容） -->
                                 <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
                                       StrokeThickness="1.2" Width="10" Height="7" Margin="6,0,0,0"
@@ -148,6 +153,19 @@
                                     Padding="7,1" Margin="6,0,0,0"
                                     Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="{Binding DueDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <!-- 创建/完成时间：续行属性（§7.4），与截止日期同款 chip，带关键字前缀区分 -->
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasCreated, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding CreatedDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasCompleted, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding CompletedDisplay}" FontSize="11"
                                            Foreground="{StaticResource GrayBrush}"/>
                             </Border>
                             <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
