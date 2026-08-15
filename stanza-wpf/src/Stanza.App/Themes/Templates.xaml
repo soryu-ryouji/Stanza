@@ -8,23 +8,26 @@
     <!-- 任务卡片 -->
     <DataTemplate x:Key="TaskTemplate" DataType="{x:Type vm:TaskViewModel}">
         <!-- 普通态透明：任务行直接躺在灰色画布上，只有悬停/选中/展开才出现色面 -->
+        <!-- Tag 桥接主窗口 DataContext（此绑定在正常视觉树中，可找到 Window）；
+             ContextMenu 在独立弹层树中，MenuItem 经 PlacementTarget.Tag 取到命令 -->
         <Border x:Name="Card" Background="Transparent" CornerRadius="8" Margin="8,6"
-                BorderBrush="Transparent" BorderThickness="1">
+                BorderBrush="Transparent" BorderThickness="1"
+                Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
             <Border.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="完成" Command="{Binding DataContext.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                    <MenuItem Header="完成" Command="{Binding PlacementTarget.Tag.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="移到 WAIT" Command="{Binding DataContext.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                    <MenuItem Header="移到 WAIT" Command="{Binding PlacementTarget.Tag.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="移到 DOING" Command="{Binding DataContext.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                    <MenuItem Header="移到 DOING" Command="{Binding PlacementTarget.Tag.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="废弃" Command="{Binding DataContext.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                    <MenuItem Header="废弃" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}"/>
-                    <MenuItem Header="恢复" Command="{Binding DataContext.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                    <MenuItem Header="恢复" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}"/>
                     <Separator Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
                     <MenuItem Header="彻底删除" Style="{StaticResource DangerMenuItem}"
-                              Command="{Binding DataContext.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Command="{Binding PlacementTarget.Tag.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
                 </ContextMenu>
             </Border.ContextMenu>

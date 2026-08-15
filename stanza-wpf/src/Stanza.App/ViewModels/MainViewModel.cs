@@ -384,18 +384,6 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>完成：移至 DONE 顶部并规范化（§9）。</summary>
     public void CompleteTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Done, normalize: true);
 
-    /// <summary>废弃：移至 DELETE 顶部（回收站语义）并规范化（§9）。</summary>
-    public void DiscardTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Delete, normalize: true);
-
-    /// <summary>恢复：移回 DOING 末尾，元数据保持不变（§9）。</summary>
-    public void RestoreTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Doing);
-
-    /// <summary>暂缓：DOING → WAIT 末尾，元数据保持不变。</summary>
-    public void DeferTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Wait);
-
-    /// <summary>开始处理：WAIT → DOING 末尾，元数据保持不变。</summary>
-    public void ActivateTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Doing);
-
     /// <summary>拖拽落点提交（调用方已把任务从原集合移除）。进入 DONE/DELETE 时按 §9 规范化。</summary>
     public void DropTask(TaskViewModel task, BlockViewModel target, int index)
     {
@@ -404,8 +392,6 @@ public sealed class MainViewModel : ViewModelBase
         SettleSort();
         NotifyContentChanged();
     }
-
-    public void DeletePermanent(TaskViewModel task) => DeleteTasksPermanently(new[] { task });
 
     private void DeleteTasksPermanently(IReadOnlyList<TaskViewModel> tasks)
     {

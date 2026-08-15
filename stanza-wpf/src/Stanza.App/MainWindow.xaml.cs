@@ -67,7 +67,7 @@ public partial class MainWindow : Window
             var screen = PointToScreen(e.GetPosition(this));
             WindowState = WindowState.Normal;
             Left = screen.X - Width * ratio;
-            Top = screen.Y - 19;   // 标题栏高 38，让鼠标落在标题栏中部
+            Top = screen.Y - 19;   // 拖拽区高 38，让鼠标落在其中部
         }
 
         if (e.LeftButton == MouseButtonState.Pressed)

@@ -1,4 +1,3 @@
-using System.Windows.Input;
 using Stanza.Core;
 
 namespace Stanza.App.ViewModels;
@@ -23,16 +22,7 @@ public sealed class TaskViewModel : ViewModelBase
     private string? _project;
     private IReadOnlyList<string> _tags = Array.Empty<string>();
 
-    public TaskViewModel(MainViewModel owner)
-    {
-        _owner = owner;
-        CompleteCommand = new RelayCommand(_ => _owner.CompleteTask(this));
-        DiscardCommand = new RelayCommand(_ => _owner.DiscardTask(this));
-        RestoreCommand = new RelayCommand(_ => _owner.RestoreTask(this));
-        DeletePermanentCommand = new RelayCommand(_ => _owner.DeletePermanent(this));
-        MoveToWaitCommand = new RelayCommand(_ => _owner.DeferTask(this));
-        MoveToDoingCommand = new RelayCommand(_ => _owner.ActivateTask(this));
-    }
+    public TaskViewModel(MainViewModel owner) => _owner = owner;
 
     public static TaskViewModel FromModel(MainViewModel owner, StanzaTask model, TaskState state)
     {
@@ -163,15 +153,6 @@ public sealed class TaskViewModel : ViewModelBase
         get => _isExpanded;
         set => Set(ref _isExpanded, value);
     }
-
-    // ---- 操作 ----
-
-    public ICommand CompleteCommand { get; }
-    public ICommand DiscardCommand { get; }
-    public ICommand RestoreCommand { get; }
-    public ICommand DeletePermanentCommand { get; }
-    public ICommand MoveToWaitCommand { get; }
-    public ICommand MoveToDoingCommand { get; }
 
     /// <summary>是否完全没有内容（保存时丢弃）。</summary>
     public bool IsEmpty =>

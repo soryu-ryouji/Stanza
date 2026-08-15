@@ -19,7 +19,7 @@ dotnet test                                    # 全部测试（xunit）
 dotnet test --filter "FullyQualifiedName~ParserTests"  # 只跑解析器测试
 ```
 
-发布用 `publish.ps1`（生成单文件 exe 到 `publish/<runtime>/`，默认先跑测试）。发布前需关闭正在运行的 Stanza.exe，否则文件占用导致失败。
+发布用 `tools/publish.ps1`（生成单文件 exe 到 `publish/<runtime>/`，默认先跑测试；`-CopyTo <dir>` 可额外把 exe 复制到指定目录）。发布前需关闭正在运行的 Stanza.exe，否则文件占用导致失败。
 
 ## 项目结构与职责边界
 
