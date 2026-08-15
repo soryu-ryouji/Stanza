@@ -632,6 +632,7 @@
                 </Border.Effect>
                 <StackPanel>
                     <TextBox x:Name="FacetPickerInput" FontSize="12" Margin="2,0" TextAlignment="Center"
+                             VerticalContentAlignment="Center"
                              Foreground="{StaticResource OnDarkTextBrush}"
                              TextChanged="FacetPickerInput_TextChanged"/>
                     <TextBlock x:Name="FacetPickerError" FontSize="11" Margin="6,2,6,0" Visibility="Collapsed"

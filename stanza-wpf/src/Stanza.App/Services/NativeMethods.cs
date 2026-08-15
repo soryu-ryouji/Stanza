@@ -22,6 +22,10 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
 
+    /// <summary>系统光标闪烁间隔（毫秒）；0 或 0xFFFFFFFF 表示不闪烁。</summary>
+    [DllImport("user32.dll")]
+    public static extern uint GetCaretBlinkTime();
+
     [DllImport("user32.dll")]
     public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO info);
 

@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:app="clr-namespace:Stanza.App">
+                    xmlns:app="clr-namespace:Stanza.App"
+                    xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
 
     <!-- ============ 调色板（参考 Things 3：白底 + 灰侧栏 + Things 蓝，灰色取 Apple 标签灰） ============ -->
     <SolidColorBrush x:Key="InkBrush" Color="#FF1C1C1E"/>
@@ -55,6 +56,8 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>
+        <!-- 自绘光标：系统光标固定 1px 且高度占满行高（顶部高出字形），改为 2px 圆角竖条对齐字形墨水区 -->
+        <Setter Property="behaviors:CustomCaretBehavior.IsEnabled" Value="True"/>
         <Setter Property="SelectionBrush" Value="{StaticResource AccentSelectBrush}"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="MinHeight" Value="27"/>
@@ -72,11 +75,12 @@
                             <ScrollViewer x:Name="PART_ContentHost" Margin="-2,0,0,0"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                           VerticalScrollBarVisibility="Hidden"/>
-                            <!-- 占位提示：借用 Tag 属性传文本，对齐方式跟随 TextAlignment -->
+                            <!-- 占位提示：借用 Tag 属性传文本，对齐方式跟随 TextAlignment/VerticalContentAlignment，
+                                 与真实文本同位（占位符应显示在文本将出现的位置） -->
                             <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}"
                                        TextAlignment="{TemplateBinding TextAlignment}"
                                        Foreground="{StaticResource FaintBrush}"
-                                       Margin="0,4,0,0" VerticalAlignment="Top"
+                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                        IsHitTestVisible="False" Visibility="Collapsed"/>
                         </Grid>
                     </Border>
