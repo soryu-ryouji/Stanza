@@ -11,7 +11,7 @@ dotnet run --project src/Stanza.App -- TODO.stanza   # 启动并打开文件
 dotnet test                                    # 运行解析器测试
 ```
 
-要求：.NET 8 SDK 或更高版本，Windows。
+要求：.NET 10 SDK 或更高版本，Windows。
 
 ## 使用
 

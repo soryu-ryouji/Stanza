@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-Stanza 是 [Stanza 纯文本任务管理格式](https://github.com/Ryougi-Shiki0/Stanza)（RFC 1.0.0）的 Windows 桌面编辑器。WPF + MVVM，零第三方依赖，目标框架 .NET 8。
+Stanza 是 [Stanza 纯文本任务管理格式](https://github.com/Ryougi-Shiki0/Stanza)（RFC 1.0.0）的 Windows 桌面编辑器。WPF + MVVM，零第三方依赖，目标框架 .NET 10。
 
 - 解决方案文件为 `Stanza.slnx`（XML 格式，需要较新的 .NET SDK / VS 支持）
 - 整个仓库约 2900 行代码，体量小，改动前先通读相关文件
