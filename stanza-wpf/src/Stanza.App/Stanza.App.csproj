@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>Stanza</AssemblyName>
+    <RootNamespace>Stanza.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stanza.Core\Stanza.Core.csproj" />
+    <!-- 2048px 原图仅作源资产保留在仓库，不嵌入程序集（避免体积膨胀） -->
+    <Resource Include="Assets\icon.png" />
+    <None Include="Assets\icon-master.png" />
+  </ItemGroup>
+
+</Project>

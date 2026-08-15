@@ -1,0 +1,23 @@
+{
+  "brackets": [
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "autoClosingPairs": [
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "surroundingPairs": [
+    [
+      "(",
+      ")"
+    ]
+  ],
+  "folding": {
+    "offSide": true
+  }
+}

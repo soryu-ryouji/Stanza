@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Stanza.App/Stanza.App.csproj" />
+    <Project Path="src/Stanza.Core/Stanza.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Stanza.Core.Tests/Stanza.Core.Tests.csproj" />
+  </Folder>
+</Solution>

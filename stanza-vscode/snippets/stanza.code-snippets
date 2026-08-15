@@ -1,0 +1,58 @@
+{
+  "DOING block": {
+    "prefix": "doing",
+    "body": [
+      "# DOING",
+      "",
+      "$0"
+    ],
+    "description": "插入 DOING 状态区块标题"
+  },
+  "WAIT block": {
+    "prefix": "wait",
+    "body": [
+      "# WAIT",
+      "",
+      "$0"
+    ],
+    "description": "插入 WAIT 状态区块标题"
+  },
+  "DONE block": {
+    "prefix": "done",
+    "body": [
+      "# DONE",
+      "",
+      "$0"
+    ],
+    "description": "插入 DONE 状态区块标题"
+  },
+  "DELETE block": {
+    "prefix": "delete",
+    "body": [
+      "# DELETE",
+      "",
+      "$0"
+    ],
+    "description": "插入 DELETE 状态区块标题"
+  },
+  "Task with priority and due date": {
+    "prefix": "task",
+    "body": "(${1:A}) ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} ${2:任务描述} +${3:项目} #${4:标签}$0",
+    "description": "插入带优先级与截止日期的任务主行"
+  },
+  "Plain task": {
+    "prefix": "todo",
+    "body": "${1:任务描述} +${2:项目}$0",
+    "description": "插入普通任务主行（无优先级与日期）"
+  },
+  "Note line": {
+    "prefix": "note",
+    "body": "    ${1:备注内容}$0",
+    "description": "插入缩进备注续行"
+  },
+  "Due date": {
+    "prefix": "date",
+    "body": "${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}",
+    "description": "插入今天的日期（YYYY-MM-DD）"
+  }
+}

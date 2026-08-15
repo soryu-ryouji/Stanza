@@ -1,0 +1,110 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Stanza",
+  "scopeName": "source.stanza",
+  "fileTypes": [
+    "stanza"
+  ],
+  "patterns": [
+    {
+      "include": "#state-block"
+    },
+    {
+      "include": "#continuation-line"
+    },
+    {
+      "include": "#task-header"
+    }
+  ],
+  "repository": {
+    "state-block": {
+      "comment": "Block title: '# ' + state name (case-insensitive) + optional trailing whitespace, RFC §6.1",
+      "match": "^(# )((?i:DOING|WAIT|DONE|DELETE))[ \\t]*$",
+      "name": "markup.heading.state-block.stanza",
+      "captures": {
+        "1": {
+          "name": "punctuation.definition.heading.stanza"
+        },
+        "2": {
+          "name": "entity.name.section.state-name.stanza"
+        }
+      }
+    },
+    "continuation-line": {
+      "comment": "Indented non-blank line: task note, no metadata parsed inside, RFC §7.3",
+      "match": "^[ \\t]+\\S.*$",
+      "name": "comment.block.notes.stanza"
+    },
+    "task-header": {
+      "comment": "Any unindented non-blank line that is not a block title starts a new task, RFC §7.1",
+      "begin": "^(?![ \\t])(?!$)",
+      "end": "$",
+      "name": "meta.task-header.stanza",
+      "patterns": [
+        {
+          "include": "#priority-with-date"
+        },
+        {
+          "include": "#priority"
+        },
+        {
+          "include": "#date"
+        },
+        {
+          "include": "#project"
+        },
+        {
+          "include": "#tag"
+        }
+      ]
+    },
+    "priority-with-date": {
+      "comment": "'(A) 2026-08-07 ': priority directly followed by due date, RFC §7.2",
+      "match": "^(\\([A-Z]\\))( )(\\d{4}-\\d{2}-\\d{2})(?= )",
+      "captures": {
+        "1": {
+          "name": "storage.modifier.priority.stanza"
+        },
+        "3": {
+          "name": "constant.numeric.date.stanza"
+        }
+      }
+    },
+    "priority": {
+      "comment": "'(A) ' at line start, exactly one trailing space, RFC §7.2.1",
+      "match": "^(\\([A-Z]\\))(?= )",
+      "captures": {
+        "1": {
+          "name": "storage.modifier.priority.stanza"
+        }
+      }
+    },
+    "date": {
+      "comment": "Due date at line start (no priority), RFC §7.2.2",
+      "match": "^(\\d{4}-\\d{2}-\\d{2})(?= )",
+      "captures": {
+        "1": {
+          "name": "constant.numeric.date.stanza"
+        }
+      }
+    },
+    "project": {
+      "comment": "+name preceded by line start or whitespace; name = [L,N][L,N,_,-]*, RFC §7.2.4",
+      "match": "(?<!\\S)(\\+[\\p{L}\\p{N}][\\p{L}\\p{N}_-]*)",
+      "captures": {
+        "1": {
+          "name": "entity.name.type.project.stanza"
+        }
+      }
+    },
+    "tag": {
+      "comment": "#name preceded by line start or whitespace; first char must be a letter, RFC §7.2.5",
+      "match": "(?<!\\S)(#\\p{L}[\\p{L}\\p{N}_-]*)",
+      "captures": {
+        "1": {
+          "name": "entity.name.tag.stanza"
+        }
+      }
+    }
+  }
+}

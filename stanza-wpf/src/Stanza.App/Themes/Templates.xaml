@@ -1,0 +1,235 @@
+<ResourceDictionary x:Class="Stanza.App.Themes.TaskTemplates"
+                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:vm="clr-namespace:Stanza.App.ViewModels"
+                    xmlns:app="clr-namespace:Stanza.App"
+                    xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
+
+    <!-- 任务卡片 -->
+    <DataTemplate x:Key="TaskTemplate" DataType="{x:Type vm:TaskViewModel}">
+        <!-- 普通态透明：任务行直接躺在灰色画布上，只有悬停/选中/展开才出现色面 -->
+        <Border x:Name="Card" Background="Transparent" CornerRadius="8" Margin="8,6"
+                BorderBrush="Transparent" BorderThickness="1">
+            <Border.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="完成" Command="{Binding DataContext.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
+                    <MenuItem Header="移到 WAIT" Command="{Binding DataContext.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}"/>
+                    <MenuItem Header="移到 DOING" Command="{Binding DataContext.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}"/>
+                    <MenuItem Header="废弃" Command="{Binding DataContext.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}"/>
+                    <MenuItem Header="恢复" Command="{Binding DataContext.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}"/>
+                    <Separator Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
+                    <MenuItem Header="彻底删除" Style="{StaticResource DangerMenuItem}"
+                              Command="{Binding DataContext.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                              Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
+                </ContextMenu>
+            </Border.ContextMenu>
+            <Grid>
+                <Grid x:Name="CardContent" Margin="12,9">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 折叠态：标题行 -->
+                    <StackPanel x:Name="ReadHeader" Grid.Row="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox Grid.Column="0" Style="{StaticResource TaskCheckBox}" Margin="0,0,10,0"
+                                      Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"
+                                      Click="TaskCheck_Click"/>
+
+                            <Border Grid.Column="1" Width="20" Height="20" CornerRadius="5"
+                                    BorderBrush="#FFE5E7EB" BorderThickness="1" Margin="0,0,8,0"
+                                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <TextBlock Grid.Column="2" Text="{Binding DueDisplay}" FontSize="12"
+                                       Foreground="{StaticResource FaintBrush}" Margin="0,0,10,0"
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
+                                <TextBlock.Style>
+                                    <Style TargetType="{x:Type TextBlock}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsOverdue}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <TextBlock Grid.Column="3" Text="{Binding Description}" FontSize="14"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- 备注标记（Things 风格：只提示存在，不渲染内容） -->
+                                <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
+                                      StrokeThickness="1.2" Width="10" Height="7" Margin="6,0,0,0"
+                                      VerticalAlignment="Center" ToolTip="含备注"
+                                      Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
+                                <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                        Padding="7,1" Margin="6,0,0,0"
+                                        Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
+                                               Foreground="{StaticResource GrayBrush}"/>
+                                </Border>
+                                <ItemsControl ItemsSource="{Binding Tags}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="9"
+                                                    Padding="7,1" Margin="4,0,0,0">
+                                                <TextBlock Text="{Binding ., StringFormat=#{0}}" FontSize="11"
+                                                           Foreground="{StaticResource AccentBrush}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 展开态标题行：勾选框 + 全宽主行编辑框 -->
+                    <Grid x:Name="EditHeader" Grid.Row="0" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- 勾选框顶对齐：与标题首行文字对齐（多行标题时停在首行），
+                             避免行高变化时居中重定位造成的位移 -->
+                        <CheckBox Grid.Column="0" Style="{StaticResource TaskCheckBox}" Margin="0,0,10,0"
+                                  VerticalAlignment="Top"
+                                  Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"
+                                  Click="TaskCheck_Click"/>
+                        <!-- MinHeight 与折叠态行高一致，展开/收起交换时行高不跳动 -->
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
+                                 Tag="(A) 2026-08-07 任务描述 +项目 #标签" FontSize="14" MinHeight="20" TextWrapping="Wrap"/>
+                    </Grid>
+
+                    <!-- 详情面板：展开/收起动画；左缩进与标题文本对齐（勾选框 17 + 间距 10） -->
+                    <StackPanel x:Name="DetailsPanel" Grid.Row="1" Visibility="Collapsed"
+                                Margin="27,0,0,0" ClipToBounds="True"
+                                behaviors:RevealBehavior.IsRevealed="{Binding IsExpanded}"
+                                behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
+                                behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
+                        <!-- 解析出的元数据：仅填写过的才显示 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                    Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
+                            <Border Width="20" Height="20" CornerRadius="5"
+                                    BorderBrush="#FFE5E7EB" BorderThickness="1"
+                                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding DueDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding Tags}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource AccentSoftBrush}" CornerRadius="9"
+                                                Padding="7,1" Margin="4,0,0,0">
+                                            <TextBlock Text="{Binding ., StringFormat=#{0}}" FontSize="11"
+                                                       Foreground="{StaticResource AccentBrush}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <!-- 备注：透明融进详情卡，与卡片同一色面，空内容时水印提示 -->
+                        <TextBox Text="{Binding NotesText, UpdateSourceTrigger=PropertyChanged}"
+                                 Tag="备注" Margin="0,6,0,0" FontSize="14"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 MinHeight="40" VerticalContentAlignment="Top"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+        <DataTemplate.Triggers>
+            <!-- 视觉优先级：悬停 < 选中 < 展开 -->
+            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                <Setter TargetName="Card" Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                <Setter TargetName="ReadHeader" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="EditHeader" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <!-- 展开卡外观由 RevealBehavior.IsChromeActive 驱动：收起动画播完才卸下，折叠过程全程可见 -->
+            <DataTrigger Binding="{Binding (behaviors:RevealBehavior.IsChromeActive), ElementName=Card}" Value="True">
+                <Setter TargetName="Card" Property="Background" Value="White"/>
+                <Setter TargetName="Card" Property="BorderBrush" Value="#FFE5E5EA"/>
+                <!-- 展开卡抬高一层：柔和投影把视觉重心拉到当前任务 -->
+                <Setter TargetName="Card" Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.10" Color="#FF1C1C1E"/>
+                    </Setter.Value>
+                </Setter>
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- 拖拽位置预览占位 -->
+    <DataTemplate x:Key="GapTemplate" DataType="{x:Type vm:GapItem}">
+        <Border Height="{Binding Height}" Margin="8,6" CornerRadius="8"
+                Background="{StaticResource AccentSoftBrush}" Opacity="0.65"
+                BorderBrush="{StaticResource AccentBrush}" BorderThickness="1"/>
+    </DataTemplate>
+
+    <!-- 拖拽幽灵卡片 -->
+    <DataTemplate x:Key="TaskGhostTemplate" DataType="{x:Type vm:TaskViewModel}">
+        <StackPanel Orientation="Horizontal">
+            <Border Width="17" Height="17" CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                    BorderBrush="#FFC7C7CC" BorderThickness="1.2"/>
+            <Border Width="20" Height="20" CornerRadius="5" Margin="0,0,8,0"
+                    BorderBrush="#FFE5E7EB" BorderThickness="1"
+                    Visibility="{Binding ShowPriority, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding Priority}" FontSize="11" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <TextBlock Text="{Binding Description}" FontSize="14" VerticalAlignment="Center"
+                       MaxWidth="520" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+    </DataTemplate>
+
+    <app:TaskListTemplateSelector x:Key="TaskListTemplateSelector"
+                                  TaskTemplate="{StaticResource TaskTemplate}"
+                                  GapTemplate="{StaticResource GapTemplate}"/>
+</ResourceDictionary>

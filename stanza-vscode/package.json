@@ -1,0 +1,60 @@
+{
+  "name": "vscode-stanza",
+  "displayName": "Stanza",
+  "description": "Syntax highlighting, snippets and folding for the Stanza plain-text task format",
+  "version": "1.1.0",
+  "publisher": "stanza-community",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/soryu-ryouji/StanzaVSCode.git"
+  },
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.9.2"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "stanza",
+    "todo",
+    "task",
+    "plaintext",
+    "productivity"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "stanza",
+        "aliases": [
+          "Stanza",
+          "stanza"
+        ],
+        "extensions": [
+          ".stanza"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "stanza",
+        "scopeName": "source.stanza",
+        "path": "./syntaxes/stanza.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "stanza",
+        "path": "./snippets/stanza.code-snippets"
+      }
+    ]
+  }
+}
