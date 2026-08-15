@@ -138,6 +138,9 @@ public partial class MainWindow
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // 退出确认遮罩打开时，按键交给遮罩处理（ExitOverlay_KeyDown）
+        if (ExitOverlay.Visibility == Visibility.Visible) return;
+
         if (e.Key == Key.Escape)
         {
             if (_taskDragging) { CancelTaskDrag(); e.Handled = true; }
@@ -146,7 +149,8 @@ public partial class MainWindow
                 ResetPressState();
                 if (VM.ExpandedTask != null || VM.SelectedTask != null)
                 {
-                    VM.CollapseExpanded();
+                    // Esc 退出编辑：与 Enter 同一出口——空草稿（新创建未填写）随之移除
+                    if (VM.ExpandedTask != null) VM.ConfirmTaskEdit(VM.ExpandedTask);
                     VM.SelectedTask = null;
                     Keyboard.ClearFocus();
                     e.Handled = true;
@@ -155,13 +159,88 @@ public partial class MainWindow
             return;
         }
 
-        // 回车展开当前选中任务（焦点在列表上时）
-        if (e.Key == Key.Enter && VM.SelectedTask != null && VM.ExpandedTask == null)
+        if (e.Key == Key.Enter)
         {
-            VM.ExpandTask(VM.SelectedTask);
-            FocusTaskTitle(VM.SelectedTask);
+            // 备注框（AcceptsReturn）里 Enter 是换行；按钮上 Enter 是激活，均不拦截
+            if (e.OriginalSource is TextBoxBase { AcceptsReturn: true }
+                || e.OriginalSource is ButtonBase)
+                return;
+
+            if (VM.ExpandedTask != null)
+            {
+                // 确认编辑：收起详情；空草稿被移除时焦点回到列表
+                VM.ConfirmTaskEdit(VM.ExpandedTask);
+                var keep = VM.SelectedTask;
+                if (keep != null) FocusContainerOf(keep);
+                else (TaskList as UIElement).Focus();
+                e.Handled = true;
+                return;
+            }
+
+            // 回车展开当前选中任务（焦点在列表上时）
+            if (VM.SelectedTask != null)
+            {
+                VM.ExpandTask(VM.SelectedTask);
+                FocusTaskTitle(VM.SelectedTask);
+                e.Handled = true;
+            }
+            return;
+        }
+
+        // Backspace：移入 DELETE（回收站语义，§9）；Delete：彻底删除（任意区块）。
+        // 文本编辑中不拦截——这两个键首先是编辑键
+        if (e.OriginalSource is TextBoxBase || !VM.HasSelection) return;
+
+        if (e.Key == Key.Back && VM.DiscardSelectionCommand.CanExecute(null))
+        {
+            var index = FirstSelectedIndex();
+            VM.DiscardSelectionCommand.Execute(null);
+            FocusTaskAtIndex(index);
             e.Handled = true;
         }
+        else if (e.Key == Key.Delete && VM.DeleteSelectionCommand.CanExecute(null))
+        {
+            var index = FirstSelectedIndex();
+            VM.DeleteSelectionCommand.Execute(null);
+            FocusTaskAtIndex(index);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>当前区块任务列表中第一个选中项的索引（删除/流转后用于焦点落位）。</summary>
+    private int FirstSelectedIndex()
+    {
+        var tasks = VM.SelectedBlock?.Tasks.ToList();
+        var first = VM.SelectedTasks.FirstOrDefault();
+        if (tasks == null || first == null) return 0;
+        var i = tasks.IndexOf(first);
+        return i < 0 ? 0 : i;
+    }
+
+    /// <summary>把焦点交给指定任务的条目容器（保持选中与方向键导航连贯）。</summary>
+    private void FocusContainerOf(TaskViewModel task)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            var container = TaskList.ItemContainerGenerator.ContainerFromItem(task) as UIElement;
+            (container ?? (UIElement)TaskList).Focus();
+        }));
+    }
+
+    /// <summary>删除/移走任务后，把焦点落到原位置的后续任务上；列表空了则交给列表本身。</summary>
+    private void FocusTaskAtIndex(int index)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            var tasks = VM.SelectedBlock?.Tasks.ToList();
+            if (tasks == null || tasks.Count == 0)
+            {
+                (TaskList as UIElement).Focus();
+                return;
+            }
+            var task = tasks[Math.Clamp(index, 0, tasks.Count - 1)];
+            FocusContainerOf(task);
+        }));
     }
 
     private void ResetPressState()
@@ -316,13 +395,15 @@ public partial class MainWindow
 
     private void OnTaskCreated(object? sender, TaskViewModel task)
     {
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        // 等首帧渲染布局完成（新容器排版、展开终态就位）后再滚动与聚焦：
+        // Loaded 优先级早于本次布局，此时 ScrollIntoView/聚焦会基于未排版的几何计算，
+        // 可能把内容滚到错误位置（表现为新卡片位置异常，切换区块重排后才恢复）
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
+            if (VM.SelectedBlock == null || !VM.SelectedBlock.Items.Contains(task)) return;
             TaskList.ScrollIntoView(task);
             TaskList.UpdateLayout();
-            var container = TaskList.ItemContainerGenerator.ContainerFromItem(task) as DependencyObject;
-            var box = container == null ? null : VisualTreeEx.FindVisualChildren<TextBox>(container).FirstOrDefault();
-            box?.Focus();
+            FocusTaskTitle(task);
         }));
     }
 }

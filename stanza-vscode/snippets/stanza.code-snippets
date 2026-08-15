@@ -50,6 +50,16 @@
     "body": "    ${1:备注内容}$0",
     "description": "插入缩进备注续行"
   },
+  "Created timestamp": {
+    "prefix": "created",
+    "body": "    ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} 创建$0",
+    "description": "插入创建时间戳行（今天的日期，RFC §7.4）"
+  },
+  "Completed timestamp": {
+    "prefix": "completed",
+    "body": "    ${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE} 完成$0",
+    "description": "插入完成时间戳行（今天的日期，RFC §7.4）"
+  },
   "Due date": {
     "prefix": "date",
     "body": "${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}",

@@ -9,6 +9,12 @@ public sealed class StanzaTask
     /// <summary>截止日期，null 表示无。</summary>
     public DateOnly? DueDate { get; set; }
 
+    /// <summary>创建时间（来自续行中的创建时间戳行，§7.4），null 表示无。</summary>
+    public DateOnly? CreatedAt { get; set; }
+
+    /// <summary>完成时间（来自续行中最后一条完成时间戳行，§7.4），null 表示未完成。</summary>
+    public DateOnly? CompletedAt { get; set; }
+
     /// <summary>描述主体（已移除 +项目 与 #标签）。</summary>
     public string Description { get; set; } = "";
 

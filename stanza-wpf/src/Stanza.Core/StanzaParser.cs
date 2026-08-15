@@ -26,6 +26,11 @@ public static class StanzaParser
     private static readonly Regex MultiSpaceRegex = new(
         @"[ \t]{2,}", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    // 时间戳行：续行中整行匹配“日期 + 关键字”（§7.4）；关键字取自字典，英文大小写不敏感
+    private static readonly Regex TimestampLineRegex = new(
+        @"^[ \t]*(\d{4}-\d{2}-\d{2}) (" + TimestampKeywords.Alternation + @")[ \t]*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     public static StanzaDocument Parse(string text)
     {
         var doc = new StanzaDocument();
@@ -92,7 +97,39 @@ public static class StanzaParser
         }
 
         // 规则 5：文件末尾暂存的空白行忽略（天然满足）
+        foreach (var b in doc.Blocks)
+            foreach (var t in b.Tasks)
+                ExtractTimestamps(t);   // §7.4：从备注提取创建/完成时间
         return doc;
+    }
+
+    /// <summary>从备注中提取时间戳（§7.4）：创建取第一条，完成取最后一条；备注本身原样保留。
+    /// 编辑器从文本重建模型后也应调用，以保持 CreatedAt/CompletedAt 与备注一致。</summary>
+    public static void ExtractTimestamps(StanzaTask task)
+    {
+        foreach (var note in task.Notes)
+        {
+            if (!TryMatchTimestampLine(note, out var date, out var kind)) continue;
+            if (kind == TimestampKind.Created)
+                task.CreatedAt ??= date;    // 创建：取第一条，其余按普通备注保留
+            else
+                task.CompletedAt = date;    // 完成：取最后一条（§7.4.3 日志语义）
+        }
+    }
+
+    /// <summary>判断一行文本是否为时间戳行（§7.4 整行匹配，容忍前导/尾随空白；日期必须合法）。</summary>
+    public static bool IsTimestampLine(string line)
+        => TryMatchTimestampLine(line, out _, out _);
+
+    private static bool TryMatchTimestampLine(string line, out DateOnly date, out TimestampKind kind)
+    {
+        date = default;
+        kind = default;
+        var m = TimestampLineRegex.Match(line);
+        return m.Success
+            && DateOnly.TryParseExact(m.Groups[1].Value, "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
+            && TimestampKeywords.TryGetKind(m.Groups[2].Value, out kind);
     }
 
     /// <summary>解析主行文本（供编辑器实时解析）。输入必须是不含换行的单行。</summary>

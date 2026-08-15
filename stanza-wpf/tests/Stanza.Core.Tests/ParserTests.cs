@@ -188,4 +188,77 @@ public class ParserTests
         Assert.Equal("One", task.Project);
         Assert.Equal("task +Two", task.Description);
     }
+
+    // ---- 时间戳行（§7.4 / §10.3 用例 16-20） ----
+
+    [Fact]
+    public void TimestampLines_ZhAndEn_AreExtracted()
+    {
+        var doc = StanzaParser.Parse("# DONE\n\ntask\n    2026-08-04 创建\n    备注\n    2026-08-06 完成\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Done)!.Tasks);
+        Assert.Equal(new DateOnly(2026, 8, 4), task.CreatedAt);
+        Assert.Equal(new DateOnly(2026, 8, 6), task.CompletedAt);
+        // 备注原样保留，保证写出无损（§7.3）
+        Assert.Equal(new[] { "    2026-08-04 创建", "    备注", "    2026-08-06 完成" }, task.Notes);
+    }
+
+    [Theory]
+    [InlineData("    2026-08-04 created")]
+    [InlineData("    2026-08-04 Created")]
+    [InlineData("    2026-08-04 CREATED")]
+    public void Case18_EnglishKeyword_IsCaseInsensitive(string line)
+    {
+        var doc = StanzaParser.Parse("# DOING\n\ntask\n" + line + "\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
+        Assert.Equal(new DateOnly(2026, 8, 4), task.CreatedAt);
+    }
+
+    [Theory]
+    [InlineData("    2026-08-05 完成初稿")]      // 关键字后有其他文字
+    [InlineData("    创建于 2026-08-05")]        // 关键字在日期之前
+    [InlineData("    2026-08-05 完成 ！")]       // 含其他字符
+    [InlineData("    2026-13-01 创建")]          // 非法日期
+    public void Case16_TimestampLine_RequiresFullLineMatch(string line)
+    {
+        var doc = StanzaParser.Parse("# DOING\n\ntask\n" + line + "\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
+        Assert.Null(task.CreatedAt);
+        Assert.Null(task.CompletedAt);
+        Assert.Equal(new[] { line }, task.Notes);   // 仍按普通备注保留
+    }
+
+    [Fact]
+    public void Case17_MultipleCompletions_LastWins()
+    {
+        var doc = StanzaParser.Parse("# DONE\n\ntask\n    2026-08-05 完成\n    2026-08-07 完成\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Done)!.Tasks);
+        Assert.Equal(new DateOnly(2026, 8, 7), task.CompletedAt);
+    }
+
+    [Fact]
+    public void Case19_MultipleCreations_FirstWins()
+    {
+        var doc = StanzaParser.Parse("# DOING\n\ntask\n    2026-08-04 创建\n    2026-08-05 创建\n");
+        var task = Assert.Single(doc.FindBlock(TaskState.Doing)!.Tasks);
+        Assert.Equal(new DateOnly(2026, 8, 4), task.CreatedAt);
+    }
+
+    [Fact]
+    public void Case20_Timestamps_SurviveWriteAndParse()
+    {
+        const string source = "# DONE\n\ntask\n    2026-08-04 创建\n    2026-08-06 完成\n";
+        var reparsed = StanzaParser.Parse(StanzaWriter.Write(StanzaParser.Parse(source)));
+        var task = Assert.Single(reparsed.FindBlock(TaskState.Done)!.Tasks);
+        Assert.Equal(new DateOnly(2026, 8, 4), task.CreatedAt);
+        Assert.Equal(new DateOnly(2026, 8, 6), task.CompletedAt);
+    }
+
+    [Fact]
+    public void IsTimestampLine_ToleratesSurroundingWhitespace()
+    {
+        Assert.True(StanzaParser.IsTimestampLine("2026-08-05 创建"));     // 顶格（编辑器备注文本）
+        Assert.True(StanzaParser.IsTimestampLine("  2026-08-05 完成  ")); // 前导/尾随空白
+        Assert.False(StanzaParser.IsTimestampLine("2026-08-05"));        // 裸日期不是时间戳行
+        Assert.False(StanzaParser.IsTimestampLine("随便一行备注"));
+    }
 }

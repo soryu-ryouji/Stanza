@@ -2,7 +2,7 @@
   "name": "vscode-stanza",
   "displayName": "Stanza",
   "description": "Syntax highlighting, snippets and folding for the Stanza plain-text task format",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "stanza-community",
   "license": "MIT",
   "repository": {

@@ -21,12 +21,12 @@
                               Visibility="{Binding IsDoing, Converter={StaticResource BoolToVis}}"/>
                     <MenuItem Header="移到 DOING" Command="{Binding PlacementTarget.Tag.ActivateSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsWaiting, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="废弃" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                    <MenuItem Header="废弃" InputGestureText="Backspace" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}"/>
                     <MenuItem Header="恢复" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}"/>
                     <Separator Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Header="彻底删除" Style="{StaticResource DangerMenuItem}"
+                    <MenuItem Header="彻底删除" InputGestureText="Delete" Style="{StaticResource DangerMenuItem}"
                               Command="{Binding PlacementTarget.Tag.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
                 </ContextMenu>

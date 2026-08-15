@@ -71,10 +71,19 @@ public static class RevealBehavior
     {
         if (d is not FrameworkElement el) return;
 
-        // 容器尚未完成初始布局（新建容器、切换区块后重建等）时直接呈现终态，不播放动画
         if (!el.IsLoaded)
         {
-            ApplyFinalState(el, (bool)e.NewValue);
+            // 模板实例化期间，SpacingTarget/ContentTarget 的 ElementName 绑定可能尚未求值（属性按声明顺序应用，
+            // IsRevealed 先触发）。此时直接读会拿到 null，导致展开态的边距增量与卡片外观缺失，
+            // 之后收起时再按增量反向补偿就会把边距算成负值（卡片内容上溢、容器被压扁）。
+            // 延迟到 Loaded（全部绑定已解析、首帧渲染前）应用终态，不播放动画。
+            // ApplyFinalState 的边距由基准值绝对推算，重复应用冪等，多次订阅 Loaded 无害。
+            el.Loaded += ApplyOnce;
+            void ApplyOnce(object? s, RoutedEventArgs args)
+            {
+                el.Loaded -= ApplyOnce;
+                ApplyFinalState(el, GetIsRevealed(el));
+            }
             return;
         }
 
@@ -82,28 +91,52 @@ public static class RevealBehavior
         else Collapse(el);
     }
 
+    // 基准边距（未展开态）：首次访问时捕获并缓存。之后展开/收起的终点一律由基准绝对推算，
+    // 不用「当前值 + 增量」的相对计算，动画被打断时也不会累积误差
+    private static readonly DependencyProperty BaseMarginProperty =
+        DependencyProperty.RegisterAttached(
+            "BaseMargin", typeof(Thickness?), typeof(RevealBehavior),
+            new FrameworkPropertyMetadata(null));
+
+    private static Thickness GetBaseMargin(FrameworkElement target)
+    {
+        if (target.GetValue(BaseMarginProperty) is Thickness stored) return stored;
+        var current = target.Margin;
+        target.SetValue(BaseMarginProperty, current);
+        return current;
+    }
+
     private static void ApplyFinalState(FrameworkElement el, bool revealed)
     {
         el.BeginAnimation(FrameworkElement.MaxHeightProperty, null);
         el.BeginAnimation(UIElement.OpacityProperty, null);
         var target = GetSpacingTarget(el);
-        if (target != null) SetIsChromeActive(target, revealed);
+        var content = GetContentTarget(el);
         if (revealed)
         {
             el.MaxHeight = double.PositiveInfinity;
             el.Opacity = 1;
             el.Visibility = Visibility.Visible;
             if (target != null)
-                target.Margin = Add(target.Margin, ExpandSpacing);
-            var content = GetContentTarget(el);
+            {
+                SetIsChromeActive(target, true);
+                target.Margin = Add(GetBaseMargin(target), ExpandSpacing);
+            }
             if (content != null)
-                content.Margin = Add(content.Margin, ExpandContentInset);
+                content.Margin = Add(GetBaseMargin(content), ExpandContentInset);
         }
         else
         {
             el.MaxHeight = 0;
             el.Opacity = 0;
             el.Visibility = Visibility.Collapsed;
+            if (target != null)
+            {
+                SetIsChromeActive(target, false);
+                target.Margin = GetBaseMargin(target);
+            }
+            if (content != null)
+                content.Margin = GetBaseMargin(content);
         }
     }
 
@@ -112,8 +145,10 @@ public static class RevealBehavior
         el.BeginAnimation(FrameworkElement.MaxHeightProperty, null);
         el.BeginAnimation(UIElement.OpacityProperty, null);
 
-        // 展开开始即点上卡片外观
         var card = GetSpacingTarget(el);
+        var content = GetContentTarget(el);
+
+        // 展开开始即点上卡片外观
         if (card != null) SetIsChromeActive(card, true);
 
         // 先以无高度限制量出目标高度
@@ -121,17 +156,17 @@ public static class RevealBehavior
         el.Visibility = Visibility.Visible;
         var width = (el.Parent as FrameworkElement)?.ActualWidth ?? 0;
         el.Measure(new Size(width > 0 ? width : double.PositiveInfinity, double.PositiveInfinity));
-        var target = el.DesiredSize.Height;
+        var targetHeight = el.DesiredSize.Height;
 
         el.MaxHeight = 0;
         el.Opacity = 0;
 
         // 间距展开：卡片上下让位、左右向外延伸，与详情展开动画同步（Things 3 风格）；
-        // 内容层同步反向补偿，标题/备注保持原位
-        AnimateMargin(GetSpacingTarget(el), ExpandSpacing, ExpandDuration, new CubicEase { EasingMode = EasingMode.EaseOut });
-        AnimateMargin(GetContentTarget(el), ExpandContentInset, ExpandDuration, new CubicEase { EasingMode = EasingMode.EaseOut });
+        // 内容层同步反向补偿，标题/备注保持原位。终点由基准边距绝对推算（打断不漂移）
+        if (card != null) AnimateMargin(card, Add(GetBaseMargin(card), ExpandSpacing), ExpandDuration, new CubicEase { EasingMode = EasingMode.EaseOut });
+        if (content != null) AnimateMargin(content, Add(GetBaseMargin(content), ExpandContentInset), ExpandDuration, new CubicEase { EasingMode = EasingMode.EaseOut });
 
-        var heightAnim = new DoubleAnimation(0, target, ExpandDuration)
+        var heightAnim = new DoubleAnimation(0, targetHeight, ExpandDuration)
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
         };
@@ -155,9 +190,11 @@ public static class RevealBehavior
         var from = el.ActualHeight;
         el.MaxHeight = from;
 
-        // 间距同步收回（内容层反向补偿同步撤销）
-        AnimateMargin(GetSpacingTarget(el), Negate(ExpandSpacing), CollapseDuration, new QuadraticEase { EasingMode = EasingMode.EaseIn });
-        AnimateMargin(GetContentTarget(el), Negate(ExpandContentInset), CollapseDuration, new QuadraticEase { EasingMode = EasingMode.EaseIn });
+        // 间距同步收回至基准（内容层反向补偿同步撤销）
+        var card = GetSpacingTarget(el);
+        var content = GetContentTarget(el);
+        if (card != null) AnimateMargin(card, GetBaseMargin(card), CollapseDuration, new QuadraticEase { EasingMode = EasingMode.EaseIn });
+        if (content != null) AnimateMargin(content, GetBaseMargin(content), CollapseDuration, new QuadraticEase { EasingMode = EasingMode.EaseIn });
 
         var heightAnim = new DoubleAnimation(from, 0, CollapseDuration)
         {
@@ -169,7 +206,6 @@ public static class RevealBehavior
             el.MaxHeight = 0;
             el.Visibility = Visibility.Collapsed;
             // 收缩完成后才卸下卡片外观，折叠全程保持白卡/描边/投影
-            var card = GetSpacingTarget(el);
             if (card != null) SetIsChromeActive(card, false);
         };
         el.BeginAnimation(FrameworkElement.MaxHeightProperty, heightAnim);
@@ -177,14 +213,14 @@ public static class RevealBehavior
         el.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(el.Opacity, 0, CollapseFadeDuration));
     }
 
-    /// <summary>边距动画：按 delta 分量增减目标元素的四向边距（展开传正，收起传反）。</summary>
-    private static void AnimateMargin(FrameworkElement? target, Thickness delta, Duration duration, IEasingFunction easing)
+    /// <summary>边距动画：从当前值过渡到绝对终点（由基准边距推算），打断后以当前值为起点重播。</summary>
+    private static void AnimateMargin(FrameworkElement? target, Thickness to, Duration duration, IEasingFunction easing)
     {
         if (target == null) return;
         target.BeginAnimation(FrameworkElement.MarginProperty, new ThicknessAnimation
         {
             From = target.Margin,
-            To = Add(target.Margin, delta),
+            To = to,
             Duration = duration,
             EasingFunction = easing,
         });
@@ -192,6 +228,4 @@ public static class RevealBehavior
 
     private static Thickness Add(Thickness a, Thickness b)
         => new(a.Left + b.Left, a.Top + b.Top, a.Right + b.Right, a.Bottom + b.Bottom);
-
-    private static Thickness Negate(Thickness t) => new(-t.Left, -t.Top, -t.Right, -t.Bottom);
 }

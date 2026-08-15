@@ -40,7 +40,9 @@ public sealed class MainViewModel : ViewModelBase
             _ => HasDocument && SelectedBlock is { HasTasks: true } b
                 && b.State is TaskState.Done or TaskState.Delete);
         CompleteSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Done, normalize: true), _ => HasSelection);
-        DiscardSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Delete, normalize: true), _ => HasSelection);
+        DiscardSelectionCommand = new RelayCommand(
+            _ => TransitionTasks(SelectedTasks.ToList(), TaskState.Delete, normalize: true),
+            _ => HasSelection && SelectedBlock?.IsDeleted != true);   // 已在 DELETE 区块时无需再废弃
         RestoreSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
         DeferSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Wait), _ => HasSelection);
         ActivateSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
@@ -185,6 +187,17 @@ public sealed class MainViewModel : ViewModelBase
         SettleSort();
     }
 
+    /// <summary>确认编辑（Enter）：收起详情；内容为空的新草稿直接移除
+    /// （空任务无法持久化：保存时按 IsEmpty 过滤，主行为空也无法表示）。</summary>
+    public void ConfirmTaskEdit(TaskViewModel task)
+    {
+        CollapseExpanded();
+        if (!task.IsEmpty) return;
+        Blocks.FirstOrDefault(b => b.Items.Contains(task))?.RemoveTask(task);
+        if (SelectedTask == task) SelectedTask = null;
+        NotifyContentChanged();
+    }
+
     /// <summary>任务被移走或删除前调用：收起并解除展开/选中状态。</summary>
     private void DetachTask(TaskViewModel task)
     {
@@ -326,6 +339,8 @@ public sealed class MainViewModel : ViewModelBase
     public TaskViewModel CreateTask(BlockViewModel block, int index)
     {
         var task = new TaskViewModel(this) { State = block.State };
+        // §7.4 / §9：创建时间戳写为第一条续行；任务未被填写就被放弃时按空任务过滤（IsEmpty 忽略时间戳行）
+        task.NotesText = TaskTransitions.TimestampLine(TimestampKind.Created, DateOnly.FromDateTime(DateTime.Today));
         block.InsertTask(index, task);
         SelectedTask = task;
         ExpandTask(task);   // 新任务总是展开待编辑
@@ -377,7 +392,7 @@ public sealed class MainViewModel : ViewModelBase
         var m = StanzaParser.ParseTaskHeader(task.HeaderText);
         TaskTransitions.NormalizeForState(m, task.State, target, today);
         task.HeaderText = StanzaWriter.ComposeTaskHeader(m);
-        // 主行解析不出备注，m.Notes 即本次规范化追加的增量
+        // 主行解析不出备注，m.Notes 即本次规范化追加的增量（完成时间戳行，§7.4）
         foreach (var line in m.Notes) task.AppendNote(line.TrimStart());
     }
 

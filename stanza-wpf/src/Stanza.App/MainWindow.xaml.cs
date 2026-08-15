@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Stanza.App.ViewModels;
 
@@ -83,19 +86,75 @@ public partial class MainWindow : Window
     private void ToggleMaximize()
         => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
+    // ==================== 退出确认（应用内遮罩层） ====================
+
+    private bool _allowClose;
+
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (!VM.IsDirty) return;
-        var r = MessageBox.Show(this, "有未保存的更改。", "Stanza",
-            MessageBoxButton.YesNoCancel, MessageBoxImage.None);
-        if (r == MessageBoxResult.Yes)
+        if (_allowClose || !VM.IsDirty) return;
+        e.Cancel = true;   // 先拦下关闭，由遮罩层的三个选择决定后续
+        ShowExitOverlay();
+    }
+
+    private void ShowExitOverlay()
+    {
+        ExitOverlay.Visibility = Visibility.Visible;
+        ExitOverlay.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var scale = new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease };
+        ExitCardScale.BeginAnimation(ScaleTransform.ScaleXProperty, scale);
+        ExitCardScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => ExitSaveButton.Focus()));
+    }
+
+    private void HideExitOverlay()
+    {
+        ExitOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+        ExitOverlay.Visibility = Visibility.Collapsed;
+        // 与点击空白一致：不主动归还焦点，避免 ListBox 聚焦首项导致视图跳动
+        Keyboard.ClearFocus();
+    }
+
+    private void ExitSave_Click(object sender, RoutedEventArgs e)
+    {
+        VM.Save();
+        if (!VM.IsDirty)
         {
-            VM.Save();
-            if (VM.IsDirty) e.Cancel = true;   // 保存被取消（如未选择路径），不关闭
+            _allowClose = true;
+            Close();
         }
-        else if (r == MessageBoxResult.Cancel)
+        else
         {
-            e.Cancel = true;
+            // 保存流程未完成（如新建文档在路径选择框点了取消）：回到应用
+            HideExitOverlay();
+        }
+    }
+
+    private void ExitDiscard_Click(object sender, RoutedEventArgs e)
+    {
+        _allowClose = true;
+        Close();
+    }
+
+    private void ExitCancel_Click(object sender, RoutedEventArgs e) => HideExitOverlay();
+
+    private void ExitOverlay_DimMouseDown(object sender, MouseButtonEventArgs e) => HideExitOverlay();
+
+    private void ExitOverlay_KeyDown(object sender, KeyEventArgs e)
+    {
+        // Enter 默认保存（焦点在按钮上时交给按钮自身，避免重复触发）；Esc 取消
+        if (e.Key == Key.Enter && Keyboard.FocusedElement is not ButtonBase)
+        {
+            e.Handled = true;
+            ExitSave_Click(sender, e);
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            HideExitOverlay();
         }
     }
 

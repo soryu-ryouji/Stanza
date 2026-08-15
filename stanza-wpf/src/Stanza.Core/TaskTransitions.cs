@@ -7,17 +7,19 @@ namespace Stanza.Core;
 public static class TaskTransitions
 {
     /// <summary>§9：状态流转时规范化任务。进入 DONE/DELETE 移除优先级；进入 DONE 在备注末尾
-    /// 追加完成日期（规范续行形式，4 空格缩进）。同状态内移动不触发任何变更。</summary>
+    /// 追加完成时间戳行（§7.4，规范续行形式，4 空格缩进）。同状态内移动不触发任何变更。
+    /// 既有续行（含创建时间戳、历史完成时间戳）一律保留。</summary>
     /// <param name="today">完成日期的取值，由调用方注入以保证可测试。</param>
     public static void NormalizeForState(StanzaTask task, TaskState from, TaskState to, DateOnly today)
     {
         if (from == to) return;
         if (to is TaskState.Done or TaskState.Delete) task.Priority = null;
-        if (to == TaskState.Done) task.Notes.Add("    " + CompletionLine(today));
+        if (to == TaskState.Done) task.Notes.Add("    " + TimestampLine(TimestampKind.Completed, today));
     }
 
-    /// <summary>§9：完成日期行的文本（不含续行缩进）。</summary>
-    public static string CompletionLine(DateOnly today) => $"{today:yyyy-MM-dd} 完成";
+    /// <summary>§7.4：时间戳行的规范文本（规范形式关键字，不含续行缩进）。</summary>
+    public static string TimestampLine(TimestampKind kind, DateOnly date)
+        => $"{date:yyyy-MM-dd} {TimestampKeywords.Canonical(kind)}";
 
     /// <summary>§9：进入目标区块的默认位置——DONE/DELETE 插到顶部，DOING/WAIT 追加到末尾。</summary>
     public static bool InsertsAtTop(TaskState state) => state is TaskState.Done or TaskState.Delete;

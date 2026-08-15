@@ -10,6 +10,9 @@
       "include": "#state-block"
     },
     {
+      "include": "#timestamp-line"
+    },
+    {
       "include": "#continuation-line"
     },
     {
@@ -27,6 +30,19 @@
         },
         "2": {
           "name": "entity.name.section.state-name.stanza"
+        }
+      }
+    },
+    "timestamp-line": {
+      "comment": "Timestamp line: indented 'YYYY-MM-DD + keyword', full-line match, RFC §7.4. Keywords from the dictionary (§7.4.2), English aliases case-insensitive. Inherits the notes scope so it stays dimmed like other continuation lines.",
+      "match": "^[ \\t]+(\\d{4}-\\d{2}-\\d{2})( )((?i:创建|完成|created|completed))[ \\t]*$",
+      "name": "meta.timestamp-line.stanza comment.block.notes.stanza",
+      "captures": {
+        "1": {
+          "name": "constant.numeric.date.stanza"
+        },
+        "3": {
+          "name": "keyword.other.timestamp.stanza"
         }
       }
     },

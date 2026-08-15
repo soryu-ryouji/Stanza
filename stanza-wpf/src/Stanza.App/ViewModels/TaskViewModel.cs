@@ -154,9 +154,10 @@ public sealed class TaskViewModel : ViewModelBase
         set => Set(ref _isExpanded, value);
     }
 
-    /// <summary>是否完全没有内容（保存时丢弃）。</summary>
+    /// <summary>是否完全没有内容（保存时丢弃）。时间戳行是工具写入的元数据，不计为内容（§7.4）。</summary>
     public bool IsEmpty =>
-        HeaderText.Trim().Length == 0 && NotesText.Trim().Length == 0;
+        HeaderText.Trim().Length == 0
+        && NotesText.Split('\n').All(line => line.Trim().Length == 0 || StanzaParser.IsTimestampLine(line));
 
     public void AppendNote(string line)
     {
@@ -174,6 +175,7 @@ public sealed class TaskViewModel : ViewModelBase
         while (task.Notes.Count > 0 && task.Notes[^1].Length == 0)
             task.Notes.RemoveAt(task.Notes.Count - 1);
 
+        StanzaParser.ExtractTimestamps(task);   // 保持 CreatedAt/CompletedAt 与备注一致（§7.4）
         return task;
     }
 

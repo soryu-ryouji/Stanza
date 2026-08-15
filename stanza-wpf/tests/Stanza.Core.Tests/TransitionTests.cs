@@ -61,8 +61,11 @@ public class TransitionTests
     }
 
     [Fact]
-    public void CompletionLine_FormatsCanonicalDate()
-        => Assert.Equal("2026-02-10 完成", TaskTransitions.CompletionLine(Today));
+    public void TimestampLine_FormatsCanonicalKeywords()
+    {
+        Assert.Equal("2026-02-10 完成", TaskTransitions.TimestampLine(TimestampKind.Completed, Today));
+        Assert.Equal("2026-02-10 创建", TaskTransitions.TimestampLine(TimestampKind.Created, Today));
+    }
 
     // ---- 插入位置（§9） ----
 
@@ -167,6 +170,7 @@ public class TransitionTests
         Assert.Null(moved.Priority);
         Assert.Equal("写月报", moved.Description);
         Assert.Equal("    2026-02-10 完成", moved.Notes[^1]);
+        Assert.Equal(new DateOnly(2026, 2, 10), moved.CompletedAt);   // 完成时间戳被提取（§7.4）
         Assert.Empty(reparsed.FindBlock(TaskState.Doing)!.Tasks);
     }
 }

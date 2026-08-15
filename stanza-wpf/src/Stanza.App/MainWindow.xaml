@@ -288,7 +288,7 @@
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                             </Button>
-                            <Button Style="{StaticResource ToolIconButton}" ToolTip="废弃"
+                            <Button Style="{StaticResource ToolIconButton}" ToolTip="废弃（Backspace）"
                                     Command="{Binding DiscardSelectionCommand}"
                                     Visibility="{Binding SelectedBlock.IsDeleted, Converter={StaticResource InverseBoolToVis}}">
                                 <Path Data="M4,5 H12 M5,5 V12.5 Q5,13 5.5,13 H10.5 Q11,13 11,12.5 V5 M6.5,5 V4 Q6.5,3 7,3 H9 Q9.5,3 9.5,4 V5"
@@ -296,7 +296,7 @@
                                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                                       StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             </Button>
-                            <Button Style="{StaticResource DangerToolIconButton}" ToolTip="彻底删除"
+                            <Button Style="{StaticResource DangerToolIconButton}" ToolTip="彻底删除（Delete）"
                                     Command="{Binding DeleteSelectionCommand}"
                                     Visibility="{Binding SelectedBlock.IsDeleted, Converter={StaticResource BoolToVis}}">
                                 <Path Data="M4,4 L12,12 M12,4 L4,12" Width="16" Height="16"
@@ -386,6 +386,40 @@
             <TextBlock Text="松开以打开文件" FontSize="16" Foreground="{StaticResource AccentBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Border>
+
+        <!-- 退出确认遮罩：未保存更改时关闭窗口的应用内确认层（代替原生 MessageBox） -->
+        <Grid x:Name="ExitOverlay" Visibility="Collapsed" Opacity="0"
+              KeyboardNavigation.TabNavigation="Cycle"
+              PreviewKeyDown="ExitOverlay_KeyDown">
+            <!-- 暗化背景：点击空白 = 取消 -->
+            <Border Background="#401C1C1E" PreviewMouseLeftButtonDown="ExitOverlay_DimMouseDown"/>
+            <Border x:Name="ExitCard" Width="380" Padding="26,22,26,20"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="White" CornerRadius="12"
+                    BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                    RenderTransformOrigin="0.5,0.5">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.22" Color="#FF1C1C1E"/>
+                </Border.Effect>
+                <Border.RenderTransform>
+                    <ScaleTransform x:Name="ExitCardScale" ScaleX="0.96" ScaleY="0.96"/>
+                </Border.RenderTransform>
+                <StackPanel>
+                    <TextBlock Text="有未保存的更改" FontSize="15" FontWeight="SemiBold"/>
+                    <TextBlock Margin="0,7,0,0" FontSize="12.5" Foreground="{StaticResource GrayBrush}"
+                               TextWrapping="Wrap"
+                               Text="{Binding FileName, StringFormat=若现在退出，「{0}」的更改将丢失。}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button Style="{StaticResource GhostButton}" Content="取消" MinWidth="56"
+                                FocusVisualStyle="{x:Null}" Click="ExitCancel_Click"/>
+                        <Button Style="{StaticResource DialogDangerButton}" Content="不保存" MinWidth="56"
+                                Margin="8,0,0,0" Click="ExitDiscard_Click"/>
+                        <Button x:Name="ExitSaveButton" Style="{StaticResource PrimaryButton}" Content="保存"
+                                MinWidth="64" Margin="12,0,0,0" Click="ExitSave_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
         </Border>
     </Grid>
