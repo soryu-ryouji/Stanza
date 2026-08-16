@@ -26,8 +26,9 @@ public partial class MainWindow : Window
         vm.TaskCreated += OnTaskCreated;
         DataContext = vm;
 
-        // 区块切换后把焦点交给任务列表中的条目容器：防止焦点悬在 ListBox 上显示主题虚线框，
-        // 同时保持方向键导航可用
+        // 区块切换后把焦点放进任务列表：否则焦点停在侧栏被点击的区块条目上，
+        // 方向键会在侧栏导航（选中跟随焦点，等于连续切区块）而不是驱动任务。
+        // 条目容器只聚焦不选中（WPF 外部进入不联动选中），方向键兜底会锚定这个焦点项
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.SelectedFacet))

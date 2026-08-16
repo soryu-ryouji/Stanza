@@ -159,19 +159,94 @@ public partial class MainWindow
         => SettingsOverlay.Visibility == Visibility.Visible
            || ExitOverlay.Visibility == Visibility.Visible;
 
-    // 应用级快捷键在路由前分发（命令优先，VS 语义）：与键盘焦点无关，窗口激活即生效——
+    // 应用级按键在路由前分发（命令优先，VS 语义）：与键盘焦点无关，窗口激活即生效——
     // 无焦点元素时按键根本不产生路由事件，挂在路由事件上的分发收不到。
     // 模态浮层打开时跳过：浮层的按键过滤/键位录制靠路由事件实现，不能绕过；
-    // 非模态的 FacetPicker 不拦截，快捷键保持穿透（与路由时代行为一致）
+    // 非模态的 FacetPicker 不拦截，按键保持穿透（与路由时代行为一致）
     private void OnPreProcessInput(object sender, PreProcessInputEventArgs e)
     {
         if (ModalOverlayOpen) return;
         if (e.StagingItem.Input is not KeyEventArgs k || k.RoutedEvent != Keyboard.KeyDownEvent) return;
-        if (Keymap.Current.Resolve(k.Key, Keyboard.Modifiers) is not { } entry) return;
-        if (VM.CommandFor(entry.Command) is not { } command || !command.CanExecute(entry.Parameter)) return;
-        command.Execute(entry.Parameter);
-        e.Cancel();   // 已消费，不再进入路由
+
+        // 应用级快捷键：查键位表分发到命令（Keymap.cs）
+        if (Keymap.Current.Resolve(k.Key, Keyboard.Modifiers) is { } entry
+            && VM.CommandFor(entry.Command) is { } command
+            && command.CanExecute(entry.Parameter))
+        {
+            command.Execute(entry.Parameter);
+            e.Cancel();   // 已消费，不再进入路由
+            return;
+        }
+
+        // 裸方向键：焦点无人消费时引入任务列表并移动选中（见 ArrowsDeadOnFocus）
+        if (k.Key is Key.Up or Key.Down or Key.Left or Key.Right
+            && Keyboard.Modifiers == ModifierKeys.None
+            && !RecentPopup.IsOpen
+            && ArrowsDeadOnFocus)
+        {
+            FocusTaskForArrow(k.Key);
+            e.Cancel();
+        }
     }
+
+    /// <summary>裸方向键当前无人消费：无焦点；焦点在按钮/窗口/任务列表框本体上；
+    /// 或焦点在任务列表的未选中条目上（启动/切区块时预置的「只聚焦不选中」状态，见 MainWindow 构造函数）。
+    /// 编辑框（光标移动）、选中条目（默认方向导航接管）、侧栏列表、浮层内的焦点不接管。</summary>
+    private bool ArrowsDeadOnFocus
+    {
+        get
+        {
+            if (Keyboard.FocusedElement is not DependencyObject focus) return true;
+            if (focus is TextBoxBase) return false;
+            if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+            if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item)
+                return VisualTreeEx.IsWithin(focus, TaskList) && !item.IsSelected;
+            if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
+            return true;
+        }
+    }
+
+    /// <summary>方向键定位任务列表选中：有选中时 Up/Down 相对当前项移动（Left/Right 只归位焦点）；
+    /// 无选中但焦点已在某条目上时选中该焦点项；都没有时 Down/Right 选首项、Up/Left 选末项。</summary>
+    private void FocusTaskForArrow(Key key)
+    {
+        var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
+        if (tasks.Count == 0)
+        {
+            (TaskList as UIElement).Focus();
+            return;
+        }
+
+        var i = VM.SelectedTask is { } current ? tasks.IndexOf(current) : -1;
+        TaskViewModel target;
+        if (i >= 0)
+        {
+            target = key switch
+            {
+                Key.Down => tasks[Math.Min(i + 1, tasks.Count - 1)],
+                Key.Up => tasks[Math.Max(i - 1, 0)],
+                _ => tasks[i],   // Left/Right 不移动
+            };
+        }
+        else if (FocusedTask() is { } anchored && tasks.Contains(anchored))
+        {
+            target = anchored;   // 先让隐形的预置焦点成为选中，后续按键再走默认导航
+        }
+        else
+        {
+            target = key is Key.Up or Key.Left ? tasks[^1] : tasks[0];
+        }
+        // 显式选中：WPF 里焦点从列表外进入时不联动选中（Tab 进 ListBox 只聚焦不选中），
+        // 只有列表内的焦点迁移选中才跟随。先选中再聚焦，入位后后续方向键走默认导航，选中继续跟随
+        VM.SelectedTask = target;
+        FocusContainerOf(target);
+    }
+
+    /// <summary>当前焦点所在条目的任务（焦点不在任务列表条目内时返回 null）。</summary>
+    private TaskViewModel? FocusedTask()
+        => Keyboard.FocusedElement is DependencyObject focus && VisualTreeEx.IsWithin(focus, TaskList)
+            ? VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus)?.DataContext as TaskViewModel
+            : null;
 
     // 语义键（焦点相关，控件级按键）：挂在窗口 KeyDown（冒泡方向），焦点控件先处理，
     // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、
@@ -269,17 +344,18 @@ public partial class MainWindow
         else (TaskList as UIElement).Focus();
     }
 
-    /// <summary>当前区块任务列表中第一个选中项的索引（删除/流转后用于焦点落位）。</summary>
+    /// <summary>可见列表中第一个选中项的索引（删除/流转后用于落位）。</summary>
     private int FirstSelectedIndex()
     {
-        var tasks = VM.SelectedBlock?.Tasks.ToList();
+        var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
         var first = VM.SelectedTasks.FirstOrDefault();
-        if (tasks == null || first == null) return 0;
+        if (first == null) return 0;
         var i = tasks.IndexOf(first);
         return i < 0 ? 0 : i;
     }
 
-    /// <summary>把焦点交给指定任务的条目容器（保持选中与方向键导航连贯）。</summary>
+    /// <summary>把焦点交给指定任务的条目容器。只聚焦：焦点从列表外进入时不联动选中，
+    /// 需要选中的场景（删除落位、方向键定位）须显式设置 VM.SelectedTask。</summary>
     private void FocusContainerOf(TaskViewModel task)
     {
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -288,19 +364,22 @@ public partial class MainWindow
         }));
     }
 
-    /// <summary>删除/移走任务后，把焦点落到原位置的后续任务上；列表空了则交给列表本身。</summary>
+    /// <summary>删除/移走任务后，把选中与焦点落到原位置的后续任务上（Delete/Backspace 可连续操作）；
+    /// 列表空了则把焦点交给列表本身。</summary>
     private void FocusTaskAtIndex(int index)
     {
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
-            var tasks = VM.SelectedBlock?.Tasks.ToList();
-            if (tasks == null || tasks.Count == 0)
+            var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
+            if (tasks.Count == 0)
             {
                 (TaskList as UIElement).Focus();
                 return;
             }
             var task = tasks[Math.Clamp(index, 0, tasks.Count - 1)];
-            FocusContainerOf(task);
+            // 被删条目的容器已随视觉树移除，焦点落空；从外部聚焦不联动选中，需显式设置
+            VM.SelectedTask = task;
+            (ContainerOf(task) as UIElement ?? (UIElement)TaskList).Focus();
         }));
     }
 

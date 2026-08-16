@@ -69,7 +69,8 @@ public partial class MainWindow
             HideSettings();
             return;
         }
-        // 模态：焦点导航/激活键之外不穿透到主界面（含应用快捷键）；
+        // 模态：焦点导航/激活键之外不穿透到主界面（挡冒泡的语义键；
+        // 应用快捷键在 PreProcessInput 已被 ModalOverlayOpen 拦截，不会到达路由）；
         // Enter 落在非按钮上时拦下，避免冒泡到主窗口触发展开/收起
         if (e.Key is not (Key.Tab or Key.Enter or Key.Space))
             e.Handled = true;
