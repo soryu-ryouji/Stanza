@@ -24,6 +24,7 @@ public partial class MainWindow : Window
             PickSaveFile = PickSaveFile,
             OpenRecentRequested = OpenOrCycleRecent,
             CompleteSelectionRequested = () => AnimateCompleteTasks(VM.SelectedTasks.ToList()),
+            UndoRequested = UndoWithAnimation,
         };
         vm.TaskCreated += OnTaskCreated;
         DataContext = vm;

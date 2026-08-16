@@ -40,7 +40,13 @@ public sealed class MainViewModel : ViewModelBase
         OpenCommand = new RelayCommand(_ => OpenInteractive());
         NewDocumentCommand = new RelayCommand(_ => NewDocument());
         OpenRecentCommand = new RelayCommand(_ => OpenRecentRequested?.Invoke());
-        UndoCommand = new RelayCommand(_ => Undo(), _ => _undoStack.Count > 0);
+        UndoCommand = new RelayCommand(
+            _ =>
+            {
+                if (UndoRequested is { } animate) animate();
+                else Undo();
+            },
+            _ => _undoStack.Count > 0);
         NewTaskCommand = new RelayCommand(_ => CreateTaskAtEnd(),
             _ => HasDocument && (SelectedBlock != null || SelectedFacet != null));
         SelectBlockCommand = new RelayCommand(p =>
@@ -589,8 +595,11 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>撤销请求：视图接管为动画流程（回归任务播浮现动画）；未接管时直接恢复。</summary>
+    public Action? UndoRequested { get; set; }
+
     /// <summary>撤销上一操作：恢复前一文档快照，保持当前区块视图。</summary>
-    private void Undo()
+    public void Undo()
     {
         var current = SerializeDocument();
         while (_undoStack.Count > 0 && _undoStack.Peek() == current)

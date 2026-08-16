@@ -190,8 +190,9 @@ public partial class MainWindow
             && command.CanExecute(entry.Parameter))
         {
             // 编辑框内的 Ctrl+Z 是文本级撤销（WPF 内建）：不消费，交给路由
-            if (entry.Command == AppCommand.Undo && Keyboard.FocusedElement is TextBoxBase)
-                return;
+            if (entry.Command == AppCommand.Undo
+                && (Keyboard.FocusedElement is TextBoxBase || _taskDragging))
+                return;   // 拖拽中不撤销：拖拽持有区块/占位项引用，全量重建会使其失效
             command.Execute(entry.Parameter);
             e.Cancel();   // 已消费，不再进入路由
             return;

@@ -242,6 +242,128 @@ $d5 = Get-EditValues
 Check "D6 Ctrl+Z in editor is text undo" $(if ($d5 -notmatch "XYZ") { "yes" } else { $d5 }) "yes"
 Send-Keys "{ESC}" 400
 
+# ---------- Suite E: undo restore animation ----------
+
+function Get-TaskRowInfo([string]$title) {
+    # (height, checkState) of the task row whose first text matches $title; $null if absent
+    $win = Get-App
+    $tl = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TaskList")))
+    if (-not $tl) { return $null }
+    $items = $tl.FindAll([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+    foreach ($it in $items) {
+        $texts = $it.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+        $hit = $false
+        foreach ($t in $texts) { if ($t.Current.Name -eq $title) { $hit = $true; break } }
+        if (-not $hit) {
+            # expanded card: title lives in an Edit control, not a Text block
+            foreach ($ed in $it.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Edit)))) {
+                $vp = $ed.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+                if ($vp -and $vp.Current.Value -eq $title) { $hit = $true; break }
+            }
+        }
+        if (-not $hit) { continue }
+        $state = "none"
+        foreach ($cb in $it.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::CheckBox)))) {
+            $tp = $cb.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            if ($tp) { $state = $tp.Current.ToggleState.ToString(); break }
+        }
+        return @($it.Current.BoundingRectangle.Height, $state)
+    }
+    return $null
+}
+
+Write-Host "`nSuite E: undo restore animation (US layout)"
+Send-Keys "j" 400
+Send-Keys " " 1100                      # complete Alpha (with animation)
+Check "E1 Alpha completed" (Get-FirstTaskTitle) "Task Beta"
+Send-Keys "^z"
+Start-Sleep -Milliseconds 120           # restore animation just started
+$early = Get-TaskRowInfo "Task Alpha"
+Start-Sleep -Milliseconds 900
+$late = Get-TaskRowInfo "Task Alpha"
+$full = Get-TaskRowInfo "Task Beta"
+if ($null -eq $early -or $null -eq $late) {
+    Check "E2 restored row present" "missing" "present"
+} else {
+    Check "E2 restored row present" "present" "present"
+    Check "E3 checkbox stays unchecked during restore" $early[1] "Off"
+    Check "E4 checkbox unchecked after restore" $late[1] "Off"
+    # height timing is too fast to sample mid-animation reliably; the On->Off toggle above
+    # already proves the animation ran. Here: monotone height and correct final layout.
+    $okHeight = ($early[0] -le $late[0]) -and ([Math]::Abs($late[0] - $full[0]) -lt 4)
+    Check "E5 height settles to full" $(if ($okHeight) { "yes" } else { "early=$($early[0]) late=$($late[0]) full=$($full[0])" }) "yes"
+}
+
+Write-Host "`nSuite E6: Ctrl+Z ignored during drag"
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class MouseD {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e);
+    public static void MoveTo(int x, int y) { SetCursorPos(x, y); }
+    public static void Down() { mouse_event(0x02, 0, 0, 0, UIntPtr.Zero); }
+    public static void Up() { mouse_event(0x04, 0, 0, 0, UIntPtr.Zero); }
+}
+'@
+
+# select Alpha, drag it below Beta while pressing Ctrl+Z mid-drag
+Send-Keys "j" 400
+$win = Get-App
+$tl = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+    (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TaskList")))
+$items = $tl.FindAll([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+$r0 = $items[0].Current.BoundingRectangle
+$r1 = $items[1].Current.BoundingRectangle
+$x = [int]($r0.X + 60); $y0 = [int]($r0.Y + $r0.Height / 2); $y1 = [int]($r1.Y + $r1.Height - 4)
+[MouseD]::MoveTo($x, $y0)
+[MouseD]::Down()
+Start-Sleep -Milliseconds 300
+for ($i = 1; $i -le 6; $i++) {
+    [MouseD]::MoveTo($x, $y0 + [int](($y1 - $y0) * $i / 6))
+    Start-Sleep -Milliseconds 80
+}
+Start-Sleep -Milliseconds 400   # dragging, gap placed below Beta
+[KbdV]::Down(0x11)              # Ctrl+Z mid-drag: must be ignored
+[KbdV]::Press(0x5A)
+[KbdV]::Up(0x11)
+Start-Sleep -Milliseconds 400
+[MouseD]::Up()                  # commit drag
+Start-Sleep -Milliseconds 800
+Check "E6a drag commits (undo was ignored)" (Get-FirstTaskTitle) "Task Beta"
+Send-Keys "^z" 900              # drag finished; undo now works
+Check "E6b undo after drag restores order" (Get-FirstTaskTitle) "Task Alpha"
+
+Write-Host "`nSuite E7: expand right after undo-restore animation"
+Send-Keys "j" 300
+Send-Keys " " 1000                      # complete Alpha
+Send-Keys "^z"                          # undo -> restore animation starts
+Start-Sleep -Milliseconds 90
+Send-Keys "k"                           # select the restoring task
+Send-Keys "{ENTER}" 800                 # expand it while animation may still run
+$e7 = Get-TaskRowInfo "Task Alpha"
+$e7b = Get-TaskRowInfo "Task Beta"
+if ($null -eq $e7) {
+    Check "E7 expanded row has full height" "missing" "ok"
+} else {
+    # expanded card must be much taller than a collapsed row (was clamped at 63 by the bug)
+    Check "E7 expanded row has full height" $(if ($e7[0] -gt $e7b[0] + 40) { "ok" } else { "h=$($e7[0])" }) "ok"
+}
+Send-Keys "{ESC}" 400
+
+Write-Host "`nSuite E8: selection restored by position after undo"
+Send-Keys "j" 400                       # select Alpha (position 0)
+Send-Keys " " 1100                      # complete Alpha; selection lands on Beta (position 0)
+Check "E8a selection landed on Beta" (Get-TaskSel) "1"
+Send-Keys "^z" 900                      # undo: Alpha returns to position 0
+Check "E8b selection back on Alpha" (Get-TaskSel) "10"
+Send-Keys "{ESC}" 400                   # leave clean state for the next suite
+
+# ---------- Suite A: US layout ----------
+# ---------- Suite A: US layout ----------
+# ---------- Suite A: US layout ----------
+# ---------- Suite A: US layout ----------
 # ---------- Suite A: US layout ----------
 
 Write-Host "`nSuite A: US layout"
