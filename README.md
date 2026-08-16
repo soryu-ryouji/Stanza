@@ -1,4 +1,12 @@
+<div align="center">
+
+<img src="stanza-wpf/src/Stanza.App/Assets/icon.png" width="128" alt="Stanza">
+
 # Stanza
+
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+
+</div>
 
 Stanza 是受 [TODO.txt](http://todotxt.org/) 启发的纯文本任务管理格式：整个任务列表存放在一个 UTF-8 纯文本文件中，通过状态区块（DOING / WAIT / DONE / DELETE）划分任务生命周期，通过段落式任务承载结构化元数据与自由备注。单文件、纯文本、无锁定。
 
@@ -94,3 +102,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File stanza-wpf/tools/capture-scr
 ## VS Code 插件（stanza-vscode）
 
 为 `.stanza` 文件提供与 RFC 严格对齐的语法高亮（区块标题、优先级、日期、项目、标签、时间戳行）、任务/时间戳代码片段和备注折叠。从 [Releases](https://github.com/soryu-ryouji/StanzaVSCode/releases) 下载 `.vsix` 安装，详见 [stanza-vscode/README.md](stanza-vscode/README.md)。
+
+## 许可证
+
+本仓库以 [AGPLv3](LICENSE) 授权；[stanza-vscode](stanza-vscode) 目录例外，以 [MIT](stanza-vscode/LICENSE) 授权。
