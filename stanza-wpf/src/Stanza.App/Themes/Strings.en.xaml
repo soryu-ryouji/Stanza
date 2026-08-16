@@ -52,6 +52,15 @@
     <sys:String x:Key="Picker_ErrorTag">Must start with a letter; letters, digits, _ and - allowed</sys:String>
     <sys:String x:Key="Picker_ErrorProject">Must start with a letter or digit; letters, digits, _ and - allowed</sys:String>
 
+    <!-- File dialogs -->
+    <sys:String x:Key="Dialog_OpenTitle">Open Stanza File</sys:String>
+    <sys:String x:Key="Dialog_SaveTitle">Save Stanza File</sys:String>
+    <sys:String x:Key="Dialog_OpenFilter">Stanza files (*.stanza;*.txt)|*.stanza;*.txt|All files (*.*)|*.*</sys:String>
+    <sys:String x:Key="Dialog_SaveFilter">Stanza files (*.stanza)|*.stanza|Text files (*.txt)|*.txt</sys:String>
+
+    <!-- Preset tags (comma-separated; Things 3 inspired, picker candidates only) -->
+    <sys:String x:Key="Preset_Tags">Errands,Home,Office,Important,Pending</sys:String>
+
     <!-- State block display names (English keeps the RFC tokens) -->
     <sys:String x:Key="State_DOING">DOING</sys:String>
     <sys:String x:Key="State_WAIT">WAIT</sys:String>

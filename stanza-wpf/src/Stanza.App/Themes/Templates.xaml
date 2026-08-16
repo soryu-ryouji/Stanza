@@ -137,11 +137,12 @@
                         </Grid>
                     </StackPanel>
 
-                    <!-- 展开态标题行：勾选框 + 全宽主行编辑框 -->
+                    <!-- 展开态标题行：勾选框 + 主行编辑框 + 项目/标签 chip + 备注图标 -->
                     <Grid x:Name="EditHeader" Grid.Row="0" Visibility="Collapsed">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <!-- 勾选框顶对齐：与标题首行文字对齐（多行标题时停在首行），
@@ -155,41 +156,8 @@
                                  Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
                                  Tag="{DynamicResource Watermark_TaskDraft}" FontSize="14" MinHeight="20" TextWrapping="Wrap"
                                  PreviewKeyDown="TaskTitleEditor_PreviewKeyDown"/>
-                        <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
-                        <Path Grid.Column="2" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
-                              StrokeThickness="1.2" Width="10" Height="7" Margin="6,7,0,0"
-                              VerticalAlignment="Top" ToolTip="{DynamicResource Tip_HasNotes}"
-                              Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
-                    </Grid>
-
-                    <!-- 详情面板：展开/收起动画；左缩进与标题文本对齐（勾选框 17 + 间距 10） -->
-                    <StackPanel x:Name="DetailsPanel" Grid.Row="1" Visibility="Collapsed"
-                                Margin="27,0,0,0" ClipToBounds="True"
-                                behaviors:RevealBehavior.IsRevealed="{Binding IsExpanded}"
-                                behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
-                                behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
-                        <!-- 解析出的元数据：仅填写过的才显示（优先级不在此行，以标题文字颜色表达） -->
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
-                                    Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
-                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1"
-                                    Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding DueDisplay}" FontSize="11"
-                                           Foreground="{StaticResource GrayBrush}"/>
-                            </Border>
-                            <!-- 创建/完成时间：续行属性（§7.4），与截止日期同款 chip，带关键字前缀区分 -->
-                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1" Margin="6,0,0,0"
-                                    Visibility="{Binding HasCreated, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding CreatedDisplay}" FontSize="11"
-                                           Foreground="{StaticResource GrayBrush}"/>
-                            </Border>
-                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1" Margin="6,0,0,0"
-                                    Visibility="{Binding HasCompleted, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding CompletedDisplay}" FontSize="11"
-                                           Foreground="{StaticResource GrayBrush}"/>
-                            </Border>
+                        <!-- 项目/标签 chip：与折叠态一样钉在标题行右侧，展开时不移入详情面板 -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">
                             <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
                                     Padding="7,1" Margin="6,0,0,0"
                                     Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
@@ -212,6 +180,43 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+                        <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
+                        <Path Grid.Column="3" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
+                              StrokeThickness="1.2" Width="10" Height="7" Margin="6,7,0,0"
+                              VerticalAlignment="Top" ToolTip="{DynamicResource Tip_HasNotes}"
+                              Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"/>
+                    </Grid>
+
+                    <!-- 详情面板：展开/收起动画；左缩进与标题文本对齐（勾选框 17 + 间距 10） -->
+                    <StackPanel x:Name="DetailsPanel" Grid.Row="1" Visibility="Collapsed"
+                                Margin="27,0,0,0" ClipToBounds="True"
+                                behaviors:RevealBehavior.IsRevealed="{Binding IsExpanded}"
+                                behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
+                                behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
+                        <!-- 解析出的元数据：仅填写过的才显示（优先级以标题文字颜色表达；
+                             项目/标签固定在标题行右侧 chip，不在此行） -->
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                    Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1"
+                                    Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding DueDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <!-- 创建/完成时间：续行属性（§7.4），与截止日期同款 chip，带关键字前缀区分 -->
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasCreated, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding CreatedDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasCompleted, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding CompletedDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
                         </StackPanel>
 
                         <!-- 备注：透明融进详情卡，与卡片同一色面，空内容时水印提示。

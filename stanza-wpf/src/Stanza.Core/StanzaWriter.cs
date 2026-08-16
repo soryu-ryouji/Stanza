@@ -46,6 +46,17 @@ public static class StanzaWriter
     public static string ComposeTaskHeader(StanzaTask task, bool includePriority = true)
         => ComposeMainLine(task, includePriority);
 
+    /// <summary>组合 GUI 编辑器的可编辑主行：仅 截止日期 + 描述。
+    /// 优先级（§7.2.1）、项目（§7.2.4）与标签（§7.2.5）在 GUI 中都是结构化属性，不以文本记号
+    /// 形式出现在编辑器中；写出文件的完整主行用 <see cref="ComposeTaskHeader"/>。</summary>
+    public static string ComposeEditableHeader(StanzaTask task)
+    {
+        var sb = new StringBuilder();
+        if (task.DueDate is { } d) sb.Append(d.ToString("yyyy-MM-dd")).Append(' ');
+        sb.Append(task.Description ?? "");
+        return sb.ToString().TrimEnd();
+    }
+
     private static string ComposeMainLine(StanzaTask task, bool includePriority = true)
     {
         var sb = new StringBuilder();

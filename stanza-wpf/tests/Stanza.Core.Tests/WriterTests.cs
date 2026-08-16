@@ -104,6 +104,17 @@ public class WriterTests
     }
 
     [Fact]
+    public void EditableHeader_Compose_OnlyDateAndDescription()
+    {
+        // GUI 编辑文本只含 日期 + 描述：优先级/项目/标签都是结构化属性，不进编辑文本
+        var parsed = StanzaParser.ParseTaskHeader("(B) 2026-08-07 完成登录模块 +Apollo #紧急 #review");
+        Assert.Equal("2026-08-07 完成登录模块", StanzaWriter.ComposeEditableHeader(parsed));
+
+        var bare = StanzaParser.ParseTaskHeader("纯描述");
+        Assert.Equal("纯描述", StanzaWriter.ComposeEditableHeader(bare));
+    }
+
+    [Fact]
     public void Write_BlocksInCanonicalOrder()
     {
         var doc = StanzaParser.Parse("# DELETE\n\ndel task\n\n# DOING\n\ndoing task\n");

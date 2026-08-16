@@ -7,7 +7,7 @@
 Stanza 是 [Stanza 纯文本任务管理格式](https://github.com/Ryougi-Shiki0/Stanza)（RFC 1.5.0）的 Windows 桌面编辑器。WPF + MVVM，零第三方依赖，目标框架 .NET 10。
 
 - 解决方案文件为 `Stanza.slnx`（XML 格式，需要较新的 .NET SDK / VS 支持）
-- 整个仓库约 2900 行代码，体量小，改动前先通读相关文件
+- 仓库体量小（C# 约 5000 行，不含 XAML），改动前先通读相关文件
 
 ## 常用命令
 
@@ -30,7 +30,7 @@ tests/Stanza.Core.Tests  只测 Stanza.Core：RFC §10.3 全部用例 + 解析�
 ```
 
 - `Stanza.Core` 是纯函数式静态 API：`StanzaParser.Parse(string)` → `StanzaDocument` → `StanzaWriter.Write(doc)`。模型类（`StanzaDocument` / `StanzaBlock` / `StanzaTask`）是普通可变 POCO。§9 流转规范化（`TaskTransitions`）与活跃排序（`ActiveTaskOrdering`）的规则唯一来源也在 Core，App 层只编排 ViewModel 集合，不得另行实现
-- `MainWindow` 按职责拆为 partial class：`MainWindow.xaml.cs`（主体）、`MainWindow.Drag.cs`（拖拽排序/跨区块移动）、`MainWindow.Panels.cs`（面板/侧栏）、`MainWindow.Windowing.cs`（窗口 chrome、拖动、最大化）。新增窗口交互代码时放进对应的 partial 文件
+- `MainWindow` 按职责拆为 partial class：`MainWindow.xaml.cs`（主体、退出确认、文件对话框）、`MainWindow.Drag.cs`（拖拽排序/跨区块移动、按键分发）、`MainWindow.Panels.cs`（侧栏与弹层交互、勾选动画、文件拖入）、`MainWindow.Settings.cs`（设置面板：语言与快捷键）、`MainWindow.Windowing.cs`（无边框窗口的系统集成）。新增窗口交互代码时放进对应的 partial 文件
 - ViewModel 层使用自实现的 `ViewModelBase` / `RelayCommand`，不引入 CommunityToolkit.Mvvm 等外部包
 - Win32 互操作集中在 `Services/NativeMethods.cs`
 
@@ -38,7 +38,7 @@ tests/Stanza.Core.Tests  只测 Stanza.Core：RFC §10.3 全部用例 + 解析�
 
 改动解析、写出或任务状态流转逻辑时，以下行为不能破坏（有测试覆盖，改完必须 `dotnet test`）：
 
-1. **解析严格遵循 RFC 1.5.0**：四状态区块、主行元数据（`(A)`–`(D)` 四象限优先级、`YYYY-MM-DD` 截止、`+项目`、`#标签`）、缩进续行、备注内空行、时间戳属性块（§7.4.3）。GUI 的编辑文本不含优先级前缀：优先级是 ViewModel 上的结构化属性（右键菜单设置），写出时由 `ToModel` 重组。代码注释中用 `§x.y` 引用 RFC 条款，新增规则时保持这个习惯
+1. **解析严格遵循 RFC 1.5.0**：四状态区块、主行元数据（`(A)`–`(D)` 四象限优先级、`YYYY-MM-DD` 截止、`+项目`、`#标签`）、缩进续行、备注内空行、时间戳属性块（§7.4.3）。GUI 的编辑文本只含日期与描述：优先级、项目、标签是 ViewModel 上的结构化属性（右键菜单/选择器设置，键入的完整记号被自动捕获），写出时由 `ToModel` 重组。代码注释中用 `§x.y` 引用 RFC 条款，新增规则时保持这个习惯
 2. **保存为规范化输出**：UTF-8 无 BOM、LF 换行、区块标题大写、按 DOING / WAIT / DONE / DELETE 顺序、任务间空行分隔
 3. **解析→写出往返一致**：`Write(Parse(text))` 的结果是规范形式，再解析语义不变
 4. **「完成」语义（RFC §9）**：移到 DONE 顶部、移除优先级、在属性块末尾追加完成日期（时间戳行集中在主行之后，与备注分离）。「废弃」移到 DELETE 顶部，「恢复」移回 DOING 末尾

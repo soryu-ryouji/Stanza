@@ -1,6 +1,3 @@
-using System.IO;
-using System.Text.Json;
-
 namespace Stanza.App.Services;
 
 /// <summary>用户键位文件中的一条：某命令（可带参数）的完整键位集合。</summary>
@@ -18,37 +15,9 @@ public sealed class UserCommandBinding
 /// </summary>
 public static class KeymapStore
 {
-    private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Stanza", "keymap.json");
+    private static readonly string StorePath = JsonFileStore.PathFor("keymap.json");
 
-    public static List<UserCommandBinding> Load()
-    {
-        try
-        {
-            if (File.Exists(StorePath))
-            {
-                return JsonSerializer.Deserialize<List<UserCommandBinding>>(File.ReadAllText(StorePath))
-                    ?? new List<UserCommandBinding>();
-            }
-        }
-        catch
-        {
-            // 配置损坏时从默认键位开始，不影响主流程
-        }
-        return new List<UserCommandBinding>();
-    }
+    public static List<UserCommandBinding> Load() => JsonFileStore.Load<List<UserCommandBinding>>(StorePath);
 
-    public static void Save(List<UserCommandBinding> bindings)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(StorePath)!);
-            File.WriteAllText(StorePath, JsonSerializer.Serialize(bindings));
-        }
-        catch
-        {
-            // 配置写不进不影响主流程
-        }
-    }
+    public static void Save(List<UserCommandBinding> bindings) => JsonFileStore.Save(StorePath, bindings);
 }

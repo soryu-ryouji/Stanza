@@ -33,6 +33,7 @@ public partial class MainWindow
     {
         PreviewMouseMove += OnPreviewMouseMove;
         PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
+        InputManager.Current.PreProcessInput += OnPreProcessInput;
         KeyDown += OnKeyDown;
     }
 
@@ -96,8 +97,9 @@ public partial class MainWindow
         }
     }
 
+    // 列表可能混有拖拽占位项（GapItem），用 OfType 过滤而非 Cast
     private void TaskList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        => VM.UpdateSelection(TaskList.SelectedItems.Cast<TaskViewModel>().ToList());
+        => VM.UpdateSelection(TaskList.SelectedItems.OfType<TaskViewModel>().ToList());
 
     // ==================== 移动与松开 ====================
 
@@ -152,21 +154,30 @@ public partial class MainWindow
         _downTask = null;
     }
 
-    // 挂在窗口 KeyDown（冒泡方向）：焦点控件先处理，这里只收到无人认领的键——
-    // 编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、按钮的 Enter/Space、
-    // 浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判
+    /// <summary>模态浮层打开中（VS Code when 上下文的对应物）：应用快捷键让位给浮层自身的按键处理。</summary>
+    private bool ModalOverlayOpen
+        => SettingsOverlay.Visibility == Visibility.Visible
+           || ExitOverlay.Visibility == Visibility.Visible;
+
+    // 应用级快捷键在路由前分发（命令优先，VS 语义）：与键盘焦点无关，窗口激活即生效——
+    // 无焦点元素时按键根本不产生路由事件，挂在路由事件上的分发收不到。
+    // 模态浮层打开时跳过：浮层的按键过滤/键位录制靠路由事件实现，不能绕过；
+    // 非模态的 FacetPicker 不拦截，快捷键保持穿透（与路由时代行为一致）
+    private void OnPreProcessInput(object sender, PreProcessInputEventArgs e)
+    {
+        if (ModalOverlayOpen) return;
+        if (e.StagingItem.Input is not KeyEventArgs k || k.RoutedEvent != Keyboard.KeyDownEvent) return;
+        if (Keymap.Current.Resolve(k.Key, Keyboard.Modifiers) is not { } entry) return;
+        if (VM.CommandFor(entry.Command) is not { } command || !command.CanExecute(entry.Parameter)) return;
+        command.Execute(entry.Parameter);
+        e.Cancel();   // 已消费，不再进入路由
+    }
+
+    // 语义键（焦点相关，控件级按键）：挂在窗口 KeyDown（冒泡方向），焦点控件先处理，
+    // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、
+    // 按钮的 Enter/Space、浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        // 应用级快捷键：查键位表分发到命令（Keymap.cs）
-        if (Keymap.Current.Resolve(e.Key, Keyboard.Modifiers) is { } entry
-            && VM.CommandFor(entry.Command) is { } command
-            && command.CanExecute(entry.Parameter))
-        {
-            command.Execute(entry.Parameter);
-            e.Handled = true;
-            return;
-        }
-
         if (e.Key == Key.Escape)
         {
             if (_taskDragging) { CancelTaskDrag(); e.Handled = true; }

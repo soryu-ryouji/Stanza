@@ -52,6 +52,15 @@
     <sys:String x:Key="Picker_ErrorTag">首字符必须是字母，可含字母、数字、_、-</sys:String>
     <sys:String x:Key="Picker_ErrorProject">字母或数字开头，可含字母、数字、_、-</sys:String>
 
+    <!-- 文件对话框 -->
+    <sys:String x:Key="Dialog_OpenTitle">打开 Stanza 文件</sys:String>
+    <sys:String x:Key="Dialog_SaveTitle">保存 Stanza 文件</sys:String>
+    <sys:String x:Key="Dialog_OpenFilter">Stanza 文件 (*.stanza;*.txt)|*.stanza;*.txt|所有文件 (*.*)|*.*</sys:String>
+    <sys:String x:Key="Dialog_SaveFilter">Stanza 文件 (*.stanza)|*.stanza|文本文件 (*.txt)|*.txt</sys:String>
+
+    <!-- 内置常用标签（逗号分隔；参考 Things 3，仅作选择器候选） -->
+    <sys:String x:Key="Preset_Tags">日常,家庭,办公,重要,待定</sys:String>
+
     <!-- 状态区块显示名（英文保持 RFC 令牌原样） -->
     <sys:String x:Key="State_DOING">进行中</sys:String>
     <sys:String x:Key="State_WAIT">等待中</sys:String>

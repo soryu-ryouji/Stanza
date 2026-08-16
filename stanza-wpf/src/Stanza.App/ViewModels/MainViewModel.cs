@@ -316,9 +316,10 @@ public sealed class MainViewModel : ViewModelBase
 
     // ---- 标签/项目选择器（右键「标签…/项目…」弹出） ----
 
-    /// <summary>内置常用标签（参考 Things 3）：仅作为选择器候选展示，不写入文件；
-    /// 被应用后才成为文档中的真实标签（§7.2.5）。</summary>
-    private static readonly string[] PresetTags = { "日常", "家庭", "办公", "重要", "待定" };
+    /// <summary>内置常用标签（参考 Things 3）：随界面语言取值（Strings 资源，逗号分隔）。
+    /// 仅作为选择器候选展示，不写入文件；被应用后才成为文档中的真实标签（§7.2.5）。</summary>
+    private static IReadOnlyList<string> PresetTags
+        => Loc.Get("Preset_Tags").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>某类 facet 在选择器中的候选名称：标签为内置常用项在前、文档既有项随后（去重）；
     /// 项目无内置项，与侧栏聚合列表同序。</summary>
@@ -411,6 +412,10 @@ public sealed class MainViewModel : ViewModelBase
             Blocks.FirstOrDefault(b => b.Items.Contains(task))?.RemoveTask(task);
             if (SelectedTask == task) SelectedTask = null;
             NotifyContentChanged();
+        }
+        else
+        {
+            task.CommitHeader();   // 收纳编辑中输入的 项目/标签 记号为结构化属性
         }
         SettleSort();
         RefreshFacets();   // 编辑落定后更新项目/标签归属
@@ -576,10 +581,11 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (_selectedFacet is { } facet)
         {
-            // 面板视图下新建：落到 DOING 末尾（§9），主行预填对应的 +项目/#标签
+            // 面板视图下新建：落到 DOING 末尾（§9），归属预填为对应的 项目/标签（结构化属性）
             var doing = Blocks.First(b => b.State == TaskState.Doing);
             var task = CreateTask(doing, int.MaxValue);
-            task.HeaderText = facet.Token + " ";
+            if (facet.Kind == FacetKind.Project) task.SetProject(facet.Name);
+            else task.AddTag(facet.Name);
             RefreshFacets();   // 让新草稿出现在面板中
             return;
         }
@@ -623,10 +629,15 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (task.State == target) return;
         var m = StanzaParser.ParseTaskHeader(task.HeaderText);
-        m.Priority = task.Priority;   // 优先级由 VM 结构化属性承载（编辑文本不含前缀），交给 Core 规则裁决
+        // 优先级/项目/标签都由 VM 结构化属性承载（编辑文本不含记号），交给 Core 规则裁决；
+        // 编辑文本可能残留的未提交记号一并并入
+        m.Priority = task.Priority;
+        m.Project ??= task.ProjectName;
+        foreach (var tag in task.Tags)
+            if (!m.Tags.Contains(tag)) m.Tags.Add(tag);
         TaskTransitions.NormalizeForState(m, task.State, target, today);
         task.Priority = m.Priority;   // 回读：进入 DONE/DELETE 时 Core 已按 §9 清除
-        task.HeaderText = StanzaWriter.ComposeTaskHeader(m, includePriority: false);
+        task.ApplyHeaderModel(m);
         // 主行解析不出备注，m.Notes 即本次规范化追加的时间戳增量（§7.4），转入属性而非备注
         foreach (var line in m.Notes)
         {
@@ -855,9 +866,8 @@ public sealed class MainViewModel : ViewModelBase
     }
 }
 
-/// <summary>优先级菜单选项：显示文本 + 取值（null 表示清除优先级）。
-/// 任务右键菜单与底部工具栏共用。</summary>
-/// <summary>优先级菜单项。Label 按当前语言即时取值（右键菜单每次打开时重新求值，无需刷新）。</summary>
+/// <summary>优先级菜单项：显示文本 + 取值（null 表示清除优先级）。任务右键菜单与底部工具栏共用；
+/// Label 按当前语言即时取值（右键菜单每次打开时重新求值，无需刷新）。</summary>
 public sealed record PriorityOption(string LabelKey, char? Value)
 {
     public string Label => Loc.Get(LabelKey);

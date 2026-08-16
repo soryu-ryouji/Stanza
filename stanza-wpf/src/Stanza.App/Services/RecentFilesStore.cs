@@ -1,6 +1,3 @@
-using System.IO;
-using System.Text.Json;
-
 namespace Stanza.App.Services;
 
 public sealed class RecentState
@@ -14,37 +11,9 @@ public static class RecentFilesStore
 {
     public const int MaxRecent = 8;
 
-    private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Stanza", "recent.json");
+    private static readonly string StorePath = JsonFileStore.PathFor("recent.json");
 
-    public static RecentState Load()
-    {
-        try
-        {
-            if (File.Exists(StorePath))
-            {
-                return JsonSerializer.Deserialize<RecentState>(File.ReadAllText(StorePath))
-                    ?? new RecentState();
-            }
-        }
-        catch
-        {
-            // 配置损坏时从空列表开始，不影响主流程
-        }
-        return new RecentState();
-    }
+    public static RecentState Load() => JsonFileStore.Load<RecentState>(StorePath);
 
-    public static void Save(RecentState state)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(StorePath)!);
-            File.WriteAllText(StorePath, JsonSerializer.Serialize(state));
-        }
-        catch
-        {
-            // 配置写不进不影响主流程
-        }
-    }
+    public static void Save(RecentState state) => JsonFileStore.Save(StorePath, state);
 }

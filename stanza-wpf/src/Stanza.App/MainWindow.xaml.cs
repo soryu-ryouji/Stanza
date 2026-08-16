@@ -115,11 +115,12 @@ public partial class MainWindow : Window
         ExitOverlay.Visibility = Visibility.Visible;
         ExitOverlay.BeginAnimation(UIElement.OpacityProperty,
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var scale = new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease };
+        var scale = new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(180))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
         ExitCardScale.BeginAnimation(ScaleTransform.ScaleXProperty, scale);
-        ExitCardScale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+        ExitCardScale.BeginAnimation(ScaleTransform.ScaleYProperty, scale);
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => ExitSaveButton.Focus()));
     }
 
@@ -183,8 +184,8 @@ public partial class MainWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "打开 Stanza 文件",
-            Filter = "Stanza 文件 (*.stanza;*.txt)|*.stanza;*.txt|所有文件 (*.*)|*.*",
+            Title = Loc.Get("Dialog_OpenTitle"),
+            Filter = Loc.Get("Dialog_OpenFilter"),
         };
         return dlg.ShowDialog(this) == true ? dlg.FileName : null;
     }
@@ -193,8 +194,8 @@ public partial class MainWindow : Window
     {
         var dlg = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "保存 Stanza 文件",
-            Filter = "Stanza 文件 (*.stanza)|*.stanza|文本文件 (*.txt)|*.txt",
+            Title = Loc.Get("Dialog_SaveTitle"),
+            Filter = Loc.Get("Dialog_SaveFilter"),
             FileName = "TODO.stanza",
             DefaultExt = ".stanza",
         };
