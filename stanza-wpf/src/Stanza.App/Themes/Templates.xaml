@@ -106,12 +106,7 @@
                                            Foreground="{StaticResource FaintBrush}" Margin="6,0,0,0"
                                            VerticalAlignment="Center"
                                            Visibility="{Binding ShowCompleted, Converter={StaticResource BoolToVis}}"/>
-                                <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                        Padding="7,1" Margin="6,0,0,0"
-                                        Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
-                                               Foreground="{StaticResource GrayBrush}"/>
-                                </Border>
+                                <!-- 标签在前：变动频繁且数量/长度不固定；项目在后：归属稳定 -->
                                 <ItemsControl ItemsSource="{Binding Tags}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -128,8 +123,14 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                        Padding="7,1" Margin="6,0,0,0"
+                                        Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
+                                               Foreground="{StaticResource GrayBrush}"/>
+                                </Border>
                                 <!-- 备注标记固定在行尾最右缘（Things 风格：只提示存在，不渲染内容），
-                                     不被项目/标签 chip 推移，位置恒定便于扫读 -->
+                                     尺寸恒定不受 chip 增减影响，位置稳定便于扫读 -->
                                 <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
                                       StrokeThickness="1.2" Width="10" Height="7" Margin="6,0,0,0"
                                       VerticalAlignment="Center" ToolTip="{DynamicResource Tip_HasNotes}"
@@ -157,14 +158,9 @@
                                  Text="{Binding HeaderText, UpdateSourceTrigger=PropertyChanged}"
                                  Tag="{DynamicResource Watermark_TaskDraft}" FontSize="14" MinHeight="20" TextWrapping="Wrap"
                                  PreviewKeyDown="TaskTitleEditor_PreviewKeyDown"/>
-                        <!-- 项目/标签 chip：与折叠态一样钉在标题行右侧，展开时不移入详情面板 -->
+                        <!-- 项目/标签 chip：与折叠态一样钉在标题行右侧，展开时不移入详情面板；
+                             顺序同折叠态：标签在前（变动频繁），项目在后（归属稳定） -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">
-                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1" Margin="6,0,0,0"
-                                    Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
-                                           Foreground="{StaticResource GrayBrush}"/>
-                            </Border>
                             <ItemsControl ItemsSource="{Binding Tags}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -181,6 +177,12 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
+                                    Padding="7,1" Margin="6,0,0,0"
+                                    Visibility="{Binding HasProject, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
+                                           Foreground="{StaticResource GrayBrush}"/>
+                            </Border>
                         </StackPanel>
                         <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
                         <Path Grid.Column="3" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
