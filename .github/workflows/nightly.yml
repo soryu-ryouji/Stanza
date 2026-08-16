@@ -1,0 +1,56 @@
+name: Nightly
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "stanza-wpf/**" # 仅桌面应用改动才产出新构建；改 RFC/插件/README 不触发
+  workflow_dispatch: # 兜底手动触发，平时不需要
+
+permissions:
+  contents: write # 创建/更新 release 所需
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true # 连续 push 时取消旧构建，只保留最新
+
+jobs:
+  nightly:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # 复用本地发布脚本：先跑解析器测试，再发布自包含单文件 exe
+      # 产物：stanza-wpf/publish/win-x64/Stanza.exe
+      - name: Publish self-contained exe
+        shell: pwsh
+        run: stanza-wpf/tools/publish.ps1 -SelfContained
+
+      # 滚动更新固定的 nightly tag + prerelease，链接永久有效
+      - name: Update nightly release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $date  = Get-Date -Format "yyyy-MM-dd"
+          $sha   = git rev-parse --short HEAD
+          $asset = "Stanza-nightly-win-x64.exe"
+          Copy-Item "stanza-wpf/publish/win-x64/Stanza.exe" $asset
+
+          git tag -f nightly
+          git push -f origin nightly
+
+          $title = "Nightly $date"
+          $notes = "基于 commit ``$sha`` 的自动构建，包含最新未发布改动，仅供尝鲜。正式版请使用 Releases 中标记为 Latest 的版本。"
+
+          gh release view nightly *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload nightly $asset --clobber
+            gh release edit nightly --title $title --notes $notes
+          } else {
+            gh release create nightly $asset --prerelease --title $title --notes $notes
+          }
