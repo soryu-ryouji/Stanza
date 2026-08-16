@@ -24,11 +24,22 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      # 复用本地发布脚本：先跑解析器测试，再发布自包含单文件 exe
-      # 产物：stanza-wpf/publish/win-x64/Stanza.exe
+      # 复用本地发布脚本。两种模式输出目录相同且脚本会先清理，
+      # 因此每轮发布后立刻把产物复制出来，再跑下一轮。
+
+      # 框架依赖版（体积小，需安装 .NET 10 桌面运行时）；测试只在这一轮运行
+      - name: Publish framework-dependent exe
+        shell: pwsh
+        run: |
+          stanza-wpf/tools/publish.ps1
+          Copy-Item "stanza-wpf/publish/win-x64/Stanza.exe" "Stanza-nightly-win-x64.exe"
+
+      # 自包含版（免安装，体积大）；代码未变，跳过重复测试
       - name: Publish self-contained exe
         shell: pwsh
-        run: stanza-wpf/tools/publish.ps1 -SelfContained
+        run: |
+          stanza-wpf/tools/publish.ps1 -SelfContained -SkipTests
+          Copy-Item "stanza-wpf/publish/win-x64/Stanza.exe" "Stanza-nightly-win-x64-standalone.exe"
 
       # 滚动更新固定的 nightly tag + prerelease，链接永久有效
       - name: Update nightly release
@@ -38,19 +49,24 @@ jobs:
         run: |
           $date  = Get-Date -Format "yyyy-MM-dd"
           $sha   = git rev-parse --short HEAD
-          $asset = "Stanza-nightly-win-x64.exe"
-          Copy-Item "stanza-wpf/publish/win-x64/Stanza.exe" $asset
+          $assets = @("Stanza-nightly-win-x64.exe", "Stanza-nightly-win-x64-standalone.exe")
 
           git tag -f nightly
           git push -f origin nightly
 
           $title = "Nightly $date"
-          $notes = "基于 commit ``$sha`` 的自动构建，包含最新未发布改动，仅供尝鲜。正式版请使用 Releases 中标记为 Latest 的版本。"
+          $noteLines = @(
+            "基于 commit ``$sha`` 的自动构建，包含最新未发布改动，仅供尝鲜。正式版请使用 Releases 中标记为 Latest 的版本。",
+            "",
+            "- **Stanza-nightly-win-x64-standalone.exe**：免安装，下载即用，体积较大",
+            "- **Stanza-nightly-win-x64.exe**：体积更小，需先安装 [.NET 10 桌面运行时](https://dotnet.microsoft.com/download/dotnet/10.0)"
+          )
+          $notes = $noteLines -join "`n"
 
           gh release view nightly *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload nightly $asset --clobber
+            gh release upload nightly $assets --clobber
             gh release edit nightly --title $title --notes $notes
           } else {
-            gh release create nightly $asset --prerelease --title $title --notes $notes
+            gh release create nightly $assets --prerelease --title $title --notes $notes
           }
