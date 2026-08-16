@@ -562,23 +562,31 @@
          带着系统默认的虚线焦点框（Alt 触发焦点提示时可见），统一继承基座关闭 -->
     <Style TargetType="{x:Type ScrollViewer}" BasedOn="{StaticResource StanzaControlBase}"/>
 
-    <!-- 细滚动条（由 TaskScrollViewer 模板内的 ScrollBar 显式引用） -->
-    <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource StanzaControlBase}">
+    <!-- 隐式滚动条：细长圆角 thumb、透明轨道、无箭头，与应用极简风统一。
+         未显式指定样式的滚动容器（设置面板、侧栏、选择器、多行文本框）自动获得；
+         任务列表用下方的 SlimScrollBar 变体（自动隐藏） -->
+    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Width" Value="6"/>
-        <Setter Property="Opacity" Value="0"/>
-        <Setter Property="IsHitTestVisible" Value="False"/>
+        <Setter Property="Width" Value="8"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ScrollBar}">
                     <Border Background="{TemplateBinding Background}">
                         <Track x:Name="PART_Track" IsDirectionReversed="True">
                             <Track.Thumb>
-                                <Thumb Width="6">
+                                <Thumb>
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="{x:Type Thumb}">
                                             <Border x:Name="ThumbBg" Background="#FFD4D4D8"
-                                                    CornerRadius="3" Margin="1,1"/>
+                                                    CornerRadius="4" Margin="1,2"/>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ThumbBg" Property="Background" Value="#FFB9B9BE"/>
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="ThumbBg" Property="Background" Value="#FFB9B9BE"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -588,13 +596,20 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="Orientation" Value="Horizontal">
                             <Setter Property="Width" Value="NaN"/>
-                            <Setter Property="Height" Value="6"/>
+                            <Setter Property="Height" Value="8"/>
                             <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- 自动隐藏变体（任务列表，ScrollBarAutoHide 行为驱动淡入淡出）：
+         样式与隐式滚动条一致，仅默认透明且不可命中 -->
+    <Style x:Key="SlimScrollBar" TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource {x:Type ScrollBar}}">
+        <Setter Property="Opacity" Value="0"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
     </Style>
 
     <!-- 任务列表用 ScrollViewer：滚动条列常驻（Auto 宽），不影响内容布局 -->

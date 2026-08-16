@@ -3,9 +3,11 @@ using Stanza.App.Services;
 
 namespace Stanza.App;
 
-/// <summary>键位表中可分发的命令 ID。作为键位数据的稳定标识，供用户键位文件引用。</summary>
+/// <summary>键位表中可分发的命令 ID。作为键位数据的稳定标识，供用户键位文件引用。
+/// 分两类：应用级（全局分发）与任务作用域（仅任务列表焦点上下文分发，见 IsTaskScoped）。</summary>
 public enum AppCommand
 {
+    // ---- 应用级 ----
     Save,
     Open,
     NewTask,
@@ -13,6 +15,17 @@ public enum AppCommand
     SelectBlock,
     OpenRecent,
     Undo,
+
+    // ---- 任务作用域 ----
+    CompleteTask,
+    OpenTagPicker,
+    OpenProjectPicker,
+    DiscardTask,
+    DeleteTask,
+    NavigateUp,
+    NavigateDown,
+    NavigateLeft,
+    NavigateRight,
 }
 
 /// <summary>一条键位映射：修饰键 + 主键 → 命令（可带参数）。同一命令可有多条（一键多绑）。</summary>
@@ -73,9 +86,12 @@ public static class Gesture
         return TryParseKey(parts[^1], out key);
     }
 
-    /// <summary>可作为快捷键的手势：带至少一个修饰键，或 F1-F12 功能键（防止把裸字母/Enter 注册成快捷键）。</summary>
-    public static bool IsAllowedShortcut(ModifierKeys modifiers, Key key)
-        => modifiers != ModifierKeys.None || key is >= Key.F1 and <= Key.F12;
+    /// <summary>可作为快捷键的手势：应用级命令要求带至少一个修饰键（或 F1-F12），防止把裸字母
+    /// 注册成全局快捷键；任务作用域命令只在任务列表焦点上下文分发，允许裸键。</summary>
+    public static bool IsAllowedShortcut(AppCommand command, ModifierKeys modifiers, Key key)
+        => Keymap.IsTaskScoped(command)
+           || modifiers != ModifierKeys.None
+           || key is >= Key.F1 and <= Key.F12;
 
     /// <summary>录制时用于忽略纯修饰键按下（等待主键）。</summary>
     public static bool IsModifierKey(Key key)
@@ -116,12 +132,13 @@ public static class Gesture
 /// <summary>
 /// 应用级快捷键表。合并规则（与 VS Code 同语义）：用户键位文件（%APPDATA%/Stanza/keymap.json）
 /// 中出现的命令整体替换其默认键位（空列表 = 不绑定），未出现的命令沿用 Defaults。
-/// 语义键（Esc / Enter / Delete / Backspace 等焦点相关键）不进此表。
+/// 语义键中上下文多义的（Esc / Enter）不进此表，保持焦点相关硬编码。
 /// </summary>
 public sealed class Keymap
 {
     public static readonly IReadOnlyList<KeymapEntry> Defaults =
     [
+        // ---- 应用级（全局分发，与键盘焦点无关） ----
         new(ModifierKeys.Control, Key.S, AppCommand.Save),
         new(ModifierKeys.Control, Key.O, AppCommand.Open),
         new(ModifierKeys.Control, Key.N, AppCommand.NewTask),
@@ -132,7 +149,30 @@ public sealed class Keymap
         new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
         new(ModifierKeys.Alt, Key.D3, AppCommand.SelectBlock, "3"),
         new(ModifierKeys.Alt, Key.D4, AppCommand.SelectBlock, "4"),
+
+        // ---- 任务作用域（仅任务列表焦点上下文分发；裸键不进文本框，见分发处的作用域检查） ----
+        new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
+        new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
+        new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
+        new(ModifierKeys.None, Key.Back, AppCommand.DiscardTask),
+        new(ModifierKeys.None, Key.Delete, AppCommand.DeleteTask),
+        new(ModifierKeys.None, Key.Up, AppCommand.NavigateUp),
+        new(ModifierKeys.None, Key.K, AppCommand.NavigateUp),
+        new(ModifierKeys.None, Key.Down, AppCommand.NavigateDown),
+        new(ModifierKeys.None, Key.J, AppCommand.NavigateDown),
+        new(ModifierKeys.None, Key.Left, AppCommand.NavigateLeft),
+        new(ModifierKeys.None, Key.H, AppCommand.NavigateLeft),
+        new(ModifierKeys.None, Key.Right, AppCommand.NavigateRight),
+        new(ModifierKeys.None, Key.L, AppCommand.NavigateRight),
     ];
+
+    /// <summary>任务作用域命令：仅在任务列表焦点上下文分发（MainWindow.Drag 中的作用域检查），
+    /// 允许裸键绑定。应用级命令全局生效，必须带修饰键。未列入的新命令按应用级处理（安全方向）。</summary>
+    public static bool IsTaskScoped(AppCommand command) => command is
+        AppCommand.CompleteTask or AppCommand.OpenTagPicker or AppCommand.OpenProjectPicker
+        or AppCommand.DiscardTask or AppCommand.DeleteTask
+        or AppCommand.NavigateUp or AppCommand.NavigateDown
+        or AppCommand.NavigateLeft or AppCommand.NavigateRight;
 
     public static Keymap Current { get; } = new Keymap();
 
@@ -188,7 +228,8 @@ public sealed class Keymap
             if (!Enum.TryParse<AppCommand>(binding.Command, out var command)) continue;
             var gestures = new List<(ModifierKeys, Key)>();
             foreach (var text in binding.Keys)
-                if (Gesture.TryParse(text, out var mods, out var key))
+                if (Gesture.TryParse(text, out var mods, out var key)
+                    && Gesture.IsAllowedShortcut(command, mods, key))   // 手改文件的非法手势（如给应用命令绑裸键）直接丢弃
                     gestures.Add((mods, key));
             _overrides[(command, binding.Args)] = gestures;
         }

@@ -15,19 +15,35 @@ namespace Stanza.App;
 /// </summary>
 public partial class MainWindow
 {
-    /// <summary>设置面板中列出的命令（SelectBlock 展开为四个参数实例）。</summary>
-    private static readonly (AppCommand Command, string? Parameter)[] CommandCatalog =
+    /// <summary>设置面板中列出的命令（SelectBlock 展开为四个参数实例），按组展示。
+    /// 应用级命令全局生效；任务作用域命令只在任务列表焦点上下文分发（允许裸键）。</summary>
+    private static readonly (string GroupKey, (AppCommand Command, string? Parameter)[] Items)[] CommandCatalog =
     [
-        (AppCommand.Save, null),
-        (AppCommand.Open, null),
-        (AppCommand.NewTask, null),
-        (AppCommand.NewDocument, null),
-        (AppCommand.OpenRecent, null),
-        (AppCommand.Undo, null),
-        (AppCommand.SelectBlock, "1"),
-        (AppCommand.SelectBlock, "2"),
-        (AppCommand.SelectBlock, "3"),
-        (AppCommand.SelectBlock, "4"),
+        ("Settings_GroupApp",
+        [
+            (AppCommand.Save, null),
+            (AppCommand.Open, null),
+            (AppCommand.NewTask, null),
+            (AppCommand.NewDocument, null),
+            (AppCommand.OpenRecent, null),
+            (AppCommand.Undo, null),
+            (AppCommand.SelectBlock, "1"),
+            (AppCommand.SelectBlock, "2"),
+            (AppCommand.SelectBlock, "3"),
+            (AppCommand.SelectBlock, "4"),
+        ]),
+        ("Settings_GroupTask",
+        [
+            (AppCommand.CompleteTask, null),
+            (AppCommand.OpenTagPicker, null),
+            (AppCommand.OpenProjectPicker, null),
+            (AppCommand.NavigateUp, null),
+            (AppCommand.NavigateDown, null),
+            (AppCommand.NavigateLeft, null),
+            (AppCommand.NavigateRight, null),
+            (AppCommand.DiscardTask, null),
+            (AppCommand.DeleteTask, null),
+        ]),
     ];
 
     private (AppCommand Command, string? Parameter)? _recording;   // 正在为之录制新键位的命令
@@ -106,68 +122,83 @@ public partial class MainWindow
     private void RebuildKeymapRows()
     {
         KeymapRows.Children.Clear();
-        foreach (var (command, parameter) in CommandCatalog)
+        foreach (var (groupKey, items) in CommandCatalog)
         {
-            var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            row.Children.Add(new TextBlock
+            KeymapRows.Children.Add(new TextBlock
             {
-                Text = CommandName(command, parameter),
-                FontSize = 12.5,
-                VerticalAlignment = VerticalAlignment.Center,
+                Text = Loc.Get(groupKey),
+                FontSize = 11.5,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)FindResource("FaintBrush"),
+                Margin = new Thickness(0, 10, 0, 2),
             });
+            foreach (var (command, parameter) in items)
+                KeymapRows.Children.Add(MakeKeymapRow(command, parameter));
+        }
+    }
 
-            var chips = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(chips, 1);
-            var entries = Keymap.Current.EntriesFor(command, parameter);
-            foreach (var entry in entries)
-                chips.Children.Add(MakeGestureChip(command, parameter, entry));
-            if (entries.Count == 0)
+    /// <summary>单个命令的键位行：命令名 + 手势 chip 列表（含添加/重置）。</summary>
+    private UIElement MakeKeymapRow(AppCommand command, string? parameter)
+    {
+        var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = CommandName(command, parameter),
+            FontSize = 12.5,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        var chips = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+        Grid.SetColumn(chips, 1);
+        var entries = Keymap.Current.EntriesFor(command, parameter);
+        foreach (var entry in entries)
+            chips.Children.Add(MakeGestureChip(command, parameter, entry));
+        if (entries.Count == 0)
+        {
+            chips.Children.Add(new TextBlock
             {
-                chips.Children.Add(new TextBlock
-                {
-                    Text = Loc.Get("Settings_NoneGesture"),
-                    Foreground = (Brush)FindResource("FaintBrush"),
-                    FontSize = 11.5,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(2, 0, 0, 0),
-                });
-            }
-            var addButton = new Button
+                Text = Loc.Get("Settings_NoneGesture"),
+                Foreground = (Brush)FindResource("FaintBrush"),
+                FontSize = 11.5,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 0),
+            });
+        }
+        var addButton = new Button
+        {
+            Content = "+",
+            Style = (Style)FindResource("GhostButton"),
+            FontSize = 11,
+            Padding = new Thickness(7, 0, 7, 0),
+            Margin = new Thickness(2, 0, 0, 0),
+        };
+        addButton.Click += (_, _) => StartRecording((command, parameter));
+        chips.Children.Add(addButton);
+        row.Children.Add(chips);
+
+        if (Keymap.Current.HasOverride(command, parameter))
+        {
+            var reset = new Button
             {
-                Content = "+",
+                Content = Loc.Get("Settings_Reset"),
                 Style = (Style)FindResource("GhostButton"),
                 FontSize = 11,
-                Padding = new Thickness(7, 0, 7, 0),
-                Margin = new Thickness(2, 0, 0, 0),
+                Padding = new Thickness(6, 1, 6, 1),
             };
-            addButton.Click += (_, _) => StartRecording((command, parameter));
-            chips.Children.Add(addButton);
-            row.Children.Add(chips);
-
-            if (Keymap.Current.HasOverride(command, parameter))
+            Grid.SetColumn(reset, 2);
+            reset.Click += (_, _) =>
             {
-                var reset = new Button
-                {
-                    Content = Loc.Get("Settings_Reset"),
-                    Style = (Style)FindResource("GhostButton"),
-                    FontSize = 11,
-                    Padding = new Thickness(6, 1, 6, 1),
-                };
-                Grid.SetColumn(reset, 2);
-                reset.Click += (_, _) =>
-                {
-                    Keymap.Current.SetOverride(command, parameter, null);
-                    RebuildKeymapRows();
-                };
-                row.Children.Add(reset);
-            }
-
-            KeymapRows.Children.Add(row);
+                Keymap.Current.SetOverride(command, parameter, null);
+                RebuildKeymapRows();
+            };
+            row.Children.Add(reset);
         }
+
+        return row;
     }
 
     /// <summary>键位 chip：手势文本 + 移除按钮。</summary>
@@ -241,7 +272,7 @@ public partial class MainWindow
             return;
         }
         if (Gesture.IsModifierKey(key)) return;   // 纯修饰键：继续等主键
-        if (!Gesture.IsAllowedShortcut(modifiers, key))
+        if (!Gesture.IsAllowedShortcut(target.Command, modifiers, key))
         {
             RecordingHint.Text = Loc.Get("Settings_NeedModifier");
             RecordingHint.Foreground = (Brush)FindResource("DangerBrush");

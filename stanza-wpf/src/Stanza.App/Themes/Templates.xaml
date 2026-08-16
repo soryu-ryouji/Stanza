@@ -29,8 +29,9 @@
                 BorderBrush="Transparent" BorderThickness="1"
                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}">
             <Border.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Icon="&#xE73E;" Header="{DynamicResource Menu_Complete}" Command="{Binding PlacementTarget.Tag.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                <!-- Tag 桥接命令 ID：Opened 时从键位表取当前手势填入 InputGestureText（Templates.xaml.cs） -->
+                <ContextMenu Opened="FacetContextMenu_Opened">
+                    <MenuItem Icon="&#xE73E;" Header="{DynamicResource Menu_Complete}" Tag="CompleteTask" Command="{Binding PlacementTarget.Tag.CompleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
                     </MenuItem>
                     <MenuItem Icon="&#xE769;" Header="{DynamicResource Menu_Defer}" Command="{Binding PlacementTarget.Tag.DeferSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
@@ -43,18 +44,18 @@
                               ItemsSource="{Binding PlacementTarget.Tag.PriorityOptions, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
                     </MenuItem>
-                    <MenuItem Icon="&#xE8EC;" Header="{DynamicResource Menu_Tags}" InputGestureText="T" Click="FacetMenu_TagClick">
+                    <MenuItem Icon="&#xE8EC;" Header="{DynamicResource Menu_Tags}" Tag="OpenTagPicker" Click="FacetMenu_TagClick">
                     </MenuItem>
-                    <MenuItem Icon="&#xE8B7;" Header="{DynamicResource Menu_Project}" InputGestureText="P" Click="FacetMenu_ProjectClick">
+                    <MenuItem Icon="&#xE8B7;" Header="{DynamicResource Menu_Project}" Tag="OpenProjectPicker" Click="FacetMenu_ProjectClick">
                     </MenuItem>
-                    <MenuItem Icon="&#xE74D;" Header="{DynamicResource Menu_Discard}" InputGestureText="Backspace" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
+                    <MenuItem Icon="&#xE74D;" Header="{DynamicResource Menu_Discard}" Tag="DiscardTask" Command="{Binding PlacementTarget.Tag.DiscardSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource InverseBoolToVis}}">
                     </MenuItem>
                     <MenuItem Icon="&#xE7A7;" Header="{DynamicResource Menu_Restore}" Command="{Binding PlacementTarget.Tag.RestoreSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding CanRestore, Converter={StaticResource BoolToVis}}">
                     </MenuItem>
                     <Separator Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}"/>
-                    <MenuItem Icon="&#xE711;" Header="{DynamicResource Menu_Delete}" InputGestureText="Delete" Style="{StaticResource DangerMenuItem}"
+                    <MenuItem Icon="&#xE711;" Header="{DynamicResource Menu_Delete}" Tag="DeleteTask" Style="{StaticResource DangerMenuItem}"
                               Command="{Binding PlacementTarget.Tag.DeleteSelectionCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVis}}">
                     </MenuItem>

@@ -109,6 +109,8 @@
     <sys:String x:Key="Settings_Reassign">移过来</sys:String>
     <sys:String x:Key="Settings_Reset">重置</sys:String>
     <sys:String x:Key="Settings_NoneGesture">未设置</sys:String>
+    <sys:String x:Key="Settings_GroupApp">应用</sys:String>
+    <sys:String x:Key="Settings_GroupTask">任务</sys:String>
 
     <!-- 快捷键命令名 -->
     <sys:String x:Key="Cmd_Save">保存</sys:String>
@@ -118,5 +120,14 @@
     <sys:String x:Key="Cmd_OpenRecent">打开最近文件</sys:String>
     <sys:String x:Key="Cmd_Undo">撤销</sys:String>
     <sys:String x:Key="Cmd_SelectBlock">切换到 {0}</sys:String>
+    <sys:String x:Key="Cmd_CompleteTask">完成任务</sys:String>
+    <sys:String x:Key="Cmd_OpenTagPicker">打开标签面板</sys:String>
+    <sys:String x:Key="Cmd_OpenProjectPicker">打开项目面板</sys:String>
+    <sys:String x:Key="Cmd_DiscardTask">移入回收站</sys:String>
+    <sys:String x:Key="Cmd_DeleteTask">彻底删除</sys:String>
+    <sys:String x:Key="Cmd_NavigateUp">选中上一个</sys:String>
+    <sys:String x:Key="Cmd_NavigateDown">选中下一个</sys:String>
+    <sys:String x:Key="Cmd_NavigateLeft">焦点左移</sys:String>
+    <sys:String x:Key="Cmd_NavigateRight">焦点右移</sys:String>
 
 </ResourceDictionary>

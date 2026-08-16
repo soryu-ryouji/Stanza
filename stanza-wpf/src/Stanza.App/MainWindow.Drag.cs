@@ -198,55 +198,79 @@ public partial class MainWindow
             return;
         }
 
-        // Space：标记选中任务已完成（§9）。作用域限任务列表：编辑框内 Space 是输入、
-        // 按钮上 Space 是激活，均不拦截
-        if (k.Key == Key.Space
-            && Keyboard.Modifiers == ModifierKeys.None
-            && !RecentPopup.IsOpen
-            && Keyboard.FocusedElement is DependencyObject focus
-            && focus is not TextBoxBase
-            && VisualTreeEx.IsWithin(focus, TaskList)
-            && VM.ScopeIsActive
-            && VM.CompleteSelectionCommand.CanExecute(null))
+        // 任务作用域快捷键：同一张键位表，命中任务命令后按命令检查焦点作用域再执行。
+        // 用户改键只改触发手势；作用域语义（编辑框内输入、浮层内的按键优先）不随之变化
+        if (Keymap.Current.Resolve(key, Keyboard.Modifiers) is { } taskEntry
+            && Keymap.IsTaskScoped(taskEntry.Command)
+            && TryExecuteTaskCommand(taskEntry.Command, key))
         {
-            AnimateCompleteTasks(VM.SelectedTasks.ToList());
             e.Cancel();
             return;
         }
+    }
 
-        // T/P：为选中任务打开标签/项目选择器。作用域同 Space（限任务列表焦点）：
-        // 编辑框内字母是输入、浮层内的按键由浮层自身处理，均不拦截
-        if (k.Key is Key.T or Key.P
-            && Keyboard.Modifiers == ModifierKeys.None
-            && !RecentPopup.IsOpen
-            && Keyboard.FocusedElement is DependencyObject facetScope
-            && facetScope is not TextBoxBase
-            && VisualTreeEx.IsWithin(facetScope, TaskList)
-            && VM.HasSelection)
+    /// <summary>任务作用域命令的执行（含焦点作用域检查）。返回 false 表示当前上下文不分发，
+    /// 按键继续走默认路由（如编辑框内的字母输入）。</summary>
+    private bool TryExecuteTaskCommand(AppCommand command, Key key)
+    {
+        var focus = Keyboard.FocusedElement as DependencyObject;
+        switch (command)
         {
-            OpenFacetPicker(k.Key == Key.T ? FacetKind.Tag : FacetKind.Project, SelectedTaskAnchor());
-            e.Cancel();
-            return;
-        }
+            // 标记选中任务已完成（§9）。限任务列表焦点：编辑框内 Space 是输入、按钮上 Space 是激活
+            case AppCommand.CompleteTask:
+                if (RecentPopup.IsOpen || focus is null or TextBoxBase
+                    || !VisualTreeEx.IsWithin(focus, TaskList)
+                    || !VM.ScopeIsActive
+                    || !VM.CompleteSelectionCommand.CanExecute(null))
+                    return false;
+                AnimateCompleteTasks(VM.SelectedTasks.ToList());
+                return true;
 
-        // 裸导航键：方向键与 vim hjkl（同语义映射）。焦点无人消费时引入任务列表并移动选中；
-        // hjkl 没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
-        var navKey = k.Key switch
-        {
-            Key.Up or Key.K => Key.Up,
-            Key.Down or Key.J => Key.Down,
-            Key.Left or Key.H => Key.Left,
-            Key.Right or Key.L => Key.Right,
-            _ => (Key?)null,
-        };
-        var isVimKey = k.Key is Key.H or Key.J or Key.K or Key.L;
-        if (navKey is { } nav
-            && Keyboard.Modifiers == ModifierKeys.None
-            && !RecentPopup.IsOpen
-            && (NavKeysDeadOnFocus || (isVimKey && FocusedTaskChrome)))
-        {
-            FocusTaskForArrow(nav);
-            e.Cancel();
+            // 打开标签/项目选择器：编辑框内字母是输入，不拦截
+            case AppCommand.OpenTagPicker:
+            case AppCommand.OpenProjectPicker:
+                if (RecentPopup.IsOpen || focus is null or TextBoxBase
+                    || !VisualTreeEx.IsWithin(focus, TaskList)
+                    || !VM.HasSelection)
+                    return false;
+                OpenFacetPicker(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project,
+                    SelectedTaskAnchor());
+                return true;
+
+            // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
+            case AppCommand.DiscardTask:
+            case AppCommand.DeleteTask:
+                if (focus is TextBoxBase
+                    || focus != null && VisualTreeEx.IsWithin(focus, FacetPickerLayer)
+                    || !VM.HasSelection)
+                    return false;
+                var deleteCommand = command == AppCommand.DiscardTask
+                    ? VM.DiscardSelectionCommand
+                    : VM.DeleteSelectionCommand;
+                if (!deleteCommand.CanExecute(null)) return false;
+                var index = FirstSelectedIndex();
+                deleteCommand.Execute(null);
+                FocusTaskAtIndex(index);
+                return true;
+
+            // 裸导航键：方向键与 vim hjkl 同语义映射。焦点无人消费时引入任务列表并移动选中；
+            // 字母绑定没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
+            case AppCommand.NavigateUp or AppCommand.NavigateDown
+                or AppCommand.NavigateLeft or AppCommand.NavigateRight:
+                if (RecentPopup.IsOpen) return false;
+                var isCharKey = key is >= Key.A and <= Key.Z;
+                if (!NavKeysDeadOnFocus && !(isCharKey && FocusedTaskChrome)) return false;
+                FocusTaskForArrow(command switch
+                {
+                    AppCommand.NavigateUp => Key.Up,
+                    AppCommand.NavigateDown => Key.Down,
+                    AppCommand.NavigateLeft => Key.Left,
+                    _ => Key.Right,
+                });
+                return true;
+
+            default:
+                return false;
         }
     }
 
@@ -325,8 +349,9 @@ public partial class MainWindow
     private bool FocusedTaskChrome
         => Keyboard.FocusedElement is not TextBoxBase && FocusedTask() != null;
     // 语义键（焦点相关，控件级按键）：挂在窗口 KeyDown（冒泡方向），焦点控件先处理，
-    // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、
-    // 按钮的 Enter/Space、浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判
+    // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter）、按钮的 Enter/Space、
+    // 浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判。
+    // Esc/Enter 上下文多义（退出编辑/取消选择 vs 展开/提交），不进键位表
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -376,25 +401,6 @@ public partial class MainWindow
                 e.Handled = true;
             }
             return;
-        }
-
-        // Backspace：移入 DELETE（回收站语义，§9）；Delete：彻底删除（任意区块）。
-        // 编辑框内这两个键由编辑框消化，不会到达这里
-        if (!VM.HasSelection) return;
-
-        if (e.Key == Key.Back && VM.DiscardSelectionCommand.CanExecute(null))
-        {
-            var index = FirstSelectedIndex();
-            VM.DiscardSelectionCommand.Execute(null);
-            FocusTaskAtIndex(index);
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Delete && VM.DeleteSelectionCommand.CanExecute(null))
-        {
-            var index = FirstSelectedIndex();
-            VM.DeleteSelectionCommand.Execute(null);
-            FocusTaskAtIndex(index);
-            e.Handled = true;
         }
     }
 

@@ -426,7 +426,7 @@ public partial class MainWindow
         var targets = new List<UIElement> { FacetPickerInput };
         targets.AddRange(VisualTreeEx.FindVisualChildren<Button>(FacetPickerList));
         if (FacetPickerClear.Visibility == Visibility.Visible) targets.Add(FacetPickerClear);
-        var i = targets.IndexOf(Keyboard.FocusedElement as UIElement);
+        var i = Keyboard.FocusedElement is UIElement focused ? targets.IndexOf(focused) : -1;
         // 焦点不在序列内（如点在面板空白处）：向下从首项、向上从末项开始
         var next = i < 0 ? (delta > 0 ? 0 : targets.Count - 1) : Math.Clamp(i + delta, 0, targets.Count - 1);
         Keyboard.Focus(targets[next]);

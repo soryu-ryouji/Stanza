@@ -44,6 +44,16 @@ public partial class TaskTemplates : ResourceDictionary
 
     private void FacetMenu_ProjectClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Project);
 
+    /// <summary>菜单打开时把带 Tag（命令名）的菜单项的快捷键提示刷新为键位表当前手势——
+    /// 用户改键后提示不过期。</summary>
+    private void FacetContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+        foreach (var item in menu.Items.OfType<MenuItem>())
+            if (item.Tag is string name && Enum.TryParse<AppCommand>(name, out var command))
+                item.InputGestureText = Keymap.Current.Describe(command, null) ?? "";
+    }
+
     private static void ForwardFacetClick(object sender, FacetKind kind)
     {
         if (sender is MenuItem { Parent: ContextMenu { PlacementTarget: { } target } }

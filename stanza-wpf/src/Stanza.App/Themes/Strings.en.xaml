@@ -109,6 +109,8 @@
     <sys:String x:Key="Settings_Reassign">Reassign</sys:String>
     <sys:String x:Key="Settings_Reset">Reset</sys:String>
     <sys:String x:Key="Settings_NoneGesture">None</sys:String>
+    <sys:String x:Key="Settings_GroupApp">App</sys:String>
+    <sys:String x:Key="Settings_GroupTask">Task</sys:String>
 
     <!-- Command names -->
     <sys:String x:Key="Cmd_Save">Save</sys:String>
@@ -117,6 +119,15 @@
     <sys:String x:Key="Cmd_NewDocument">New File</sys:String>
     <sys:String x:Key="Cmd_OpenRecent">Open Recent</sys:String>
     <sys:String x:Key="Cmd_Undo">Undo</sys:String>
+    <sys:String x:Key="Cmd_CompleteTask">Complete Task</sys:String>
+    <sys:String x:Key="Cmd_OpenTagPicker">Open Tag Picker</sys:String>
+    <sys:String x:Key="Cmd_OpenProjectPicker">Open Project Picker</sys:String>
+    <sys:String x:Key="Cmd_DiscardTask">Move to Trash</sys:String>
+    <sys:String x:Key="Cmd_DeleteTask">Delete Permanently</sys:String>
+    <sys:String x:Key="Cmd_NavigateUp">Select Previous</sys:String>
+    <sys:String x:Key="Cmd_NavigateDown">Select Next</sys:String>
+    <sys:String x:Key="Cmd_NavigateLeft">Move Focus Left</sys:String>
+    <sys:String x:Key="Cmd_NavigateRight">Move Focus Right</sys:String>
     <sys:String x:Key="Cmd_SelectBlock">Switch to {0}</sys:String>
 
 </ResourceDictionary>
