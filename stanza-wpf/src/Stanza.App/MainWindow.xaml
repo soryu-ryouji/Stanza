@@ -208,11 +208,10 @@
                         </StackPanel>
                         <Button HorizontalAlignment="Right" Style="{StaticResource ToolIconButton}"
                                 ToolTip="{DynamicResource Tip_Settings}" Click="SettingsButton_Click">
-                            <!-- 齿轮：中心圆 + 八向齿 -->
-                            <Path Data="M8,5.4 A2.6,2.6 0 1 0 8,10.6 A2.6,2.6 0 1 0 8,5.4 M8,1.8 V3.6 M8,12.4 V14.2 M1.8,8 H3.6 M12.4,8 H14.2 M3.6,3.6 L4.9,4.9 M11.1,11.1 L12.4,12.4 M12.4,3.6 L11.1,4.9 M4.9,11.1 L3.6,12.4"
-                                  Width="16" Height="16"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                  StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <!-- 设置：Segoe Fluent Icons 齿轮（与右键菜单图标同字体；原自绘齿轮像太阳） -->
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                       FontSize="15"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                         </Button>
                     </Grid>
                     </Grid>
