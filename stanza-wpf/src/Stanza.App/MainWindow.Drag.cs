@@ -208,9 +208,7 @@ public partial class MainWindow
             && VM.ScopeIsActive
             && VM.CompleteSelectionCommand.CanExecute(null))
         {
-            var index = FirstSelectedIndex();
-            VM.CompleteSelectionCommand.Execute(null);
-            FocusTaskAtIndex(index);
+            AnimateCompleteTasks(VM.SelectedTasks.ToList());
             e.Cancel();
             return;
         }

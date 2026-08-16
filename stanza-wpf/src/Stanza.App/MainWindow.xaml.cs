@@ -23,6 +23,7 @@ public partial class MainWindow : Window
             PickOpenFile = PickOpenFile,
             PickSaveFile = PickSaveFile,
             OpenRecentRequested = OpenOrCycleRecent,
+            CompleteSelectionRequested = () => AnimateCompleteTasks(VM.SelectedTasks.ToList()),
         };
         vm.TaskCreated += OnTaskCreated;
         DataContext = vm;

@@ -57,7 +57,13 @@ public sealed class MainViewModel : ViewModelBase
             _ => ClearSelectedBlock(),
             _ => HasDocument && SelectedBlock is { HasTasks: true } b
                 && b.State is TaskState.Done or TaskState.Delete);
-        CompleteSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Done, normalize: true), _ => HasSelection);
+        CompleteSelectionCommand = new RelayCommand(
+            _ =>
+            {
+                if (CompleteSelectionRequested is { } animate) animate();
+                else CompleteTasks(SelectedTasks.ToList());
+            },
+            _ => HasSelection);
         DiscardSelectionCommand = new RelayCommand(
             _ => TransitionTasks(SelectedTasks.ToList(), TaskState.Delete, normalize: true),
             _ => HasSelection && ScopeState != TaskState.Delete);   // 已废弃的任务无需再废弃
@@ -714,6 +720,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>完成：移至 DONE 顶部并规范化（§9）。</summary>
     public void CompleteTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Done, normalize: true);
+
+    /// <summary>完成一组任务（§9：移至 DONE 顶部并规范化，保持相对顺序）。</summary>
+    public void CompleteTasks(IReadOnlyList<TaskViewModel> tasks) => TransitionTasks(tasks, TaskState.Done, normalize: true);
+
+    /// <summary>完成选中任务的请求：视图接管为动画流程；未接管时直接流转（供非动画上下文）。</summary>
+    public Action? CompleteSelectionRequested { get; set; }
 
     /// <summary>拖拽落点提交（调用方已把任务从原集合移除）。进入 DONE/DELETE 时按 §9 规范化。</summary>
     public void DropTask(TaskViewModel task, BlockViewModel target, int index)

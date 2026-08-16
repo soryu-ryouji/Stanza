@@ -219,9 +219,13 @@ Set-AppLayout 0x04090409 "en-US"
 
 Send-Keys "j" 400
 Check "D1 select first" (Get-TaskSel) "10"
-Send-Keys " " 700
-Check "D2 Space completes task (Alpha gone)" (Get-FirstTaskTitle) "Task Beta"
-Send-Keys " " 700
+Send-Keys " "
+Start-Sleep -Milliseconds 150
+Check "D2a Space starts animation (task still present)" (Get-FirstTaskTitle) "Task Alpha"
+Start-Sleep -Milliseconds 900
+Check "D2b task gone after animation" (Get-FirstTaskTitle) "Task Beta"
+Send-Keys " "
+Start-Sleep -Milliseconds 1050
 Check "D3 Space completes last task" (Get-FirstTaskTitle) "(empty)"
 Send-Keys "^z" 900
 Check "D4 Ctrl+Z undoes second complete" (Get-FirstTaskTitle) "Task Beta"

@@ -81,33 +81,76 @@ public partial class MainWindow
     // ==================== 勾选完成 ====================
 
     /// <summary>由 Themes/TaskTemplates 资源字典中的勾选框转发调用。</summary>
+    // ==================== 完成动画：勾选 → 变灰 → 淡出 → 收起补位 ====================
+
+    /// <summary>动画进行中（尚未提交）的任务：防止动画期间被重复完成。</summary>
+    private readonly HashSet<TaskViewModel> _completingTasks = new();
+
     internal void HandleTaskCheck(CheckBox checkBox, RoutedEventArgs e)
     {
         if (checkBox.DataContext is not TaskViewModel task) return;
         e.Handled = true;
-        checkBox.IsEnabled = false;   // 防止动画期间重复点击
+        AnimateCompleteTasks(new[] { task });
+    }
 
-        // 渐变消失 + 高度收起（下面的任务随布局自动上移），动画结束后才进入 DONE
-        var item = VisualTreeEx.FindVisualAncestor<ListBoxItem>(checkBox);
-        if (item == null)
+    /// <summary>以「勾选 → 变灰 → 淡出 → 收起」动画完成一组任务：先补上勾选视觉（点击勾选框的路径
+    /// 已由 Click 置位 IsChecked），整卡降至半透明（白底上即灰化），再渐隐，最后高度收起、
+    /// 下方任务匀速补位。全部结束后统一提交流转（§9），选中/焦点落位到空缺处。</summary>
+    private void AnimateCompleteTasks(IReadOnlyList<TaskViewModel> tasks)
+    {
+        var pending = tasks.Where(t => _completingTasks.Add(t)).ToList();
+        if (pending.Count == 0) return;
+        var focusIndex = FirstSelectedIndex();   // 提交后的落位（空缺处）
+        var remaining = pending.Count;
+        foreach (var task in pending)
         {
-            VM.CompleteTask(task);
-            return;
+            var item = ContainerOf(task);
+            if (item == null)
+            {
+                // 容器不可见（滚动外/刚切换视图）：不参与动画，直接计入提交
+                if (--remaining == 0) CommitCompleteTasks(pending, focusIndex);
+                continue;
+            }
+
+            // 勾选：Space/命令路径未经过勾选框点击，这里补齐视觉；IsEnabled 防止动画期间重复点击
+            var box = VisualTreeEx.FindVisualChildren<CheckBox>(item).FirstOrDefault();
+            if (box != null) { box.IsChecked = true; box.IsEnabled = false; }
+
+            item.ClipToBounds = true;
+            item.MaxHeight = item.ActualHeight;   // 锁定当前高度，淡出结束后由此收起
+
+            // 变灰 → 淡出：先降至 0.45 停顿出「灰化」观感，再渐隐至消失
+            item.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimationUsingKeyFrames
+            {
+                KeyFrames =
+                {
+                    new LinearDoubleKeyFrame(1.0, TimeSpan.Zero),
+                    new LinearDoubleKeyFrame(0.45, TimeSpan.FromMilliseconds(180)),
+                    new LinearDoubleKeyFrame(0.0, TimeSpan.FromMilliseconds(430)),
+                },
+            });
+
+            var shrink = new DoubleAnimation(item.ActualHeight, 0, TimeSpan.FromMilliseconds(260))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
+                BeginTime = TimeSpan.FromMilliseconds(430),
+            };
+            shrink.Completed += (_, _) =>
+            {
+                if (--remaining == 0) CommitCompleteTasks(pending, focusIndex);
+            };
+            item.BeginAnimation(FrameworkElement.MaxHeightProperty, shrink);
         }
+    }
 
-        item.ClipToBounds = true;
-        item.MaxHeight = item.ActualHeight;   // 锁定当前高度，再收到 0
-
-        item.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(220)));
-
-        var shrink = new DoubleAnimation(item.ActualHeight, 0, TimeSpan.FromMilliseconds(260))
-        {
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
-            BeginTime = TimeSpan.FromMilliseconds(60),
-        };
-        shrink.Completed += (_, _) => VM.CompleteTask(task);
-        item.BeginAnimation(FrameworkElement.MaxHeightProperty, shrink);
+    /// <summary>动画结束后的统一提交：流转至 DONE（§9），落位到空缺处。
+    /// 动画期间被其他操作移走的任务直接跳过。</summary>
+    private void CommitCompleteTasks(List<TaskViewModel> tasks, int focusIndex)
+    {
+        foreach (var t in tasks) _completingTasks.Remove(t);
+        var alive = tasks.Where(t => VM.Blocks.Any(b => b.Items.Contains(t))).ToList();
+        if (alive.Count > 0) VM.CompleteTasks(alive);
+        FocusTaskAtIndex(focusIndex);
     }
 
     // ==================== 最近文件弹出层 ====================
