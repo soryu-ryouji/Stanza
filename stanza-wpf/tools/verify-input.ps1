@@ -137,6 +137,50 @@ function Get-EditValues {
     return ($names -join " | ")
 }
 
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class KbdV {
+    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    public static void Down(byte vk) { keybd_event(vk, 0, 0, UIntPtr.Zero); }
+    public static void Up(byte vk) { keybd_event(vk, 0, 2, UIntPtr.Zero); }
+    public static void Press(byte vk) { Down(vk); Up(vk); }
+}
+'@
+
+function Get-FocusedRowFile {
+    # focused recent-row button: read its descendant text (button Name is empty for composite content)
+    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
+    if (-not $f) { return "(no focus)" }
+    $texts = $f.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+    foreach ($t in $texts) { if ($t.Current.Name -match "\.stanza$") { return $t.Current.Name } }
+    return "(not a recent row)"
+}
+
+function Find-RecentRow([string]$name) {
+    # visible popup row button whose descendant text equals the given file name; $null when popup closed
+    $win = Get-App
+    $buttons = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Button)))
+    foreach ($b in $buttons) {
+        $texts = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+        foreach ($t in $texts) { if ($t.Current.Name -eq $name) { return $b } }
+    }
+    return $null
+}
+
+function Get-FirstTaskTitle {
+    $win = Get-App
+    # locate by AutomationId: an empty list has no "Task " text for Find-TaskList to match
+    $tl = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TaskList")))
+    if (-not $tl) { return "(?)" }
+    $items = $tl.FindAll([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+    if ($items.Count -eq 0) { return "(empty)" }
+    $texts = $items[0].FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+    foreach ($t in $texts) { if ($t.Current.Name -match "^Task ") { return $t.Current.Name } }
+    return "(?)"
+}
+
 # ---------- fixture & launch ----------
 
 $workDir = Join-Path $PSScriptRoot ".verify-tmp"
@@ -167,6 +211,32 @@ $script:AppHwnd = [IntPtr]$win.Current.NativeWindowHandle
 $pid_ = 0
 $script:AppTid = [Win]::GetWindowThreadProcessId($script:AppHwnd, [ref]$pid_)
 Ensure-Foreground
+
+# ---------- Suite D: Space complete & Ctrl+Z undo ----------
+
+Write-Host "`nSuite D: Space complete & Ctrl+Z undo (US layout)"
+Set-AppLayout 0x04090409 "en-US"
+
+Send-Keys "j" 400
+Check "D1 select first" (Get-TaskSel) "10"
+Send-Keys " " 700
+Check "D2 Space completes task (Alpha gone)" (Get-FirstTaskTitle) "Task Beta"
+Send-Keys " " 700
+Check "D3 Space completes last task" (Get-FirstTaskTitle) "(empty)"
+Send-Keys "^z" 900
+Check "D4 Ctrl+Z undoes second complete" (Get-FirstTaskTitle) "Task Beta"
+Send-Keys "^z" 900
+Check "D5 Ctrl+Z undoes first complete" (Get-FirstTaskTitle) "Task Alpha"
+
+# editor-local undo: Ctrl+Z inside a text box is WPF text undo, not document undo
+Send-Keys "j" 400
+Send-Keys "{ENTER}" 800
+Send-Keys "{END}" 200
+Send-Keys "XYZ" 400
+Send-Keys "^z" 500
+$d5 = Get-EditValues
+Check "D6 Ctrl+Z in editor is text undo" $(if ($d5 -notmatch "XYZ") { "yes" } else { $d5 }) "yes"
+Send-Keys "{ESC}" 400
 
 # ---------- Suite A: US layout ----------
 
@@ -236,47 +306,7 @@ Check "B6 editor received letter (zh)" $(if ($b6 -match "q") { "yes" } else { $b
 
 # ---------- Suite C: Ctrl+R quick open (VS Code style) ----------
 
-Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-public class KbdV {
-    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-    public static void Down(byte vk) { keybd_event(vk, 0, 0, UIntPtr.Zero); }
-    public static void Up(byte vk) { keybd_event(vk, 0, 2, UIntPtr.Zero); }
-    public static void Press(byte vk) { Down(vk); Up(vk); }
-}
-'@
 
-function Get-FocusedRowFile {
-    # focused recent-row button: read its descendant text (button Name is empty for composite content)
-    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
-    if (-not $f) { return "(no focus)" }
-    $texts = $f.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
-    foreach ($t in $texts) { if ($t.Current.Name -match "\.stanza$") { return $t.Current.Name } }
-    return "(not a recent row)"
-}
-
-function Find-RecentRow([string]$name) {
-    # visible popup row button whose descendant text equals the given file name; $null when popup closed
-    $win = Get-App
-    $buttons = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Button)))
-    foreach ($b in $buttons) {
-        $texts = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
-        foreach ($t in $texts) { if ($t.Current.Name -eq $name) { return $b } }
-    }
-    return $null
-}
-
-function Get-FirstTaskTitle {
-    $win = Get-App
-    $tl = Find-TaskList $win
-    if (-not $tl) { return "(?)" }
-    $items = $tl.FindAll([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
-    if ($items.Count -eq 0) { return "(empty)" }
-    $texts = $items[0].FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
-    foreach ($t in $texts) { if ($t.Current.Name -match "^Task ") { return $t.Current.Name } }
-    return "(?)"
-}
 
 function Restart-AppWith([string]$file) {
     Get-Process Stanza -ErrorAction SilentlyContinue | Stop-Process -Force

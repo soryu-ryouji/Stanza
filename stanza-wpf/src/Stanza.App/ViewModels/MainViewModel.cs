@@ -40,6 +40,7 @@ public sealed class MainViewModel : ViewModelBase
         OpenCommand = new RelayCommand(_ => OpenInteractive());
         NewDocumentCommand = new RelayCommand(_ => NewDocument());
         OpenRecentCommand = new RelayCommand(_ => OpenRecentRequested?.Invoke());
+        UndoCommand = new RelayCommand(_ => Undo(), _ => _undoStack.Count > 0);
         NewTaskCommand = new RelayCommand(_ => CreateTaskAtEnd(),
             _ => HasDocument && (SelectedBlock != null || SelectedFacet != null));
         SelectBlockCommand = new RelayCommand(p =>
@@ -296,6 +297,7 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand OpenCommand { get; }
     public ICommand NewDocumentCommand { get; }
     public ICommand OpenRecentCommand { get; }
+    public ICommand UndoCommand { get; }
     public ICommand NewTaskCommand { get; }
     public ICommand SelectBlockCommand { get; }
     public ICommand ToggleFacetSectionCommand { get; }
@@ -316,6 +318,7 @@ public sealed class MainViewModel : ViewModelBase
         AppCommand.NewTask => NewTaskCommand,
         AppCommand.NewDocument => NewDocumentCommand,
         AppCommand.OpenRecent => OpenRecentCommand,
+        AppCommand.Undo => UndoCommand,
         AppCommand.SelectBlock => SelectBlockCommand,
         _ => null,
     };
@@ -347,6 +350,7 @@ public sealed class MainViewModel : ViewModelBase
     public void ToggleTag(string name)
     {
         var remove = SelectionHasFacet(FacetKind.Tag, name);
+        PushUndoSnapshot();
         foreach (var t in SelectedTasks)
         {
             if (remove) t.RemoveTag(name);
@@ -358,6 +362,7 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>把选中任务移到指定项目；null 表示清除项目。</summary>
     public void SetProjectForSelection(string? name)
     {
+        PushUndoSnapshot();
         foreach (var t in SelectedTasks) t.SetProject(name);
         RefreshFacets();
     }
@@ -365,6 +370,7 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>清除选中任务的全部标签。</summary>
     public void ClearTagsForSelection()
     {
+        PushUndoSnapshot();
         foreach (var t in SelectedTasks) t.ClearTags();
         RefreshFacets();
     }
@@ -388,6 +394,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         var targets = SelectedTasks.Where(t => t.IsActive).ToList();
         if (targets.Count == 0) return;
+        PushUndoSnapshot();
         foreach (var t in targets) t.Priority = option.Value;
         SettleSort();   // 排序键变化后重排（象限 → 截止日期）
     }
@@ -410,6 +417,7 @@ public sealed class MainViewModel : ViewModelBase
     public void CollapseExpanded()
     {
         if (ExpandedTask == null) return;
+        PushUndoSnapshot();   // 提交点：编辑内容随收起入模型（空草稿随后移除，快照自动去重）
         var task = ExpandedTask;
         task.IsExpanded = false;
         ExpandedTask = null;
@@ -483,6 +491,7 @@ public sealed class MainViewModel : ViewModelBase
         _suppressDirty = true;
         try
         {
+            _undoStack.Clear();
             Blocks.Clear();
             foreach (var state in TaskStateNames.CanonicalOrder)
                 Blocks.Add(CreateBlock(state, existedInSource: true));
@@ -519,16 +528,7 @@ public sealed class MainViewModel : ViewModelBase
         try
         {
             SetStatus(SaveStatus.Saving, Loc.Get("Status_Saving"));
-            var doc = new StanzaDocument();
-            foreach (var b in Blocks)
-            {
-                var models = b.Tasks.Where(t => !t.IsEmpty).Select(t => t.ToModel()).ToList();
-                // 空区块仅在源文件中存在时才写回（§6.3）
-                if (models.Count == 0 && !b.ExistedInSource) continue;
-                var block = doc.GetOrAddBlock(b.State);
-                block.Tasks.AddRange(models);
-            }
-            File.WriteAllText(FilePath, StanzaWriter.Write(doc), new UTF8Encoding(false));
+            File.WriteAllText(FilePath, SerializeDocument(), new UTF8Encoding(false));
             // 本次写出后这些区块已存在于源文件（§6.3），之后变空也要写回区块头
             foreach (var b in Blocks)
                 if (!b.ExistedInSource && b.Tasks.Any(t => !t.IsEmpty))
@@ -540,6 +540,63 @@ public sealed class MainViewModel : ViewModelBase
         {
             SetStatus(SaveStatus.Error, Loc.Format("Status_SaveFailed", ex.Message));
         }
+    }
+
+    /// <summary>当前文档的规范序列化文本（Save 与撤销快照共用的唯一序列化路径）。</summary>
+    private string SerializeDocument()
+    {
+        var doc = new StanzaDocument();
+        foreach (var b in Blocks)
+        {
+            var models = b.Tasks.Where(t => !t.IsEmpty).Select(t => t.ToModel()).ToList();
+            // 空区块仅在源文件中存在时才写回（§6.3）
+            if (models.Count == 0 && !b.ExistedInSource) continue;
+            var block = doc.GetOrAddBlock(b.State);
+            block.Tasks.AddRange(models);
+        }
+        return StanzaWriter.Write(doc);
+    }
+
+    // ---- 撤销 ----
+
+    /// <summary>撤销栈容量上限。</summary>
+    private const int UndoDepth = 100;
+
+    /// <summary>文档文本快照栈：栈顶是最近一次操作前的状态（操作入口统一打点，见 PushUndoSnapshot）。</summary>
+    private readonly Stack<string> _undoStack = new();
+
+    /// <summary>变更操作前打点：当前状态入撤销栈。与栈顶相同则跳过（无效/重复快照自动去重，
+    /// 无实际变更的操作（如收起未编辑的任务、取消拖拽）不产生撤销步）。拖拽等先变更后提交的操作
+    /// 由视图在变更开始前调用（StartTaskDrag），保证快照是操作前状态而非中间态。</summary>
+    public void PushUndoSnapshot()
+    {
+        if (_suppressDirty || !HasDocument) return;
+        var text = SerializeDocument();
+        if (_undoStack.Count > 0 && _undoStack.Peek() == text) return;
+        _undoStack.Push(text);
+        if (_undoStack.Count > UndoDepth)
+        {
+            // 容量裁剪：丢弃最旧快照（栈底）。ToArray 为顶→底序，逆序回填保持原顺序
+            var keep = _undoStack.ToArray().Take(UndoDepth).Reverse().ToList();
+            _undoStack.Clear();
+            foreach (var item in keep) _undoStack.Push(item);
+        }
+    }
+
+    /// <summary>撤销上一操作：恢复前一文档快照，保持当前区块视图。</summary>
+    private void Undo()
+    {
+        var current = SerializeDocument();
+        while (_undoStack.Count > 0 && _undoStack.Peek() == current)
+            _undoStack.Pop();   // 防御：与当前一致的快照无恢复价值
+        if (_undoStack.Count == 0) return;
+        var scope = SelectedBlock?.State;
+        LoadDocument(StanzaParser.Parse(_undoStack.Pop()), clearUndo: false);
+        if (scope is { } s && SelectedBlock?.State != s)
+            SelectedBlock = Blocks.First(b => b.State == s);
+        // 焦点可能随任务重建落空：强制广播一次区块变更，让视图把焦点停回列表（同切区块路径）
+        OnPropertyChanged(nameof(SelectedBlock));
+        NotifyContentChanged();   // 撤销本身是变更：标脏并触发自动保存
     }
 
     /// <summary>有未保存更改时先尝试保存；返回是否可以继续后续操作。</summary>
@@ -572,6 +629,7 @@ public sealed class MainViewModel : ViewModelBase
 
     public TaskViewModel CreateTask(BlockViewModel block, int index)
     {
+        PushUndoSnapshot();
         var task = new TaskViewModel(this) { State = block.State };
         // §7.4 / §9：写入创建时间戳（存为续行属性，不在备注编辑器中显示）；任务未被填写就被放弃时按空任务过滤
         task.SetCreated(DateOnly.FromDateTime(DateTime.Today));
@@ -607,6 +665,7 @@ public sealed class MainViewModel : ViewModelBase
     private void TransitionTasks(IReadOnlyList<TaskViewModel> tasks, TaskState target, bool normalize = false)
     {
         if (tasks.Count == 0) return;
+        PushUndoSnapshot();
         var targetBlock = Blocks.First(b => b.State == target);
         var today = DateOnly.FromDateTime(DateTime.Today);
         foreach (var task in tasks)
@@ -669,6 +728,7 @@ public sealed class MainViewModel : ViewModelBase
     private void DeleteTasksPermanently(IReadOnlyList<TaskViewModel> tasks)
     {
         if (tasks.Count == 0) return;
+        PushUndoSnapshot();
         foreach (var task in tasks)
         {
             BlockOf(task).RemoveTask(task);
@@ -683,6 +743,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         var block = SelectedBlock;
         if (block == null || block.State is not (TaskState.Done or TaskState.Delete)) return;
+        PushUndoSnapshot();
         foreach (var task in block.Tasks.ToList()) DetachTask(task);
         block.Items.Clear();
         RefreshFacets();
@@ -834,11 +895,14 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(ScopeIsDeleted));
     }
 
-    private void LoadDocument(StanzaDocument doc)
+    private void LoadDocument(StanzaDocument doc) => LoadDocument(doc, clearUndo: true);
+
+    private void LoadDocument(StanzaDocument doc, bool clearUndo)
     {
         _suppressDirty = true;
         try
         {
+            if (clearUndo) _undoStack.Clear();
             Blocks.Clear();
             foreach (var state in TaskStateNames.CanonicalOrder)
             {

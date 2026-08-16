@@ -12,6 +12,7 @@ public enum AppCommand
     NewDocument,
     SelectBlock,
     OpenRecent,
+    Undo,
 }
 
 /// <summary>一条键位映射：修饰键 + 主键 → 命令（可带参数）。同一命令可有多条（一键多绑）。</summary>
@@ -126,6 +127,7 @@ public sealed class Keymap
         new(ModifierKeys.Control, Key.N, AppCommand.NewTask),
         new(ModifierKeys.Control | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
         new(ModifierKeys.Control, Key.R, AppCommand.OpenRecent),
+        new(ModifierKeys.Control, Key.Z, AppCommand.Undo),
         new(ModifierKeys.Alt, Key.D1, AppCommand.SelectBlock, "1"),
         new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
         new(ModifierKeys.Alt, Key.D3, AppCommand.SelectBlock, "3"),

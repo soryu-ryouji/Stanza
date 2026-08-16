@@ -23,6 +23,7 @@ public partial class MainWindow
         (AppCommand.NewTask, null),
         (AppCommand.NewDocument, null),
         (AppCommand.OpenRecent, null),
+        (AppCommand.Undo, null),
         (AppCommand.SelectBlock, "1"),
         (AppCommand.SelectBlock, "2"),
         (AppCommand.SelectBlock, "3"),

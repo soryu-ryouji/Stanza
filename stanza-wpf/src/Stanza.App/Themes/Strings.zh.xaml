@@ -116,6 +116,7 @@
     <sys:String x:Key="Cmd_NewTask">新建任务</sys:String>
     <sys:String x:Key="Cmd_NewDocument">新建文件</sys:String>
     <sys:String x:Key="Cmd_OpenRecent">打开最近文件</sys:String>
+    <sys:String x:Key="Cmd_Undo">撤销</sys:String>
     <sys:String x:Key="Cmd_SelectBlock">切换到 {0}</sys:String>
 
 </ResourceDictionary>

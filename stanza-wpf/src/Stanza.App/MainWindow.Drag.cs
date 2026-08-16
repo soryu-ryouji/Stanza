@@ -189,8 +189,29 @@ public partial class MainWindow
             && VM.CommandFor(entry.Command) is { } command
             && command.CanExecute(entry.Parameter))
         {
+            // 编辑框内的 Ctrl+Z 是文本级撤销（WPF 内建）：不消费，交给路由
+            if (entry.Command == AppCommand.Undo && Keyboard.FocusedElement is TextBoxBase)
+                return;
             command.Execute(entry.Parameter);
             e.Cancel();   // 已消费，不再进入路由
+            return;
+        }
+
+        // Space：标记选中任务已完成（§9）。作用域限任务列表：编辑框内 Space 是输入、
+        // 按钮上 Space 是激活，均不拦截
+        if (k.Key == Key.Space
+            && Keyboard.Modifiers == ModifierKeys.None
+            && !RecentPopup.IsOpen
+            && Keyboard.FocusedElement is DependencyObject focus
+            && focus is not TextBoxBase
+            && VisualTreeEx.IsWithin(focus, TaskList)
+            && VM.ScopeIsActive
+            && VM.CompleteSelectionCommand.CanExecute(null))
+        {
+            var index = FirstSelectedIndex();
+            VM.CompleteSelectionCommand.Execute(null);
+            FocusTaskAtIndex(index);
+            e.Cancel();
             return;
         }
 
@@ -443,6 +464,7 @@ public partial class MainWindow
 
     private void StartTaskDrag()
     {
+        VM.PushUndoSnapshot();   // 拖拽从这里开始变更集合：快照必须是拖拽前状态，而非提交时
         var task = _downTask!;
         _downTask = null;
         _taskDragging = true;
