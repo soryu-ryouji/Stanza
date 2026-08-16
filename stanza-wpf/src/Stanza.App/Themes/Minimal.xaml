@@ -44,6 +44,9 @@
          因此所有可交互控件样式统一 BasedOn 此基座，不再逐个写 FocusVisualStyle="{x:Null}" -->
     <Style x:Key="StanzaControlBase" TargetType="{x:Type Control}">
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <!-- 交互控件（按钮/列表条目）持焦点时禁用 IME：中文输入法不在非文本元素上吞字母键，
+             裸 hjkl / 方向键导航才能到达；文本框在 TextBox 基础样式上显式恢复 IME -->
+        <Setter Property="InputMethod.IsInputMethodEnabled" Value="False"/>
     </Style>
 
     <!-- ============ 文本 ============ -->
@@ -53,6 +56,9 @@
 
     <!-- ============ 文本框：下划线极简风 ============ -->
     <Style TargetType="{x:Type TextBox}">
+        <!-- 交互控件基座（StanzaControlBase）默认禁用 IME（裸 hjkl / 方向键导航不被中文输入法吞键），
+             文本框显式恢复以输入中文 -->
+        <Setter Property="InputMethod.IsInputMethodEnabled" Value="True"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}"/>

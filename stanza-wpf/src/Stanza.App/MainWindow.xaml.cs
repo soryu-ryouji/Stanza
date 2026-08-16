@@ -129,8 +129,8 @@ public partial class MainWindow : Window
     {
         ExitOverlay.BeginAnimation(UIElement.OpacityProperty, null);
         ExitOverlay.Visibility = Visibility.Collapsed;
-        // 与点击空白一致：不主动归还焦点，避免 ListBox 聚焦首项导致视图跳动
-        Keyboard.ClearFocus();
+        // 与点击空白一致：焦点停回任务列表
+        ParkFocusOnTaskList();
     }
 
     private void ExitSave_Click(object sender, RoutedEventArgs e)

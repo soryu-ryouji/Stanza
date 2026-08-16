@@ -124,10 +124,10 @@ public sealed class Keymap
         new(ModifierKeys.Control, Key.O, AppCommand.Open),
         new(ModifierKeys.Control, Key.N, AppCommand.NewTask),
         new(ModifierKeys.Control | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
-        new(ModifierKeys.Control, Key.D1, AppCommand.SelectBlock, "1"),
-        new(ModifierKeys.Control, Key.D2, AppCommand.SelectBlock, "2"),
-        new(ModifierKeys.Control, Key.D3, AppCommand.SelectBlock, "3"),
-        new(ModifierKeys.Control, Key.D4, AppCommand.SelectBlock, "4"),
+        new(ModifierKeys.Alt, Key.D1, AppCommand.SelectBlock, "1"),
+        new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
+        new(ModifierKeys.Alt, Key.D3, AppCommand.SelectBlock, "3"),
+        new(ModifierKeys.Alt, Key.D4, AppCommand.SelectBlock, "4"),
     ];
 
     public static Keymap Current { get; } = new Keymap();

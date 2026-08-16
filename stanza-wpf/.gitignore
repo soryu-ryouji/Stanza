@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Project: publish output (self-contained exe artifacts)
 publish/
+
+# verify-input.ps1 scratch directory
+tools/.verify-tmp/

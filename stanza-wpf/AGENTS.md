@@ -17,6 +17,7 @@ dotnet run --project src/Stanza.App            # 启动
 dotnet run --project src/Stanza.App -- TODO.stanza   # 启动并打开文件
 dotnet test                                    # 全部测试（xunit）
 dotnet test --filter "FullyQualifiedName~ParserTests"  # 只跑解析器测试
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-input.ps1   # 键盘输入 UI 自动化回归（hjkl/方向键导航、中文 IME）
 ```
 
 发布用 `tools/publish.ps1`（生成单文件 exe 到 `publish/<runtime>/`，默认先跑测试；`-CopyTo <dir>` 可额外把 exe 复制到指定目录）。发布前需关闭正在运行的 Stanza.exe，否则文件占用导致失败。

@@ -168,8 +168,9 @@ public partial class MainWindow
         if (ModalOverlayOpen) return;
         if (e.StagingItem.Input is not KeyEventArgs k || k.RoutedEvent != Keyboard.KeyDownEvent) return;
 
-        // 应用级快捷键：查键位表分发到命令（Keymap.cs）
-        if (Keymap.Current.Resolve(k.Key, Keyboard.Modifiers) is { } entry
+        // 应用级快捷键：查键位表分发到命令（Keymap.cs）。Alt 组合的主键在 SystemKey 上（同 CaptureGesture）
+        var key = k.Key == Key.System ? k.SystemKey : k.Key;
+        if (Keymap.Current.Resolve(key, Keyboard.Modifiers) is { } entry
             && VM.CommandFor(entry.Command) is { } command
             && command.CanExecute(entry.Parameter))
         {
@@ -178,25 +179,37 @@ public partial class MainWindow
             return;
         }
 
-        // 裸方向键：焦点无人消费时引入任务列表并移动选中（见 ArrowsDeadOnFocus）
-        if (k.Key is Key.Up or Key.Down or Key.Left or Key.Right
+        // 裸导航键：方向键与 vim hjkl（同语义映射）。焦点无人消费时引入任务列表并移动选中；
+        // hjkl 没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
+        var navKey = k.Key switch
+        {
+            Key.Up or Key.K => Key.Up,
+            Key.Down or Key.J => Key.Down,
+            Key.Left or Key.H => Key.Left,
+            Key.Right or Key.L => Key.Right,
+            _ => (Key?)null,
+        };
+        var isVimKey = k.Key is Key.H or Key.J or Key.K or Key.L;
+        if (navKey is { } nav
             && Keyboard.Modifiers == ModifierKeys.None
             && !RecentPopup.IsOpen
-            && ArrowsDeadOnFocus)
+            && (NavKeysDeadOnFocus || (isVimKey && FocusedTaskChrome)))
         {
-            FocusTaskForArrow(k.Key);
+            FocusTaskForArrow(nav);
             e.Cancel();
         }
     }
 
-    /// <summary>裸方向键当前无人消费：无焦点；焦点在按钮/窗口/任务列表框本体上；
+    /// <summary>裸导航键（方向键/hjkl）当前无人消费：无焦点；焦点残留在已隐藏/移除的元素上
+    /// （WPF 不自动迁移焦点，按键仍会路由给它）；焦点在按钮/窗口/任务列表框本体上；
     /// 或焦点在任务列表的未选中条目上（启动/切区块时预置的「只聚焦不选中」状态，见 MainWindow 构造函数）。
     /// 编辑框（光标移动）、选中条目（默认方向导航接管）、侧栏列表、浮层内的焦点不接管。</summary>
-    private bool ArrowsDeadOnFocus
+    private bool NavKeysDeadOnFocus
     {
         get
         {
             if (Keyboard.FocusedElement is not DependencyObject focus) return true;
+            if (focus is UIElement { IsVisible: false }) return true;
             if (focus is TextBoxBase) return false;
             if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
             if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item)
@@ -248,6 +261,10 @@ public partial class MainWindow
             ? VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus)?.DataContext as TaskViewModel
             : null;
 
+    /// <summary>焦点在任务列表的条目容器上（勾选框等也可），但不在文本框内：
+    /// hjkl 导航的附加作用域——编辑框输入字母优先，不参与导航。</summary>
+    private bool FocusedTaskChrome
+        => Keyboard.FocusedElement is not TextBoxBase && FocusedTask() != null;
     // 语义键（焦点相关，控件级按键）：挂在窗口 KeyDown（冒泡方向），焦点控件先处理，
     // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter、框内 Delete/Backspace）、
     // 按钮的 Enter/Space、浮层自行处理并 Handled 的键都不会到达这里，无需再按可见性/来源做特判
@@ -264,7 +281,7 @@ public partial class MainWindow
                     // Esc 退出编辑（空草稿随之移除）
                     VM.CollapseExpanded();
                     VM.SelectedTask = null;
-                    Keyboard.ClearFocus();
+                    ParkFocusOnTaskList();
                     e.Handled = true;
                 }
             }
@@ -335,13 +352,15 @@ public partial class MainWindow
         CommitExpandedEdit();
     }
 
-    /// <summary>确认当前展开的编辑：收起详情；空草稿被移除时焦点回到列表。</summary>
+    /// <summary>确认当前展开的编辑：收起详情；空草稿被移除时焦点回到列表。
+    /// 同步聚焦：BeginInvoke 的窗口期内按下的键会落入刚收起但仍持焦点的编辑框。</summary>
     private void CommitExpandedEdit()
     {
         VM.CollapseExpanded();
         var keep = VM.SelectedTask;
-        if (keep != null) FocusContainerOf(keep);
-        else (TaskList as UIElement).Focus();
+        // 收起只切换卡片内部模板，条目容器仍在视觉树中，同步聚焦立即可用
+        if (keep != null) (ContainerOf(keep) as UIElement ?? (UIElement)TaskList).Focus();
+        else ParkFocusOnTaskList();
     }
 
     /// <summary>可见列表中第一个选中项的索引（删除/流转后用于落位）。</summary>
@@ -364,6 +383,17 @@ public partial class MainWindow
         }));
     }
 
+    private void ResetPressState()
+    {
+        _downTask = null;
+    }
+
+    /// <summary>焦点停回任务列表（Esc/点空白/浮层关闭后）：hjkl/方向键有确定的作用对象，
+    /// 且 ListBox 基座样式（StanzaControlBase）带 IME 禁用，中文输入法不吞导航字母键。
+    /// 不用 Keyboard.ClearFocus()：焦点为空时 WPF 恢复默认 IME 上下文，中文模式下字母键被吞；
+    /// ListBox.Focus() 只聚焦列表元素本身，不会像 Tab 进入那样聚焦首项容器、跳动视图。</summary>
+    private void ParkFocusOnTaskList() => (TaskList as UIElement).Focus();
+
     /// <summary>删除/移走任务后，把选中与焦点落到原位置的后续任务上（Delete/Backspace 可连续操作）；
     /// 列表空了则把焦点交给列表本身。</summary>
     private void FocusTaskAtIndex(int index)
@@ -381,11 +411,6 @@ public partial class MainWindow
             VM.SelectedTask = task;
             (ContainerOf(task) as UIElement ?? (UIElement)TaskList).Focus();
         }));
-    }
-
-    private void ResetPressState()
-    {
-        _downTask = null;
     }
 
     // ==================== 任务拖拽 ====================

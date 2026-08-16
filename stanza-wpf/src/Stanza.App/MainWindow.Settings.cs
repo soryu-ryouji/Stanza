@@ -50,7 +50,7 @@ public partial class MainWindow
     {
         StopRecording();
         SettingsOverlay.Visibility = Visibility.Collapsed;
-        Keyboard.ClearFocus();
+        ParkFocusOnTaskList();
     }
 
     private void Settings_DimMouseDown(object sender, MouseButtonEventArgs e) => HideSettings();
