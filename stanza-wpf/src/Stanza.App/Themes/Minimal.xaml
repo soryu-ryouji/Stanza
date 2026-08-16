@@ -38,6 +38,9 @@
     <app:QuadrantToBrushConverter x:Key="QuadrantToBrush"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
+    <!-- 图标字体（WinUI FontIcon 同款方案）：工具栏/菜单/勾选等图标统一取字形，不再自绘 Path -->
+    <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
     <!-- ============ 自定义控件样式的公共基座 ============ -->
     <!-- 统一关闭虚线焦点框：FocusVisualStyle 的默认值是系统点线样式（实测：自定义样式
          不会摆脱它，应用级覆盖 SystemParameters.FocusVisualStyleKey 资源也无效），
@@ -129,7 +132,8 @@
         </Setter>
     </Style>
 
-    <!-- 深色浮层上的行按钮（标签/项目选择器）：白字，悬停强调蓝底（Things 3 选择器行） -->
+    <!-- 深色浮层上的行按钮（标签/项目选择器）：白字，悬停/高亮强调蓝底（Things 3 选择器行）
+         键盘高亮经 Tag=true 驱动（虚拟高亮：焦点始终在输入框，见 MainWindow.Panels） -->
     <Style x:Key="PickerRowButton" TargetType="{x:Type Button}" BasedOn="{StaticResource StanzaControlBase}">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource OnDarkTextBrush}"/>
@@ -149,11 +153,11 @@
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
-                        <!-- 方向键移动焦点即高亮当前行（与悬停同视觉） -->
-                        <Trigger Property="IsKeyboardFocused" Value="True">
+                        <!-- 键盘高亮行（方向键/Alt+JK 移动，悬停同步） -->
+                        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="White"/>
-                        </Trigger>
+                        </DataTrigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35"/>
                         </Trigger>
@@ -323,10 +327,10 @@
                 <ControlTemplate TargetType="{x:Type CheckBox}">
                     <Border x:Name="Box" Width="17" Height="17" CornerRadius="4"
                             BorderBrush="#FFC7C7CC" BorderThickness="1.2" Background="Transparent">
-                        <Path x:Name="Check" Data="M3.5,9 L7,12.5 L13.5,5" Stroke="White" StrokeThickness="1.6"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Visibility="Collapsed"/>
+                        <TextBlock x:Name="Check" Text="&#xE73E;" FontFamily="{StaticResource IconFont}"
+                                   FontSize="11" Foreground="White"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="Collapsed"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -424,6 +428,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <!-- 图标：Icon 只传几何数据字符串，由模板内 Path 用 TemplateBinding 渲染。
                                  不要把 Path 元素放进 Icon 再用 RelativeSource 绑前景色——游离属性值元素
@@ -431,7 +436,7 @@
                             <!-- 图标：字体字形（Segoe Fluent Icons，WinUI FontIcon 同款方案），
                                  颜色经 TemplateBinding 随 Foreground 联动，高亮自动反白；Icon 传字形码 -->
                             <TextBlock x:Name="IconGlyph" Text="{TemplateBinding Icon}"
-                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                                       FontFamily="{StaticResource IconFont}" FontSize="13"
                                        Foreground="{TemplateBinding Foreground}"
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <!-- 显式 TextBlock 绑定菜单项前景色：隐式 TextBlock 样式的墨色会盖住
@@ -444,14 +449,19 @@
                                     </DataTemplate>
                                 </ContentPresenter.ContentTemplate>
                             </ContentPresenter>
+                            <!-- 快捷键提示：右对齐、同色降透明（高亮时随文字反白）。
+                                 文本由 ContextMenu.Opened 按当前键位表填入 -->
+                            <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                                       Foreground="{TemplateBinding Foreground}" Opacity="0.55"
+                                       FontSize="11" VerticalAlignment="Center" Margin="16,0,0,0"/>
                             <!-- 子菜单箭头：仅有子项时显示 -->
-                            <Path x:Name="Arrow" Grid.Column="2" Data="M0,0 L3.5,3.5 L0,7" Width="5" Height="8"
-                                  Stretch="Uniform" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.1"
-                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed"/>
+                            <TextBlock x:Name="Arrow" Grid.Column="3" Text="&#xE76C;"
+                                       FontFamily="{StaticResource IconFont}" FontSize="9"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed"/>
                             <!-- 子菜单弹层：缺它则带子项的菜单永远无法展开；外观与 ContextMenu 一致。
                                  HorizontalOffset 让子菜单贴靠一级菜单右缘并留出间隙（不重叠） -->
-                            <Popup x:Name="SubMenuPopup" Grid.ColumnSpan="3" AllowsTransparency="True" Focusable="False"
+                            <Popup x:Name="SubMenuPopup" Grid.ColumnSpan="4" AllowsTransparency="True" Focusable="False"
                                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
                                    Placement="Right" HorizontalOffset="16" VerticalOffset="-5">
                                 <Border Background="White" CornerRadius="8" Padding="4"
@@ -511,7 +521,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="IconGlyph" Text="{TemplateBinding Icon}"
-                                       FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="13"
+                                       FontFamily="{StaticResource IconFont}" FontSize="13"
                                        Foreground="{TemplateBinding Foreground}"
                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <ContentPresenter Grid.Column="1" Content="{TemplateBinding Header}" VerticalAlignment="Center">

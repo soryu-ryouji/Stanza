@@ -311,7 +311,15 @@ public partial class MainWindow
 
     private FacetKind _pickerKind;
 
-    private sealed record PickerRow(string Display, string Name, bool Applied);
+    private sealed record PickerRow(string Display, string Name, bool Applied, bool Highlighted);
+
+    // ---- 键盘高亮（VS Code quick-open 语义） ----
+    // 焦点始终留在输入框：方向键只移动虚拟高亮行，不产生焦点迁移/转发/吞键问题。
+    // Space 选择高亮项，Enter 确认；输入过滤文本时高亮清空（Enter 回到文本提交语义）
+
+    private const string ClearSentinel = "\0";   // 高亮键的哨兵值：「清除」按钮
+
+    private string? _highlightKey;   // 当前高亮：行名 / ClearSentinel / null（无高亮，输入态）
 
     /// <summary>由右键菜单（标签…/项目…）在鼠标位置打开选择器（Themes/TaskTemplates 转发调用），
     /// 或由快捷键（T/P）在选中任务旁打开（anchor 为锚点，null 时取鼠标位置）。
@@ -320,6 +328,7 @@ public partial class MainWindow
     {
         if (!VM.HasSelection) return;
         _pickerKind = kind;
+        _highlightKey = null;
         FacetPickerInput.Tag = Loc.Get(kind == FacetKind.Tag ? "Picker_Tag" : "Picker_Project");
         FacetPickerInput.Text = "";
         FacetPickerError.Visibility = Visibility.Collapsed;
@@ -361,33 +370,65 @@ public partial class MainWindow
     {
         var filter = FacetPickerInput.Text.Trim();
         var prefix = _pickerKind == FacetKind.Tag ? "#" : "+";
-        FacetPickerList.ItemsSource = VM.FacetNames(_pickerKind)
+        // 高亮状态随行进 ItemsSource（行按钮 Tag 绑定 Highlighted）：容器异步生成后
+        // 新按钮自带正确高亮，不依赖重建后的代码遍历（同步遍历会落在未生成的旧容器上）
+        var rows = VM.FacetNames(_pickerKind)
             .Where(n => filter.Length == 0 || n.Contains(filter, StringComparison.OrdinalIgnoreCase))
-            .Select(n => new PickerRow(prefix + n, n, VM.SelectionHasFacet(_pickerKind, n)))
+            .Select(n => new PickerRow(prefix + n, n, VM.SelectionHasFacet(_pickerKind, n), n == _highlightKey))
             .ToList();
+        FacetPickerList.ItemsSource = rows;
+        // 高亮行被过滤掉或随 toggle 消失时，高亮回落到输入态
+        if (_highlightKey != ClearSentinel && rows.All(r => r.Name != _highlightKey))
+            _highlightKey = null;
         FacetPickerClear.Visibility = VM.SelectionHasAnyFacet(_pickerKind) ? Visibility.Visible : Visibility.Collapsed;
+        FacetPickerClear.Tag = _highlightKey == ClearSentinel;
     }
+
+    /// <summary>方向键移动高亮：无高亮（输入态）→ 首行 → … → 末行/「清除」（可见时）；
+    /// 从首行再向上回到输入态，底部停住不循环。</summary>
+    private void MoveHighlight(int delta)
+    {
+        var keys = FacetPickerList.Items.OfType<PickerRow>().Select(r => r.Name).ToList();
+        if (FacetPickerClear.Visibility == Visibility.Visible) keys.Add(ClearSentinel);
+        if (keys.Count == 0) return;
+        var i = _highlightKey == null ? -1 : keys.IndexOf(_highlightKey);
+        var next = Math.Clamp(i + delta, -1, keys.Count - 1);
+        SetHighlight(next < 0 ? null : keys[next]);
+    }
+
+    private void SetHighlight(string? key)
+    {
+        if (_highlightKey == key) return;
+        _highlightKey = key;
+        UpdateHighlightVisuals();
+    }
+
+    /// <summary>不重建 ItemsSource 的高亮迁移（方向键/悬停）：遍历既有行按钮覆写 Tag
+    /// （局部值覆盖绑定；下次 RefreshFacetPicker 重建后由绑定恢复）。</summary>
+    private void UpdateHighlightVisuals()
+    {
+        foreach (var btn in VisualTreeEx.FindVisualChildren<Button>(FacetPickerList))
+            btn.Tag = btn.DataContext is PickerRow r && r.Name == _highlightKey;
+        FacetPickerClear.Tag = _highlightKey == ClearSentinel;
+    }
+
+    private void FacetPickerRow_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is PickerRow row) SetHighlight(row.Name);
+    }
+
+    private void FacetPickerClear_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+        => SetHighlight(ClearSentinel);
 
     private void FacetPickerRow_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not PickerRow row) return;
-        // 鼠标点选与键盘确认（Enter）同路径：标签切换保持浮层开启（连续切换），项目设置后关闭
-        ApplyPickerRow(row, close: _pickerKind == FacetKind.Project);
-    }
-
-    /// <summary>应用选择器的一行：标签切换选中任务的该标签，项目设置选中任务的所属。
-    /// close = false 时浮层保持开启（连续切换标签），刷新重建行按钮后焦点跟回同一行；
-    /// close = true 时先关浮层再切换：刷新会销毁焦点所在的行按钮（焦点落回窗口），
-    /// 拖后关闭会让 CloseFacetPicker 的焦点停回失效。</summary>
-    private void ApplyPickerRow(PickerRow row, bool close)
-    {
+        SetHighlight(row.Name);
         if (_pickerKind == FacetKind.Tag)
         {
-            if (close) CloseFacetPicker();
             VM.ToggleTag(row.Name);
-            if (close) return;
-            RefreshFacetPicker();
-            FocusPickerRow(row.Name);
+            RefreshFacetPicker();   // 浮层保持开启（连续切换），高亮按名称保留
+            Keyboard.Focus(FacetPickerInput);   // 焦点锁输入框：点击后键盘立即可用
         }
         else
         {
@@ -396,51 +437,34 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>把焦点移到选择器中名为 name 的行（连续切换标签后焦点跟回：刷新重建了行按钮，
-    /// 按名称定位比按索引更稳——toggle 会改变侧栏聚合顺序）。行消失时回到输入框。</summary>
-    private void FocusPickerRow(string name)
+    /// <summary>应用当前高亮项。toggle=true（Space，选择）：标签切换并保持打开（连续选择）、
+    /// 项目应用并关闭；toggle=false（Enter，确认）：「清除」执行清空、项目应用高亮项并关闭、
+    /// 标签仅关闭——选择已由 Space 完成，Enter 不再切换（否则会撤销刚勾选的标签）。</summary>
+    private void ApplyHighlighted(bool toggle)
     {
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        if (_highlightKey == ClearSentinel) { ApplyPickerClear(); return; }
+        if (_highlightKey is not { } name) return;
+        if (_pickerKind == FacetKind.Tag)
         {
-            var row = VisualTreeEx.FindVisualChildren<Button>(FacetPickerList)
-                .FirstOrDefault(b => b.DataContext is PickerRow r && r.Name == name);
-            Keyboard.Focus(row ?? (IInputElement)FacetPickerInput);
-        }));
-    }
-
-    /// <summary>焦点在行/按钮上时输入可打印字符：转给过滤输入框并把焦点带过去（快速过滤语义）。
-    /// 按键的路由目标在按下时已锁定为焦点元素，改焦点无法改变路由，只能手工转发文本。
-    /// Space（按钮原生 Click）与方向键/Enter/Esc 不产生 TextInput，不受影响。</summary>
-    private void FacetPicker_PreviewTextInput(object sender, TextCompositionEventArgs e)
-    {
-        if (e.OriginalSource is TextBoxBase) return;   // 输入框自身正常接收
-        FacetPickerInput.Text += e.Text;
-        FacetPickerInput.CaretIndex = FacetPickerInput.Text.Length;
-        Keyboard.Focus(FacetPickerInput);
-        e.Handled = true;
-    }
-
-    /// <summary>方向键在选择器内移动焦点：输入框 → 候选行 → 「清除」（可见时），两端停住不循环。</summary>
-    private void MovePickerFocus(int delta)
-    {
-        var targets = new List<UIElement> { FacetPickerInput };
-        targets.AddRange(VisualTreeEx.FindVisualChildren<Button>(FacetPickerList));
-        if (FacetPickerClear.Visibility == Visibility.Visible) targets.Add(FacetPickerClear);
-        var i = Keyboard.FocusedElement is UIElement focused ? targets.IndexOf(focused) : -1;
-        // 焦点不在序列内（如点在面板空白处）：向下从首项、向上从末项开始
-        var next = i < 0 ? (delta > 0 ? 0 : targets.Count - 1) : Math.Clamp(i + delta, 0, targets.Count - 1);
-        Keyboard.Focus(targets[next]);
-        if (targets[next] == FacetPickerInput)
-            FacetPickerInput.CaretIndex = FacetPickerInput.Text.Length;
+            if (!toggle) { CloseFacetPicker(); return; }
+            VM.ToggleTag(name);
+            RefreshFacetPicker();
+        }
+        else
+        {
+            VM.SetProjectForSelection(name);
+            CloseFacetPicker();
+        }
     }
 
     private void FacetPickerInput_TextChanged(object sender, TextChangedEventArgs e)
     {
         FacetPickerError.Visibility = Visibility.Collapsed;
+        _highlightKey = null;   // 输入过滤时清空高亮：Enter 保持文本提交语义（创建/精确匹配）
         if (FacetPickerOpen) RefreshFacetPicker();
     }
 
-    // 挂在弹层面板上（隧道）：焦点在输入框或列表行上时 Enter/Esc/方向键都生效
+    // 挂在弹层面板上（隧道）：焦点锁定在输入框，按键统一在此处理
     private void FacetPicker_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -449,38 +473,39 @@ public partial class MainWindow
             CloseFacetPicker();
             return;
         }
-        // 方向键与 Alt+J/K（vim 语义）移动焦点。Alt 组合的主键在 SystemKey 上（同 OnPreProcessInput）
+        // 方向键与 Alt+J/K（vim 语义）、Alt+N/P（VS Code quick-open 的 next/previous 语义）移动高亮行。
+        // Alt 组合的主键在 SystemKey 上（同 OnPreProcessInput）
         var navDelta = e.Key switch
         {
             Key.Up => -1,
             Key.Down => 1,
             Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.K => -1,
             Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.J => 1,
+            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.P => -1,
+            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.N => 1,
             _ => 0,
         };
         if (navDelta != 0)
         {
             e.Handled = true;   // 先于输入框的光标移动（单行框的 Home/End 语义）拦截
-            MovePickerFocus(navDelta);
+            MoveHighlight(navDelta);
+            return;
+        }
+        // Space 选择高亮项；无高亮时放行，作为输入框文本（标签/项目名不允许空格，提交时校验）
+        if (e.Key == Key.Space && _highlightKey != null)
+        {
+            e.Handled = true;
+            ApplyHighlighted(toggle: true);
             return;
         }
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            // 焦点在行/「清除」按钮上：确认该项（WPF 按钮不原生响应 Enter，这里代发；
-            // Space 由按钮原生触发 Click，无需处理）。行 = 应用并关闭，输入框 = 提交输入文本
-            if (Keyboard.FocusedElement is DependencyObject focus
-                && VisualTreeEx.IsWithin(focus, FacetPickerPanel)
-                && focus is Button focusedButton)
-            {
-                if (ReferenceEquals(focusedButton, FacetPickerClear)) ApplyPickerClear();
-                else if (focusedButton.DataContext is PickerRow row) ApplyPickerRow(row, close: true);
-                return;
-            }
-            CommitFacetPickerInput();
+            if (_highlightKey != null) ApplyHighlighted(toggle: false);   // 确认
+            else CommitFacetPickerInput();   // 无高亮：提交输入文本（精确匹配或新建）
             return;
         }
-        // 焦点不在输入框时（如点击列表行后）拦截 Delete/Backspace，避免穿透到主列表删除任务；
+        // 焦点不在输入框时（点击行到回焦之间的窗口期）拦截 Delete/Backspace，避免穿透到主列表删除任务；
         // 在输入框时放行，由编辑框自身消化（过滤输入的删字）
         if ((e.Key is Key.Back or Key.Delete) && e.OriginalSource is not TextBoxBase)
             e.Handled = true;

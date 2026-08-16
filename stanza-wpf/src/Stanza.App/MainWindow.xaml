@@ -121,13 +121,12 @@
                                         ToolTip="{DynamicResource Tip_ToggleSection}"
                                         Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Data="M1.5,3 L4.5,6 L7.5,3" Width="9" Height="9" Stretch="Uniform"
-                                              Stroke="{StaticResource FaintBrush}" StrokeThickness="1.3"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                              VerticalAlignment="Center" Margin="0,0,6,0"
-                                              RenderTransformOrigin="0.5,0.5">
-                                            <Path.Style>
-                                                <Style TargetType="{x:Type Path}">
+                                        <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                                   Foreground="{StaticResource FaintBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"
+                                                   RenderTransformOrigin="0.5,0.5">
+                                            <TextBlock.Style>
+                                                <Style TargetType="{x:Type TextBlock}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding ProjectsExpanded}" Value="False">
                                                             <Setter Property="RenderTransform">
@@ -136,8 +135,8 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Path.Style>
-                                        </Path>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text="{DynamicResource Sidebar_Projects}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -153,13 +152,12 @@
                                         ToolTip="{DynamicResource Tip_ToggleSection}"
                                         Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
                                     <StackPanel Orientation="Horizontal">
-                                        <Path Data="M1.5,3 L4.5,6 L7.5,3" Width="9" Height="9" Stretch="Uniform"
-                                              Stroke="{StaticResource FaintBrush}" StrokeThickness="1.3"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                              VerticalAlignment="Center" Margin="0,0,6,0"
-                                              RenderTransformOrigin="0.5,0.5">
-                                            <Path.Style>
-                                                <Style TargetType="{x:Type Path}">
+                                        <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                                   Foreground="{StaticResource FaintBrush}"
+                                                   VerticalAlignment="Center" Margin="0,0,6,0"
+                                                   RenderTransformOrigin="0.5,0.5">
+                                            <TextBlock.Style>
+                                                <Style TargetType="{x:Type TextBlock}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding TagsExpanded}" Value="False">
                                                             <Setter Property="RenderTransform">
@@ -168,8 +166,8 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </Path.Style>
-                                        </Path>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <TextBlock Text="{DynamicResource Sidebar_Tags}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -209,8 +207,7 @@
                         <Button HorizontalAlignment="Right" Style="{StaticResource ToolIconButton}"
                                 ToolTip="{DynamicResource Tip_Settings}" Click="SettingsButton_Click">
                             <!-- 设置：Segoe Fluent Icons 齿轮（与右键菜单图标同字体；原自绘齿轮像太阳） -->
-                            <TextBlock Text="&#xE713;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                       FontSize="15"
+                            <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="15"
                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                         </Button>
                     </Grid>
@@ -373,18 +370,15 @@
                             <Button x:Name="AddTaskButton" Style="{StaticResource ToolIconButton}"
                                     Command="{Binding NewTaskCommand}"
                                     Visibility="{Binding ShowAddTask, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M4,8 H12 M8,4 V12" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="14"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button x:Name="ClearButton" Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Clear}"
                                     Click="ClearButton_Click"
                                     IsEnabled="{Binding SelectedBlock.HasTasks}"
                                     Visibility="{Binding ShowClear, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M4,5 H12 M5,5 V12.5 Q5,13 5.5,13 H10.5 Q11,13 11,12.5 V5 M6.5,5 V4 Q6.5,3 7,3 H9 Q9.5,3 9.5,4 V5"
-                                      Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Text="&#xE74D;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
@@ -392,47 +386,40 @@
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Complete}"
                                     Command="{Binding CompleteSelectionCommand}"
                                     Visibility="{Binding ScopeIsActive, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M3,8.5 L6.5,12 L13,4.5" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Defer}"
                                     Command="{Binding DeferSelectionCommand}"
                                     Visibility="{Binding ScopeIsDoing, Converter={StaticResource BoolToVis}}">
                                 <!-- 暂停符：等待/挂起 -->
-                                <Path Data="M6,4.5 V11.5 M10,4.5 V11.5" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Text="&#xE769;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Activate}"
                                     Command="{Binding ActivateSelectionCommand}"
                                     Visibility="{Binding ScopeIsWaiting, Converter={StaticResource BoolToVis}}">
                                 <!-- 播放符：开始执行 -->
-                                <Path Data="M6,4.5 L11.5,8 L6,11.5 Z" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                <TextBlock Text="&#xE768;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Restore}"
                                     Command="{Binding RestoreSelectionCommand}"
                                     Visibility="{Binding ScopeIsArchive, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M12.5,8 H3.5 M6.5,4.5 L3,8 L6.5,11.5" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                <TextBlock Text="&#xE7A7;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Discard}"
                                     Command="{Binding DiscardSelectionCommand}"
                                     Visibility="{Binding ScopeIsDeleted, Converter={StaticResource InverseBoolToVis}}">
-                                <Path Data="M4,5 H12 M5,5 V12.5 Q5,13 5.5,13 H10.5 Q11,13 11,12.5 V5 M6.5,5 V4 Q6.5,3 7,3 H9 Q9.5,3 9.5,4 V5"
-                                      Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Text="&#xE74D;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                             <Button Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Delete}"
                                     Command="{Binding DeleteSelectionCommand}"
                                     Visibility="{Binding ScopeIsDeleted, Converter={StaticResource BoolToVis}}">
-                                <Path Data="M4,4 L12,12 M12,4 L4,12" Width="16" Height="16"
-                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                      StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                             </Button>
                         </StackPanel>
                     </Grid>
@@ -486,16 +473,16 @@
                 </TextBlock.Style>
             </TextBlock>
             <Button Style="{StaticResource WindowButton}" Click="Min_Click" ToolTip="{DynamicResource Tip_Minimize}">
-                <Path Data="M0,0 H8" Stroke="{StaticResource GrayBrush}" StrokeThickness="1"
-                      Width="8" Height="8" Stretch="Uniform"/>
+                <TextBlock Text="&#xE921;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                           Foreground="{StaticResource GrayBrush}"/>
             </Button>
             <Button Style="{StaticResource WindowButton}" Click="Max_Click" ToolTip="{DynamicResource Tip_Maximize}">
-                <Path Data="M0,0 H8 V8 H0 Z" Stroke="{StaticResource GrayBrush}" StrokeThickness="1"
-                      Width="8" Height="8" Stretch="Uniform"/>
+                <TextBlock Text="&#xE922;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                           Foreground="{StaticResource GrayBrush}"/>
             </Button>
             <Button Style="{StaticResource WindowCloseButton}" Click="Close_Click" ToolTip="{DynamicResource Tip_CloseWindow}">
-                <Path Data="M0,0 L8,8 M8,0 L0,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                      StrokeThickness="1" Width="8" Height="8" Stretch="Uniform"/>
+                <TextBlock Text="&#xE8BB;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
             </Button>
         </StackPanel>
 
@@ -635,8 +622,7 @@
                     CornerRadius="8"
                     BorderBrush="{StaticResource DarkPanelBorderBrush}" BorderThickness="1"
                     SnapsToDevicePixels="True"
-                    PreviewKeyDown="FacetPicker_KeyDown"
-                    PreviewTextInput="FacetPicker_PreviewTextInput">
+                    PreviewKeyDown="FacetPicker_KeyDown">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
                 </Border.Effect>
@@ -653,30 +639,30 @@
                                 <DataTemplate>
                                     <Button Style="{StaticResource PickerRowButton}"
                                             HorizontalContentAlignment="Stretch"
+                                            Tag="{Binding Highlighted}"
+                                            MouseEnter="FacetPickerRow_MouseEnter"
                                             Click="FacetPickerRow_Click">
                                         <Grid>
                                             <TextBlock Text="{Binding Display}" FontSize="12" VerticalAlignment="Center"
                                                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
-                                            <Path Data="M1,4 L3.5,6.5 L8,1" Width="9" Height="8" Stretch="Uniform"
-                                                  StrokeThickness="1.4"
-                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                  HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                  Visibility="{Binding Applied, Converter={StaticResource BoolToVis}}">
-                                                <!-- 高亮行（悬停/键盘焦点）底色同为强调蓝，勾随文字转白，避免融入背景 -->
-                                                <Path.Style>
-                                                    <Style TargetType="{x:Type Path}">
-                                                        <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
+                                            <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Visibility="{Binding Applied, Converter={StaticResource BoolToVis}}">
+                                                <!-- 高亮行（悬停/键盘高亮 Tag=true）底色同为强调蓝，勾随文字转白，避免融入背景 -->
+                                                <TextBlock.Style>
+                                                    <Style TargetType="{x:Type TextBlock}">
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" Value="True">
-                                                                <Setter Property="Stroke" Value="White"/>
+                                                                <Setter Property="Foreground" Value="White"/>
                                                             </DataTrigger>
-                                                            <DataTrigger Binding="{Binding IsKeyboardFocused, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" Value="True">
-                                                                <Setter Property="Stroke" Value="White"/>
+                                                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" Value="True">
+                                                                <Setter Property="Foreground" Value="White"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </Path.Style>
-                                            </Path>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </Grid>
                                     </Button>
                                 </DataTemplate>
@@ -686,6 +672,7 @@
                     <Button x:Name="FacetPickerClear" Style="{StaticResource PickerRowButton}"
                             Background="{StaticResource DarkPanelRaisedBrush}"
                             HorizontalContentAlignment="Center" Margin="0,2,0,0"
+                            MouseEnter="FacetPickerClear_MouseEnter"
                             Click="FacetPickerClear_Click">
                         <!-- 显式 TextBlock：字符串内容自动生成的 TextBlock 会被隐式样式的墨色
                              盖住按钮前景色，必须显式绑定 -->
