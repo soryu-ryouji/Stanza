@@ -313,9 +313,10 @@ public partial class MainWindow
 
     private sealed record PickerRow(string Display, string Name, bool Applied);
 
-    /// <summary>由右键菜单（标签…/项目…）在鼠标位置打开选择器（Themes/TaskTemplates 转发调用）。
+    /// <summary>由右键菜单（标签…/项目…）在鼠标位置打开选择器（Themes/TaskTemplates 转发调用），
+    /// 或由快捷键（T/P）在选中任务旁打开（anchor 为锚点，null 时取鼠标位置）。
     /// 选择器是与主窗口同一视觉树的应用内浮层，不受 ContextMenu 关闭时的焦点回收影响。</summary>
-    internal void OpenFacetPicker(FacetKind kind)
+    internal void OpenFacetPicker(FacetKind kind, Point? anchor = null)
     {
         if (!VM.HasSelection) return;
         _pickerKind = kind;
@@ -326,7 +327,7 @@ public partial class MainWindow
 
         // 在鼠标附近落位，夹取到窗口内
         // 参照物用 Root（始终已布局）：Collapsed 的浮层自身 ActualWidth/Height 为 0，不能作为参照
-        var pos = Mouse.GetPosition(Root);
+        var pos = anchor ?? Mouse.GetPosition(Root);
         Canvas.SetLeft(FacetPickerPanel,
             Math.Clamp(pos.X, 0, Math.Max(0, Root.ActualWidth - FacetPickerPanel.Width - 8)));
         Canvas.SetTop(FacetPickerPanel,
@@ -339,7 +340,15 @@ public partial class MainWindow
 
     private bool FacetPickerOpen => FacetPickerLayer.Visibility == Visibility.Visible;
 
-    private void CloseFacetPicker() => FacetPickerLayer.Visibility = Visibility.Collapsed;
+    /// <summary>关闭选择器。焦点残留在已隐藏的浮层内时停回任务列表（WPF 不自动迁移焦点，
+    /// 否则焦点留在不可见的输入框上，Esc 关闭后 T/P 等裸键分发全部失效）。</summary>
+    private void CloseFacetPicker()
+    {
+        FacetPickerLayer.Visibility = Visibility.Collapsed;
+        if (Keyboard.FocusedElement is DependencyObject focus
+            && VisualTreeEx.IsWithin(focus, FacetPickerLayer))
+            ParkFocusOnTaskList();
+    }
 
     /// <summary>点选择器卡片以外的区域关闭（点卡片内部不处理，由行/按钮自身响应）。</summary>
     private void FacetPickerLayer_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -362,10 +371,23 @@ public partial class MainWindow
     private void FacetPickerRow_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is not PickerRow row) return;
+        // 鼠标点选与键盘确认（Enter）同路径：标签切换保持浮层开启（连续切换），项目设置后关闭
+        ApplyPickerRow(row, close: _pickerKind == FacetKind.Project);
+    }
+
+    /// <summary>应用选择器的一行：标签切换选中任务的该标签，项目设置选中任务的所属。
+    /// close = false 时浮层保持开启（连续切换标签），刷新重建行按钮后焦点跟回同一行；
+    /// close = true 时先关浮层再切换：刷新会销毁焦点所在的行按钮（焦点落回窗口），
+    /// 拖后关闭会让 CloseFacetPicker 的焦点停回失效。</summary>
+    private void ApplyPickerRow(PickerRow row, bool close)
+    {
         if (_pickerKind == FacetKind.Tag)
         {
+            if (close) CloseFacetPicker();
             VM.ToggleTag(row.Name);
-            RefreshFacetPicker();   // 浮层保持开启，便于连续切换多个标签
+            if (close) return;
+            RefreshFacetPicker();
+            FocusPickerRow(row.Name);
         }
         else
         {
@@ -374,13 +396,51 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>把焦点移到选择器中名为 name 的行（连续切换标签后焦点跟回：刷新重建了行按钮，
+    /// 按名称定位比按索引更稳——toggle 会改变侧栏聚合顺序）。行消失时回到输入框。</summary>
+    private void FocusPickerRow(string name)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            var row = VisualTreeEx.FindVisualChildren<Button>(FacetPickerList)
+                .FirstOrDefault(b => b.DataContext is PickerRow r && r.Name == name);
+            Keyboard.Focus(row ?? (IInputElement)FacetPickerInput);
+        }));
+    }
+
+    /// <summary>焦点在行/按钮上时输入可打印字符：转给过滤输入框并把焦点带过去（快速过滤语义）。
+    /// 按键的路由目标在按下时已锁定为焦点元素，改焦点无法改变路由，只能手工转发文本。
+    /// Space（按钮原生 Click）与方向键/Enter/Esc 不产生 TextInput，不受影响。</summary>
+    private void FacetPicker_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (e.OriginalSource is TextBoxBase) return;   // 输入框自身正常接收
+        FacetPickerInput.Text += e.Text;
+        FacetPickerInput.CaretIndex = FacetPickerInput.Text.Length;
+        Keyboard.Focus(FacetPickerInput);
+        e.Handled = true;
+    }
+
+    /// <summary>方向键在选择器内移动焦点：输入框 → 候选行 → 「清除」（可见时），两端停住不循环。</summary>
+    private void MovePickerFocus(int delta)
+    {
+        var targets = new List<UIElement> { FacetPickerInput };
+        targets.AddRange(VisualTreeEx.FindVisualChildren<Button>(FacetPickerList));
+        if (FacetPickerClear.Visibility == Visibility.Visible) targets.Add(FacetPickerClear);
+        var i = targets.IndexOf(Keyboard.FocusedElement as UIElement);
+        // 焦点不在序列内（如点在面板空白处）：向下从首项、向上从末项开始
+        var next = i < 0 ? (delta > 0 ? 0 : targets.Count - 1) : Math.Clamp(i + delta, 0, targets.Count - 1);
+        Keyboard.Focus(targets[next]);
+        if (targets[next] == FacetPickerInput)
+            FacetPickerInput.CaretIndex = FacetPickerInput.Text.Length;
+    }
+
     private void FacetPickerInput_TextChanged(object sender, TextChangedEventArgs e)
     {
         FacetPickerError.Visibility = Visibility.Collapsed;
         if (FacetPickerOpen) RefreshFacetPicker();
     }
 
-    // 挂在弹层面板上（隧道）：焦点在输入框或列表行上时 Enter/Esc 都生效
+    // 挂在弹层面板上（隧道）：焦点在输入框或列表行上时 Enter/Esc/方向键都生效
     private void FacetPicker_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -389,9 +449,34 @@ public partial class MainWindow
             CloseFacetPicker();
             return;
         }
+        // 方向键与 Alt+J/K（vim 语义）移动焦点。Alt 组合的主键在 SystemKey 上（同 OnPreProcessInput）
+        var navDelta = e.Key switch
+        {
+            Key.Up => -1,
+            Key.Down => 1,
+            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.K => -1,
+            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.J => 1,
+            _ => 0,
+        };
+        if (navDelta != 0)
+        {
+            e.Handled = true;   // 先于输入框的光标移动（单行框的 Home/End 语义）拦截
+            MovePickerFocus(navDelta);
+            return;
+        }
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
+            // 焦点在行/「清除」按钮上：确认该项（WPF 按钮不原生响应 Enter，这里代发；
+            // Space 由按钮原生触发 Click，无需处理）。行 = 应用并关闭，输入框 = 提交输入文本
+            if (Keyboard.FocusedElement is DependencyObject focus
+                && VisualTreeEx.IsWithin(focus, FacetPickerPanel)
+                && focus is Button focusedButton)
+            {
+                if (ReferenceEquals(focusedButton, FacetPickerClear)) ApplyPickerClear();
+                else if (focusedButton.DataContext is PickerRow row) ApplyPickerRow(row, close: true);
+                return;
+            }
             CommitFacetPickerInput();
             return;
         }
@@ -433,7 +518,10 @@ public partial class MainWindow
         CloseFacetPicker();   // 回车提交后关闭浮层（鼠标点选标签的连续切换路径不受影响）
     }
 
-    private void FacetPickerClear_Click(object sender, RoutedEventArgs e)
+    private void FacetPickerClear_Click(object sender, RoutedEventArgs e) => ApplyPickerClear();
+
+    /// <summary>「清除」：清空选中任务的该类 facet（标签全清 / 项目置空）并关闭浮层。</summary>
+    private void ApplyPickerClear()
     {
         if (_pickerKind == FacetKind.Tag) VM.ClearTagsForSelection();
         else VM.SetProjectForSelection(null);

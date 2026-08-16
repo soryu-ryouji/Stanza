@@ -155,10 +155,12 @@ public sealed class TaskViewModel : ViewModelBase
         var m = StanzaParser.ParseTaskHeader(_headerText);
         _due = m.DueDate;
         _description = m.Description;
-        // 有效值：文本中正在输入的记号优先（项目覆盖、标签按文本在前合并），提交后并入结构化属性
+        // 有效值：文本中正在输入的记号优先（项目覆盖、标签按文本在前合并），提交后并入结构化属性。
+        // 标签数组必须总是新实例：与结构化列表同引用时，AddTag/RemoveTag 后引用不变，
+        // WPF 绑定对引用相等的新旧值短路不刷新（卡片 chip 不更新）
         _projectEffective = m.Project ?? _project;
         _tagsEffective = m.Tags.Count == 0
-            ? _tags
+            ? _tags.ToArray()
             : m.Tags.Distinct().Concat(_tags.Except(m.Tags, StringComparer.Ordinal)).ToArray();
 
         OnPropertyChanged(nameof(HeaderText));

@@ -214,6 +214,21 @@ public partial class MainWindow
             return;
         }
 
+        // T/P：为选中任务打开标签/项目选择器。作用域同 Space（限任务列表焦点）：
+        // 编辑框内字母是输入、浮层内的按键由浮层自身处理，均不拦截
+        if (k.Key is Key.T or Key.P
+            && Keyboard.Modifiers == ModifierKeys.None
+            && !RecentPopup.IsOpen
+            && Keyboard.FocusedElement is DependencyObject facetScope
+            && facetScope is not TextBoxBase
+            && VisualTreeEx.IsWithin(facetScope, TaskList)
+            && VM.HasSelection)
+        {
+            OpenFacetPicker(k.Key == Key.T ? FacetKind.Tag : FacetKind.Project, SelectedTaskAnchor());
+            e.Cancel();
+            return;
+        }
+
         // 裸导航键：方向键与 vim hjkl（同语义映射）。焦点无人消费时引入任务列表并移动选中；
         // hjkl 没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
         var navKey = k.Key switch
@@ -295,6 +310,15 @@ public partial class MainWindow
         => Keyboard.FocusedElement is DependencyObject focus && VisualTreeEx.IsWithin(focus, TaskList)
             ? VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus)?.DataContext as TaskViewModel
             : null;
+
+    /// <summary>键盘打开选择器时的锚点：选中任务卡片的右上角。容器不可用（滚动外未生成）时
+    /// 返回 null，由 OpenFacetPicker 回退到鼠标位置。</summary>
+    private Point? SelectedTaskAnchor()
+    {
+        if (VM.SelectedTask is not { } task) return null;
+        var container = ContainerOf(task);
+        return container?.TranslatePoint(new Point(container.ActualWidth, 0), Root);
+    }
 
     /// <summary>焦点在任务列表的条目容器上（勾选框等也可），但不在文本框内：
     /// hjkl 导航的附加作用域——编辑框输入字母优先，不参与导航。</summary>
