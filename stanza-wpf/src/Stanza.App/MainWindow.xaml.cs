@@ -22,6 +22,7 @@ public partial class MainWindow : Window
         {
             PickOpenFile = PickOpenFile,
             PickSaveFile = PickSaveFile,
+            OpenRecentRequested = OpenOrCycleRecent,
         };
         vm.TaskCreated += OnTaskCreated;
         DataContext = vm;

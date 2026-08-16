@@ -234,6 +234,146 @@ Check "B5 letter in editor does not nav (zh)" $selAfterQ "10"
 $b6 = Get-EditValues
 Check "B6 editor received letter (zh)" $(if ($b6 -match "q") { "yes" } else { $b6 }) "yes"
 
+# ---------- Suite C: Ctrl+R quick open (VS Code style) ----------
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class KbdV {
+    [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    public static void Down(byte vk) { keybd_event(vk, 0, 0, UIntPtr.Zero); }
+    public static void Up(byte vk) { keybd_event(vk, 0, 2, UIntPtr.Zero); }
+    public static void Press(byte vk) { Down(vk); Up(vk); }
+}
+'@
+
+function Get-FocusedRowFile {
+    # focused recent-row button: read its descendant text (button Name is empty for composite content)
+    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
+    if (-not $f) { return "(no focus)" }
+    $texts = $f.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+    foreach ($t in $texts) { if ($t.Current.Name -match "\.stanza$") { return $t.Current.Name } }
+    return "(not a recent row)"
+}
+
+function Find-RecentRow([string]$name) {
+    # visible popup row button whose descendant text equals the given file name; $null when popup closed
+    $win = Get-App
+    $buttons = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Button)))
+    foreach ($b in $buttons) {
+        $texts = $b.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+        foreach ($t in $texts) { if ($t.Current.Name -eq $name) { return $b } }
+    }
+    return $null
+}
+
+function Get-FirstTaskTitle {
+    $win = Get-App
+    $tl = Find-TaskList $win
+    if (-not $tl) { return "(?)" }
+    $items = $tl.FindAll([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+    if ($items.Count -eq 0) { return "(empty)" }
+    $texts = $items[0].FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+    foreach ($t in $texts) { if ($t.Current.Name -match "^Task ") { return $t.Current.Name } }
+    return "(?)"
+}
+
+function Restart-AppWith([string]$file) {
+    Get-Process Stanza -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep -Milliseconds 500
+    $p = Start-Process -FilePath $Exe -ArgumentList "`"$file`"" -PassThru
+    $w = $null
+    for ($i = 0; $i -lt 30 -and -not $w; $i++) { Start-Sleep -Milliseconds 500; $w = Get-App }
+    if (-not $w) { throw "app window not found after restart" }
+    $script:AppHwnd = [IntPtr]$w.Current.NativeWindowHandle
+    $pid_ = 0
+    $script:AppTid = [Win]::GetWindowThreadProcessId($script:AppHwnd, [ref]$pid_)
+    Ensure-Foreground
+}
+
+Write-Host "`nSuite C: Ctrl+R quick open"
+$recentJson = Join-Path $env:APPDATA "Stanza/recent.json"
+$recentBak = Join-Path $workDir "recent.json.bak"
+Copy-Item $recentJson $recentBak -Force
+
+$aFile = Join-Path $workDir "a.stanza"
+$bFile = Join-Path $workDir "b.stanza"
+@'
+# DOING
+
+Task Apple
+'@ | Out-File -Encoding utf8 $aFile
+@'
+# DOING
+
+Task Banana
+'@ | Out-File -Encoding utf8 $bFile
+
+try {
+    # register MRU order [b, a]: open a, then b, then b again for the test
+    Restart-AppWith $aFile
+    Restart-AppWith $bFile
+
+    Ensure-Foreground
+    [KbdV]::Down(0x11)                      # Ctrl down
+    [KbdV]::Press(0x52)                     # R
+    Start-Sleep -Milliseconds 600
+    Check "C1 Ctrl+R opens popup, first row highlighted" (Get-FocusedRowFile) "b.stanza"
+    [KbdV]::Press(0x52)                     # R again, still holding Ctrl
+    Start-Sleep -Milliseconds 500
+    Check "C2 R cycles to second row" (Get-FocusedRowFile) "a.stanza"
+    [KbdV]::Up(0x11)                        # release Ctrl -> open highlighted
+    Start-Sleep -Milliseconds 900
+    Check "C3 releasing Ctrl opens highlighted file" (Get-FirstTaskTitle) "Task Apple"
+
+    # opening a re-registered MRU as [a, b]; Esc must cancel without opening
+    Ensure-Foreground
+    [KbdV]::Down(0x11)
+    [KbdV]::Press(0x52)
+    Start-Sleep -Milliseconds 600
+    Check "C4 popup reopens, first row now a" (Get-FocusedRowFile) "a.stanza"
+    [KbdV]::Up(0x11)
+    Start-Sleep -Milliseconds 600   # releasing Ctrl opened row0 (a, already current)
+
+    # C5/C6: open the popup via the toolbar button (no Ctrl involved), then plain Esc cancels.
+    # (Ctrl+Esc is the Windows Start-menu chord; the OS always wins that one.)
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class MouseC {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint x, uint y, uint d, UIntPtr e);
+    public static void ClickAt(int x, int y) {
+        SetCursorPos(x, y);
+        mouse_event(0x02, 0, 0, 0, UIntPtr.Zero);
+        mouse_event(0x04, 0, 0, 0, UIntPtr.Zero);
+    }
+}
+'@
+    Ensure-Foreground
+    $win = Get-App
+    $recentsBtn = $null
+    foreach ($b in $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Button)))) {
+        if ($b.Current.AutomationId -eq "RecentButton") { $recentsBtn = $b; break }
+    }
+    if (-not $recentsBtn) { throw "RecentButton not found" }
+    $rb = $recentsBtn.Current.BoundingRectangle
+    [MouseC]::ClickAt([int]($rb.X + $rb.Width / 2), [int]($rb.Y + $rb.Height / 2))
+    Start-Sleep -Milliseconds 700
+    $row = Find-RecentRow "a.stanza"
+    Check "C5 button opens popup" $(if ($row) { "open" } else { "closed" }) "open"
+    Ensure-Foreground
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Start-Sleep -Milliseconds 500
+    $row = Find-RecentRow "a.stanza"
+    $still = Get-FirstTaskTitle
+    if (($row -eq $null) -and ($still -eq "Task Apple")) { $c6 = "ok" } else { $c6 = "popup=$(if ($row) { 'open' } else { 'closed' }), file=$still" }
+    Check "C6 Esc closes popup without opening" $c6 "ok"
+}
+finally {
+    Copy-Item $recentBak $recentJson -Force
+}
+
 # ---------- cleanup ----------
 
 Get-Process Stanza -ErrorAction SilentlyContinue | Stop-Process -Force

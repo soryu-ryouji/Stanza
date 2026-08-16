@@ -22,6 +22,7 @@ public partial class MainWindow
         (AppCommand.Open, null),
         (AppCommand.NewTask, null),
         (AppCommand.NewDocument, null),
+        (AppCommand.OpenRecent, null),
         (AppCommand.SelectBlock, "1"),
         (AppCommand.SelectBlock, "2"),
         (AppCommand.SelectBlock, "3"),
@@ -303,6 +304,7 @@ public partial class MainWindow
     private void RefreshShortcutHints()
     {
         OpenButton.ToolTip = WithGesture("Tip_OpenFile", AppCommand.Open);
+        RecentButton.ToolTip = WithGesture("Tip_RecentFiles", AppCommand.OpenRecent);
         NewDocButton.ToolTip = WithGesture("Tip_NewFile", AppCommand.NewDocument);
         RecentNewButton.ToolTip = WithGesture("Tip_NewFile", AppCommand.NewDocument);
         AddTaskButton.ToolTip = WithGesture("Tip_AddTask", AppCommand.NewTask);

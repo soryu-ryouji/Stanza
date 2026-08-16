@@ -166,7 +166,22 @@ public partial class MainWindow
     private void OnPreProcessInput(object sender, PreProcessInputEventArgs e)
     {
         if (ModalOverlayOpen) return;
-        if (e.StagingItem.Input is not KeyEventArgs k || k.RoutedEvent != Keyboard.KeyDownEvent) return;
+        if (e.StagingItem.Input is not KeyEventArgs k) return;
+
+        // Ctrl+R 快速切换的确认：弹层内有高亮行时，松开 Ctrl 即打开该行（VS Code quick-open 语义）
+        if (k.RoutedEvent == Keyboard.KeyUpEvent)
+        {
+            if (_recentCycleIndex >= 0 && RecentPopup.IsOpen
+                && k.Key is Key.LeftCtrl or Key.RightCtrl)
+            {
+                var path = VM.Recents.Items[_recentCycleIndex].Path;
+                RecentPopup.IsOpen = false;   // Closed 事件里复位循环索引
+                if (VM.Recents.OpenCommand.CanExecute(path)) VM.Recents.OpenCommand.Execute(path);
+                e.Cancel();
+            }
+            return;
+        }
+        if (k.RoutedEvent != Keyboard.KeyDownEvent) return;
 
         // 应用级快捷键：查键位表分发到命令（Keymap.cs）。Alt 组合的主键在 SystemKey 上（同 CaptureGesture）
         var key = k.Key == Key.System ? k.SystemKey : k.Key;
@@ -272,6 +287,17 @@ public partial class MainWindow
     {
         if (e.Key == Key.Escape)
         {
+            // 最近文件弹层打开中：Esc 关闭不打开（键盘循环高亮随弹层关闭复位）
+            if (RecentPopup.IsOpen)
+            {
+                var refocus = _recentCycleIndex >= 0;
+                RecentPopup.IsOpen = false;
+                // 循环模式下行按钮持有焦点，弹层关闭后焦点落空，停回任务列表
+                if (refocus) ParkFocusOnTaskList();
+                e.Handled = true;
+                return;
+            }
+
             if (_taskDragging) { CancelTaskDrag(); e.Handled = true; }
             else
             {

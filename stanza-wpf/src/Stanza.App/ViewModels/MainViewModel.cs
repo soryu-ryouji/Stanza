@@ -39,6 +39,7 @@ public sealed class MainViewModel : ViewModelBase
         SaveCommand = new RelayCommand(_ => Save(), _ => HasDocument);
         OpenCommand = new RelayCommand(_ => OpenInteractive());
         NewDocumentCommand = new RelayCommand(_ => NewDocument());
+        OpenRecentCommand = new RelayCommand(_ => OpenRecentRequested?.Invoke());
         NewTaskCommand = new RelayCommand(_ => CreateTaskAtEnd(),
             _ => HasDocument && (SelectedBlock != null || SelectedFacet != null));
         SelectBlockCommand = new RelayCommand(p =>
@@ -286,11 +287,15 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>新任务创建后触发，视图负责滚动并聚焦。</summary>
     public event EventHandler<TaskViewModel>? TaskCreated;
 
+    /// <summary>最近文件弹层的打开/循环高亮请求（由视图实现，VS Code quick-open 语义）。</summary>
+    public Action? OpenRecentRequested { get; set; }
+
     // ---- 命令 ----
 
     public ICommand SaveCommand { get; }
     public ICommand OpenCommand { get; }
     public ICommand NewDocumentCommand { get; }
+    public ICommand OpenRecentCommand { get; }
     public ICommand NewTaskCommand { get; }
     public ICommand SelectBlockCommand { get; }
     public ICommand ToggleFacetSectionCommand { get; }
@@ -310,6 +315,7 @@ public sealed class MainViewModel : ViewModelBase
         AppCommand.Open => OpenCommand,
         AppCommand.NewTask => NewTaskCommand,
         AppCommand.NewDocument => NewDocumentCommand,
+        AppCommand.OpenRecent => OpenRecentCommand,
         AppCommand.SelectBlock => SelectBlockCommand,
         _ => null,
     };

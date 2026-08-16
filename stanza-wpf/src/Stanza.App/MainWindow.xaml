@@ -228,7 +228,7 @@
                                 <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
                             </Border.Effect>
                             <StackPanel>
-                                <ItemsControl ItemsSource="{Binding Recents.Items}">
+                                <ItemsControl x:Name="RecentItems" ItemsSource="{Binding Recents.Items}">
                                     <!-- 条目容器拉伸到整行宽度，保证每行一致 -->
                                     <ItemsControl.ItemContainerStyle>
                                         <Style TargetType="{x:Type ContentPresenter}">
@@ -237,12 +237,22 @@
                                     </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button x:Name="RowButton" Style="{StaticResource GhostButton}"
-                                                    HorizontalContentAlignment="Stretch" Padding="8,5"
+                                            <Button x:Name="RowButton" HorizontalContentAlignment="Stretch" Padding="8,5"
                                                     ToolTip="{Binding Path}"
                                                     Command="{Binding DataContext.Recents.OpenCommand, RelativeSource={RelativeSource AncestorType={x:Type Popup}}}"
                                                     CommandParameter="{Binding Path}"
                                                     Click="RecentItem_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource GhostButton}">
+                                                        <Style.Triggers>
+                                                            <!-- Ctrl+R 键盘循环的高亮：与 hover 同款视觉 -->
+                                                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
