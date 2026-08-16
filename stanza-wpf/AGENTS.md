@@ -17,7 +17,7 @@ dotnet run --project src/Stanza.App            # 启动
 dotnet run --project src/Stanza.App -- TODO.stanza   # 启动并打开文件
 dotnet test                                    # 全部测试（xunit）
 dotnet test --filter "FullyQualifiedName~ParserTests"  # 只跑解析器测试
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-input.ps1   # 键盘输入 UI 自动化回归（hjkl/方向键导航、中文 IME）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/verify-input.ps1   # 键盘输入 UI 自动化回归（hjkl/方向键导航、中文 IME、Space 完成与撤销、Ctrl+R 快速打开）
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/capture-screenshots.ps1   # 自动截取应用截图到仓库根目录 .assets/（演示数据为 tools/demo.stanza）
 ```
 
@@ -33,8 +33,15 @@ tests/Stanza.Core.Tests  只测 Stanza.Core：RFC §10.3 全部用例 + 解析�
 
 - `Stanza.Core` 是纯函数式静态 API：`StanzaParser.Parse(string)` → `StanzaDocument` → `StanzaWriter.Write(doc)`。模型类（`StanzaDocument` / `StanzaBlock` / `StanzaTask`）是普通可变 POCO。§9 流转规范化（`TaskTransitions`）与活跃排序（`ActiveTaskOrdering`）的规则唯一来源也在 Core，App 层只编排 ViewModel 集合，不得另行实现
 - `MainWindow` 按职责拆为 partial class：`MainWindow.xaml.cs`（主体、退出确认、文件对话框）、`MainWindow.Drag.cs`（拖拽排序/跨区块移动、按键分发）、`MainWindow.Panels.cs`（侧栏与弹层交互、勾选动画、文件拖入）、`MainWindow.Settings.cs`（设置面板：语言与快捷键）、`MainWindow.Windowing.cs`（无边框窗口的系统集成）。新增窗口交互代码时放进对应的 partial 文件
+- 快捷键的唯一来源是 `Keymap.cs`：`AppCommand` 枚举（用户键位文件的稳定标识）+ 默认键位 + 用户覆盖合并（%APPDATA%/Stanza/keymap.json，VS Code 语义：出现的命令整体替换、空列表解绑）。命令分两类：`IsTaskScoped` 判定的任务作用域命令（仅任务列表焦点上下文分发，允许裸键）与应用级命令（全局分发，必须带修饰键）；新增命令默认按应用级（安全方向）。`Esc`/`Enter` 上下文多义不进表；选择器面板内的键（方向键/Alt+JK/Alt+NP/Space/Enter）硬编码在 `FacetPicker_KeyDown`
+- 分发路径（`MainWindow.Drag.cs` 的 `OnPreProcessInput`）：应用命令查表后经 `VM.CommandFor` 执行；任务命令经 `TryExecuteTaskCommand` 执行——每个命令的焦点作用域谓词写死在分发处，用户改键只改触发手势，不改上下文语义（编辑框内输入、浮层内按键始终优先）
 - ViewModel 层使用自实现的 `ViewModelBase` / `RelayCommand`，不引入 CommunityToolkit.Mvvm 等外部包
 - Win32 互操作集中在 `Services/NativeMethods.cs`
+
+## 图标与滚动条
+
+- 图标统一用字体字形：资源 `IconFont`（Segoe Fluent Icons / Segoe MDL2 Assets，WinUI FontIcon 同款方案），颜色经 `Foreground` 绑定联动。新图标优先查 MDL2 字形（窗口控制用 `&#xE921;`/`&#xE922;`/`&#xE8BB;` 系列），不要自绘 Path；仅无对应字形的组合图形（新建文档、备注标记）保留自绘
+- 滚动条：隐式 `ScrollBar` 样式（细长圆角 thumb）覆盖所有滚动容器；任务列表用 `SlimScrollBar` 变体（`ScrollBarAutoHide` 行为驱动：滚动时淡入、闲置淡出）
 
 ## 必须遵守的行为不变量
 
@@ -66,3 +73,7 @@ tests/Stanza.Core.Tests  只测 Stanza.Core：RFC §10.3 全部用例 + 解析�
 - 主行为空的任务无法被格式表示（会成为空白行被解析器跳过），写出时直接丢弃——不要试图为它发明转义
 - `+` 项目与 `#` 标签的前导字符必须是行首或空白（否则 `C++`、`C#` 会被误解析），改正则时注意 lookbehind `(?<!\S)`
 - 空白行的归属（任务分隔符 vs 备注内空行）取决于其后一行是否缩进，这是解析器最容易改错的部分，对应 `Case1` / `Case2` 测试
+- `ItemsControl.ItemsSource` 重建后容器（行按钮）在布局阶段才异步生成：重建后同步遍历视觉树只能拿到旧容器。需要随行的状态（如选择器高亮）应放进项数据由绑定带出，代码遍历只用于不重建列表的瞬时迁移
+- WPF 绑定对引用相等的新旧值短路不更新：集合类属性（如 `TaskViewModel.Tags`）变更时必须给出新实例，不能原地修改后复用同一引用
+- WPF 不自动迁移已隐藏元素上的焦点：浮层 Collapsed 后焦点残留在不可见控件上，后续按键分发会落空。关闭浮层时检查焦点是否在其中，是则显式停回任务列表（`CloseFacetPicker` 的模式）
+- 中文 IME 会吞交互控件上的字母键：`StanzaControlBase` 基座样式统一禁用 IME（文本框显式恢复），新增可交互控件样式必须 BasedOn 基座，否则 hjkl 导航在中文布局下失效
