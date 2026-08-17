@@ -44,6 +44,14 @@ public partial class TaskTemplates : ResourceDictionary
 
     private void FacetMenu_ProjectClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Project);
 
+    // 「状态…」：在鼠标位置打开状态选择器（ContextMenu 关闭后由主窗口浮层接管，同标签/项目路径）
+    private void FacetMenu_StateClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Parent: ContextMenu { PlacementTarget: { } target } }
+            && Window.GetWindow(target) is MainWindow window)
+            window.OpenMovePicker();
+    }
+
     /// <summary>菜单打开时把带 Tag（命令名）的菜单项的快捷键提示刷新为键位表当前手势——
     /// 用户改键后提示不过期。</summary>
     private void FacetContextMenu_Opened(object sender, RoutedEventArgs e)

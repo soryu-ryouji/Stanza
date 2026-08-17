@@ -78,9 +78,6 @@ public sealed class TaskViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsActive));
                 OnPropertyChanged(nameof(IsDone));
                 OnPropertyChanged(nameof(IsDeleted));
-                OnPropertyChanged(nameof(CanRestore));
-                OnPropertyChanged(nameof(IsDoing));
-                OnPropertyChanged(nameof(IsWaiting));
                 OnPropertyChanged(nameof(ShowCompleted));
             }
         }
@@ -89,9 +86,6 @@ public sealed class TaskViewModel : ViewModelBase
     public bool IsActive => State is TaskState.Doing or TaskState.Wait;
     public bool IsDone => State is TaskState.Done;
     public bool IsDeleted => State is TaskState.Delete;
-    public bool CanRestore => State is TaskState.Done or TaskState.Delete;
-    public bool IsDoing => State is TaskState.Doing;
-    public bool IsWaiting => State is TaskState.Wait;
 
     // ---- 主行（内联元数据） ----
 

@@ -20,6 +20,7 @@ public enum AppCommand
     CompleteTask,
     OpenTagPicker,
     OpenProjectPicker,
+    OpenMovePicker,
     DiscardTask,
     DeleteTask,
     NavigateUp,
@@ -159,6 +160,7 @@ public sealed class Keymap
             new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
             new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
             new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
+            new(ModifierKeys.None, Key.M, AppCommand.OpenMovePicker),
             new(ModifierKeys.None, Key.Back, AppCommand.DiscardTask),
             new(ModifierKeys.None, Key.Delete, AppCommand.DeleteTask),
             new(ModifierKeys.None, Key.Up, AppCommand.NavigateUp),
@@ -176,6 +178,7 @@ public sealed class Keymap
     /// 允许裸键绑定。应用级命令全局生效，必须带修饰键。未列入的新命令按应用级处理（安全方向）。</summary>
     public static bool IsTaskScoped(AppCommand command) => command is
         AppCommand.CompleteTask or AppCommand.OpenTagPicker or AppCommand.OpenProjectPicker
+        or AppCommand.OpenMovePicker
         or AppCommand.DiscardTask or AppCommand.DeleteTask
         or AppCommand.NavigateUp or AppCommand.NavigateDown
         or AppCommand.NavigateLeft or AppCommand.NavigateRight;

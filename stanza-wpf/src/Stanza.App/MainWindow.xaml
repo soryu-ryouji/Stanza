@@ -621,12 +621,13 @@
                 </StackPanel>
             </Border>
         </Grid>
-        <!-- 标签/项目选择器：右键「标签…/项目…」在鼠标位置展开的应用内浮层。
+        <!-- 选择器浮层：标签/项目（FacetPickerPanel）与状态（MovePickerPanel）两个面板共用，
+             任一可见即显示（代码维护）。右键菜单或快捷键（T/P/M）在鼠标/选中任务旁展开；
              与窗口同一视觉树（不用独立 Popup，规避跨 HWND 的焦点/失活时序问题）；
-             点卡片以外区域关闭。顶部输入框过滤或新建，列表 ✓ 为选中任务当前已拥有 -->
-        <Canvas x:Name="FacetPickerLayer" Visibility="Collapsed" Background="Transparent"
-                PreviewMouseLeftButtonDown="FacetPickerLayer_PreviewMouseDown">
-            <Border x:Name="FacetPickerPanel" Width="200" Padding="5"
+             点面板以外区域关闭。焦点在浮层内时主界面的任务作用域快捷键不接管（作用域检查） -->
+        <Canvas x:Name="PickerLayer" Visibility="Collapsed" Background="Transparent"
+                PreviewMouseLeftButtonDown="PickerLayer_PreviewMouseDown">
+            <Border x:Name="FacetPickerPanel" Width="200" Padding="5" Visibility="Collapsed"
                     Background="{StaticResource DarkPanelBrush}"
                     CornerRadius="8"
                     BorderBrush="{StaticResource DarkPanelBorderBrush}" BorderThickness="1"
@@ -689,6 +690,20 @@
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                     </Button>
                 </StackPanel>
+            </Border>
+            <!-- 状态选择器（M / 右键「状态…」）：无输入框的轻量面板，四行固定目标
+                 由代码在打开时按规范序构建（本地化与当前状态标记始终新鲜）。
+                 数字 1-4 直达、方向键+Enter 确认、Esc 或再按 M 关闭 -->
+            <Border x:Name="MovePickerPanel" Width="200" Padding="5" Visibility="Collapsed"
+                    Background="{StaticResource DarkPanelBrush}"
+                    CornerRadius="8"
+                    BorderBrush="{StaticResource DarkPanelBorderBrush}" BorderThickness="1"
+                    SnapsToDevicePixels="True" Focusable="True"
+                    PreviewKeyDown="MovePicker_KeyDown">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
+                </Border.Effect>
+                <StackPanel x:Name="MovePickerRows"/>
             </Border>
         </Canvas>
     </Grid>

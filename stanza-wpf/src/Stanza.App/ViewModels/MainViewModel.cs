@@ -736,6 +736,16 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>完成选中任务的请求：视图接管为动画流程；未接管时直接流转（供非动画上下文）。</summary>
     public Action? CompleteSelectionRequested { get; set; }
 
+    /// <summary>「移到…」浮层的统一流转入口：跳过已在目标状态的任务（全部已在时不动作，
+    /// 避免同状态移除重插造成的位置扰动）。normalize 与逐按钮路径语义一致：
+    /// 进 DONE 追加完成时间戳并清优先级，进 DELETE 清优先级，活跃状态无额外变更。</summary>
+    public void MoveSelectionTo(TaskState target)
+    {
+        var tasks = SelectedTasks.Where(t => t.State != target).ToList();
+        if (tasks.Count == 0) return;
+        TransitionTasks(tasks, target, normalize: true);
+    }
+
     /// <summary>拖拽落点提交（调用方已把任务从原集合移除）。进入 DONE/DELETE 时按 §9 规范化。</summary>
     public void DropTask(TaskViewModel task, BlockViewModel target, int index)
     {

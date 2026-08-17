@@ -242,7 +242,7 @@ public partial class MainWindow
         if (Keyboard.FocusedElement is DependencyObject focus)
         {
             if (focus is TextBoxBase) return false;
-            if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+            if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
             if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
         }
         var down = key == Key.J;
@@ -289,7 +289,7 @@ public partial class MainWindow
         if (Keyboard.FocusedElement is not DependencyObject focus) return true;
         if (focus is UIElement { IsVisible: false }) return true;
         if (focus is TextBoxBase) return false;
-        if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+        if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
         if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item
             && VisualTreeEx.IsWithin(item, TaskList))
             return false;
@@ -342,11 +342,21 @@ public partial class MainWindow
                     SelectedTaskAnchor());
                 return true;
 
+            // 打开状态选择器（移到…）：作用域同标签/项目选择器；
+            // 拖拽中不打开：被拖任务已脱离区块，流转会因找不到所属区块而失败
+            case AppCommand.OpenMovePicker:
+                if (RecentPopup.IsOpen || _taskDragging || focus is null or TextBoxBase
+                    || !VisualTreeEx.IsWithin(focus, TaskList)
+                    || !VM.HasSelection)
+                    return false;
+                OpenMovePicker(SelectedTaskAnchor());
+                return true;
+
             // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
             case AppCommand.DiscardTask:
             case AppCommand.DeleteTask:
                 if (focus is TextBoxBase
-                    || focus != null && VisualTreeEx.IsWithin(focus, FacetPickerLayer)
+                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer)
                     || !VM.HasSelection)
                     return false;
                 var deleteCommand = command == AppCommand.DiscardTask
@@ -390,7 +400,7 @@ public partial class MainWindow
             if (Keyboard.FocusedElement is not DependencyObject focus) return true;
             if (focus is UIElement { IsVisible: false }) return true;
             if (focus is TextBoxBase) return false;
-            if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+            if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
             if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item)
                 return VisualTreeEx.IsWithin(focus, TaskList) && !item.IsSelected;
             if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;

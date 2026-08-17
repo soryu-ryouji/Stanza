@@ -37,6 +37,7 @@ public partial class MainWindow
             (AppCommand.CompleteTask, null),
             (AppCommand.OpenTagPicker, null),
             (AppCommand.OpenProjectPicker, null),
+            (AppCommand.OpenMovePicker, null),
             (AppCommand.NavigateUp, null),
             (AppCommand.NavigateDown, null),
             (AppCommand.NavigateLeft, null),

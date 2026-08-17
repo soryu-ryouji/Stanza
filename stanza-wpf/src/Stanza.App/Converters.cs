@@ -37,14 +37,16 @@ public sealed class StateToBrushConverter : IValueConverter
     private static readonly Brush Delete = Freeze(new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF)));
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is TaskState s ? s switch
-        {
-            TaskState.Doing => Doing,
-            TaskState.Wait => Wait,
-            TaskState.Done => Done,
-            TaskState.Delete => Delete,
-            _ => Delete,
-        } : Delete;
+        => value is TaskState s ? Of(s) : Delete;
+
+    /// <summary>代码侧直接取色（状态选择器的行由代码构建，不走 XAML 绑定）。</summary>
+    public static Brush Of(TaskState s) => s switch
+    {
+        TaskState.Doing => Doing,
+        TaskState.Wait => Wait,
+        TaskState.Done => Done,
+        _ => Delete,
+    };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

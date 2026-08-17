@@ -68,14 +68,10 @@
     <sys:String x:Key="State_DELETE">DELETE</sys:String>
 
     <!-- Task context menu -->
-    <sys:String x:Key="Menu_Complete">Complete</sys:String>
-    <sys:String x:Key="Menu_Defer">Move to WAIT</sys:String>
-    <sys:String x:Key="Menu_Activate">Move to DOING</sys:String>
+    <sys:String x:Key="Menu_State">State…</sys:String>
     <sys:String x:Key="Menu_Priority">Priority</sys:String>
     <sys:String x:Key="Menu_Tags">Tags…</sys:String>
     <sys:String x:Key="Menu_Project">Project…</sys:String>
-    <sys:String x:Key="Menu_Discard">Discard</sys:String>
-    <sys:String x:Key="Menu_Restore">Restore</sys:String>
     <sys:String x:Key="Menu_Delete">Delete permanently</sys:String>
 
     <!-- Editor watermarks -->
@@ -123,6 +119,7 @@
     <sys:String x:Key="Cmd_CompleteTask">Complete Task</sys:String>
     <sys:String x:Key="Cmd_OpenTagPicker">Open Tag Picker</sys:String>
     <sys:String x:Key="Cmd_OpenProjectPicker">Open Project Picker</sys:String>
+    <sys:String x:Key="Cmd_OpenMovePicker">Open State Picker</sys:String>
     <sys:String x:Key="Cmd_DiscardTask">Move to Trash</sys:String>
     <sys:String x:Key="Cmd_DeleteTask">Delete Permanently</sys:String>
     <sys:String x:Key="Cmd_NavigateUp">Select Previous</sys:String>
