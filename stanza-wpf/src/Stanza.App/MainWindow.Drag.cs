@@ -217,10 +217,65 @@ public partial class MainWindow
             return;
         }
 
+        // Shift+jk（vim 语义）扩展选中：字母键没有原生路由可借力，全程自处理（锚点+活动端）
+        if (key is Key.J or Key.K && Keyboard.Modifiers == ModifierKeys.Shift
+            && TryShiftSelectTasks(key))
+        {
+            e.Cancel();
+            return;
+        }
+
         // Shift+方向键扩展选中：焦点在任务条目容器上时由 WPF 原生扩展（Extended 模式）；
         // 焦点落空时（停在列表本体——关闭浮层后等）先把焦点放回选中边缘的容器，按键继续走原生路由
         if (ShiftArrowNeedsBridge(key))
             BridgeShiftArrow(key);
+    }
+
+    private TaskViewModel? _shiftAnchor;   // Shift+jk 扩展选中的锚点（区间固定端）
+    private TaskViewModel? _shiftCursor;   // 活动端（随 Shift+jk 移动）
+
+    /// <summary>Shift+jk 扩展批量选中：单选为锚点，按方向移动活动端，选中锚点..活动端区间；
+    /// 活动端移回锚点即收缩。无选中时与裸 j/k 一致（j 选首项、k 选末项）。</summary>
+    private bool TryShiftSelectTasks(Key key)
+    {
+        // 作用域同任务导航键：文本框（文本选择）、浮层、侧栏列表内不接管
+        if (Keyboard.FocusedElement is DependencyObject focus)
+        {
+            if (focus is TextBoxBase) return false;
+            if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+            if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
+        }
+        var down = key == Key.J;
+        var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
+        if (tasks.Count == 0) return true;   // 空列表：吞掉，避免焦点逃逸到工具栏
+        var selected = VM.SelectedTasks.Select(t => tasks.IndexOf(t)).Where(i => i >= 0).ToList();
+        if (selected.Count == 0)
+        {
+            var first = down ? tasks[0] : tasks[^1];
+            VM.SelectedTask = first;
+            FocusContainerOf(first);
+            return true;
+        }
+
+        // 锚点/活动端已失效（点击、流转等改变了选中）：按当前选中重建——
+        // 单选时两端同点；多选（鼠标圈选）取方向近端为锚，避免收缩掉既有区间
+        var anchor = _shiftAnchor is { } a ? tasks.IndexOf(a) : -1;
+        var cursor = _shiftCursor is { } c ? tasks.IndexOf(c) : -1;
+        if (anchor < 0 || cursor < 0 || !selected.Contains(anchor) || !selected.Contains(cursor))
+        {
+            if (selected.Count == 1) { anchor = cursor = selected[0]; }
+            else if (down) { anchor = selected.Min(); cursor = selected.Max(); }
+            else { anchor = selected.Max(); cursor = selected.Min(); }
+        }
+        cursor = Math.Clamp(cursor + (down ? 1 : -1), 0, tasks.Count - 1);
+
+        TaskList.SelectedItems.Clear();
+        foreach (var i in Enumerable.Range(Math.Min(anchor, cursor), Math.Abs(cursor - anchor) + 1))
+            TaskList.SelectedItems.Add(tasks[i]);
+        _shiftAnchor = tasks[anchor];
+        _shiftCursor = tasks[cursor];
+        FocusContainerOf(tasks[cursor]);
+        return true;
     }
 
     /// <summary>Shift+方向键是否需要借桥：焦点不在文本框（文本选择）、不在浮层、不在任务条目容器

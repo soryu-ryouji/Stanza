@@ -479,6 +479,12 @@ Send-Keys "+{DOWN}" 400
 Check "F9b Shift+Down extends from parked focus" (Get-TaskSel) "11"
 Send-Keys "+{UP}" 400
 Check "F9c Shift+Up shrinks back" (Get-TaskSel) "10"
+Send-Keys "+j" 400
+Check "F10a Shift+j extends selection" (Get-TaskSel) "11"
+Send-Keys "+j" 400
+Check "F10b Shift+j clamps at end" (Get-TaskSel) "11"
+Send-Keys "+k" 400
+Check "F10c Shift+k shrinks back" (Get-TaskSel) "10"
 Send-Keys "{ESC}" 400
 Send-Keys "j" 400
 
