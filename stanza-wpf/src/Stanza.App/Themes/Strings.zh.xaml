@@ -102,6 +102,7 @@
     <!-- 设置面板 -->
     <sys:String x:Key="Settings_Title">设置</sys:String>
     <sys:String x:Key="Settings_Language">语言</sys:String>
+    <sys:String x:Key="Settings_KeyboardMode">键盘模式</sys:String>
     <sys:String x:Key="Settings_Shortcuts">快捷键</sys:String>
     <sys:String x:Key="Settings_Recording">按下快捷键…</sys:String>
     <sys:String x:Key="Settings_NeedModifier">需要修饰键（Ctrl/Shift/Alt）或功能键</sys:String>

@@ -171,8 +171,11 @@ public partial class MainWindow
         // Ctrl+R 快速切换的确认：弹层内有高亮行时，松开 Ctrl 即打开该行（VS Code quick-open 语义）
         if (k.RoutedEvent == Keyboard.KeyUpEvent)
         {
-            if (_recentCycleIndex >= 0 && RecentPopup.IsOpen
-                && k.Key is Key.LeftCtrl or Key.RightCtrl)
+            // 循环修饰键随键盘模式：Windows = Ctrl，macOS = Alt（扮演 Command）
+            var cycleReleased = Keymap.Current.MacOsMode
+                ? k.Key is Key.LeftAlt or Key.RightAlt
+                : k.Key is Key.LeftCtrl or Key.RightCtrl;
+            if (_recentCycleIndex >= 0 && RecentPopup.IsOpen && cycleReleased)
             {
                 var path = VM.Recents.Items[_recentCycleIndex].Path;
                 RecentPopup.IsOpen = false;   // Closed 事件里复位循环索引
@@ -213,6 +216,47 @@ public partial class MainWindow
             e.Cancel();
             return;
         }
+
+        // Shift+方向键扩展选中：焦点在任务条目容器上时由 WPF 原生扩展（Extended 模式）；
+        // 焦点落空时（停在列表本体——关闭浮层后等）先把焦点放回选中边缘的容器，按键继续走原生路由
+        if (ShiftArrowNeedsBridge(key))
+            BridgeShiftArrow(key);
+    }
+
+    /// <summary>Shift+方向键是否需要借桥：焦点不在文本框（文本选择）、不在浮层、不在任务条目容器
+    /// （原生扩展可用）、不在侧栏列表——即焦点落空（列表本体/按钮/窗口/已隐藏元素）时。</summary>
+    private bool ShiftArrowNeedsBridge(Key key)
+    {
+        if (key is not (Key.Up or Key.Down or Key.Left or Key.Right)
+            || Keyboard.Modifiers != ModifierKeys.Shift
+            || RecentPopup.IsOpen)
+            return false;
+        if (Keyboard.FocusedElement is not DependencyObject focus) return true;
+        if (focus is UIElement { IsVisible: false }) return true;
+        if (focus is TextBoxBase) return false;
+        if (VisualTreeEx.IsWithin(focus, FacetPickerLayer)) return false;
+        if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item
+            && VisualTreeEx.IsWithin(item, TaskList))
+            return false;
+        if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
+        return true;
+    }
+
+    /// <summary>把焦点放回选中边缘（方向同侧）的条目容器；不消费按键——焦点从列表外进入不联动选中，
+    /// 随后的原生路由由 ListBox 从该容器扩展选中（WPF Extended 模式接管锚点）。</summary>
+    private void BridgeShiftArrow(Key key)
+    {
+        var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
+        if (tasks.Count == 0) return;
+        var forward = key is Key.Down or Key.Right;
+        var indices = VM.SelectedTasks
+            .Select(t => tasks.IndexOf(t))
+            .Where(i => i >= 0)
+            .ToList();
+        var target = indices.Count == 0
+            ? (forward ? tasks[0] : tasks[^1])
+            : tasks[forward ? indices.Max() : indices.Min()];
+        ((UIElement?)ContainerOf(target) ?? TaskList).Focus();
     }
 
     /// <summary>任务作用域命令的执行（含焦点作用域检查）。返回 false 表示当前上下文不分发，

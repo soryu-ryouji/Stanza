@@ -211,6 +211,19 @@ Task Charlie
 # DELETE
 '@ | Out-File -Encoding utf8 $fixture
 
+# 键盘模式钉为 Windows（用户 settings.json 在 Suite G 末尾还原）
+$settingsJson = Join-Path $env:APPDATA "Stanza/settings.json"
+$settingsBak = Join-Path $workDir "settings.json.bak"
+$hadSettings = Test-Path $settingsJson
+if ($hadSettings) {
+    Copy-Item $settingsJson $settingsBak -Force
+    $cfg = Get-Content $settingsJson -Raw | ConvertFrom-Json
+    $cfg | Add-Member -NotePropertyName MacOsMode -NotePropertyValue $false -Force
+    [IO.File]::WriteAllText($settingsJson, ($cfg | ConvertTo-Json -Compress))
+} else {
+    [IO.File]::WriteAllText($settingsJson, '{"Language":"zh","MacOsMode":false}')
+}
+
 Get-Process Stanza -ErrorAction SilentlyContinue | Stop-Process -Force
 $proc = Start-Process -FilePath $Exe -ArgumentList "`"$fixture`"" -PassThru
 $win = $null
@@ -441,23 +454,33 @@ Send-Keys "{ESC}" 400
 
 Send-Keys "j" 400
 Send-Keys "{ENTER}" 800   # expand -> title focused, caret at end
-Send-Keys "^a" 200        # line start
+Send-Keys "%a" 200        # line start (Windows mode: editing keys on Alt)
 Send-Keys "X" 200
-Send-Keys "^e" 200        # line end
+Send-Keys "%e" 200        # line end
 Send-Keys "Y" 200
-Send-Keys "^b" 200        # back one char
+Send-Keys "%b" 200        # back one char
 Send-Keys "Z" 200         # inserted before Y
-Send-Keys "^d" 200        # forward-delete Y
-Send-Keys "^h" 200        # backspace Z
-Send-Keys "^a^f^f" 300    # line start, forward x2
-Send-Keys "^k" 200        # kill to end of line
+Send-Keys "%d" 200        # forward-delete Y
+Send-Keys "%h" 200        # backspace Z
+Send-Keys "%a%f%f" 300    # line start, forward x2
+Send-Keys "%k" 200        # kill to end of line
 $f7 = Get-EditValues
-Check "F7 Emacs keys (a/e/b/f/d/h/k)" $(if ($f7 -match "^XT \|") { "yes" } else { $f7 }) "yes"
+Check "F7 editing keys on Alt (a/e/b/f/d/h/k)" $(if ($f7 -match "^XT \|") { "yes" } else { $f7 }) "yes"
 Send-Keys "{ESC}" 400
 # 与 Suite A 相同的结束状态（选中第一项）：焦点停在列表上时的空操作 Esc 会重新选中首项
 # （原有的 WPF 焦点迁移怪癖，HEAD 上同样存在），留下选中让 B1 的 Esc 走「清除」分支
 Send-Keys "j" 400
 Check "F8 j selects first after Esc" (Get-TaskSel) "10"
+
+Send-Keys "t" 600         # open tag picker (selection on first task)
+Send-Keys "{ESC}" 500     # close -> focus parked on the list, selection kept
+Check "F9a selection kept after picker close" (Get-TaskSel) "10"
+Send-Keys "+{DOWN}" 400
+Check "F9b Shift+Down extends from parked focus" (Get-TaskSel) "11"
+Send-Keys "+{UP}" 400
+Check "F9c Shift+Up shrinks back" (Get-TaskSel) "10"
+Send-Keys "{ESC}" 400
+Send-Keys "j" 400
 
 # ---------- Suite B: Chinese IME ----------
 
@@ -532,6 +555,9 @@ Task Banana
 '@ | Out-File -Encoding utf8 $bFile
 
 try {
+    # 钉住 MRU 为恰好 [b, a]（前面套件产生的记录会增加弹层行数，干扰循环断言）
+    [IO.File]::WriteAllText($recentJson,
+        (@{ LastFile = $bFile; RecentFiles = @($bFile, $aFile) } | ConvertTo-Json -Compress))
     # register MRU order [b, a]: open a, then b, then b again for the test
     Restart-AppWith $aFile
     Restart-AppWith $bFile
@@ -540,22 +566,22 @@ try {
     [KbdV]::Down(0x11)                      # Ctrl down
     [KbdV]::Press(0x52)                     # R
     Start-Sleep -Milliseconds 600
-    Check "C1 Ctrl+R opens popup, first row highlighted" (Get-FocusedRowFile) "b.stanza"
+    Check "C1 Ctrl+R opens popup, next file highlighted" (Get-FocusedRowFile) "a.stanza"
     [KbdV]::Press(0x52)                     # R again, still holding Ctrl
     Start-Sleep -Milliseconds 500
-    Check "C2 R cycles to second row" (Get-FocusedRowFile) "a.stanza"
+    Check "C2 R cycles back to first row" (Get-FocusedRowFile) "b.stanza"
     [KbdV]::Up(0x11)                        # release Ctrl -> open highlighted
     Start-Sleep -Milliseconds 900
-    Check "C3 releasing Ctrl opens highlighted file" (Get-FirstTaskTitle) "Task Apple"
+    Check "C3 releasing Ctrl opens highlighted file" (Get-FirstTaskTitle) "Task Banana"
 
-    # opening a re-registered MRU as [a, b]; Esc must cancel without opening
+    # MRU stays [b, a] (b re-registered on open); reopen -> highlight next file (a)
     Ensure-Foreground
     [KbdV]::Down(0x11)
     [KbdV]::Press(0x52)
     Start-Sleep -Milliseconds 600
-    Check "C4 popup reopens, first row now a" (Get-FocusedRowFile) "a.stanza"
+    Check "C4 popup reopens, next file (a) highlighted" (Get-FocusedRowFile) "a.stanza"
     [KbdV]::Up(0x11)
-    Start-Sleep -Milliseconds 600   # releasing Ctrl opened row0 (a, already current)
+    Start-Sleep -Milliseconds 600   # releasing Ctrl opened row1 (a)
 
     # C5/C6: open the popup via the toolbar button (no Ctrl involved), then plain Esc cancels.
     # (Ctrl+Esc is the Windows Start-menu chord; the OS always wins that one.)
@@ -594,6 +620,54 @@ public class MouseC {
 }
 finally {
     Copy-Item $recentBak $recentJson -Force
+}
+
+# ---------- Suite G: macOS keyboard mode ----------
+
+Write-Host "`nSuite G: macOS keyboard mode"
+$gFile = Join-Path $workDir "g.stanza"
+@'
+# DOING
+
+Task Golf
+'@ | Out-File -Encoding utf8 $gFile
+try {
+    [IO.File]::WriteAllText($settingsJson, '{"Language":"zh","MacOsMode":true}')
+    Restart-AppWith $gFile
+    Set-AppLayout 0x04090409 "en-US"
+
+    Send-Keys "j" 400
+    Send-Keys "{ENTER}" 800   # expand -> title editor focused, caret at end
+    Send-Keys "AB" 300
+    Send-Keys "^a" 200        # macOS: Ctrl+A = line start (editing key)
+    Send-Keys "C" 200         # -> "CTask GolfAB"
+    $g1 = Get-EditValues
+    Check "G1 Ctrl+A is line start in macOS mode" $(if ($g1 -match "^CTask") { "yes" } else { $g1 }) "yes"
+
+    Set-Clipboard "zz"
+    Send-Keys "%a" 200        # Alt(Command)+A = select all
+    Send-Keys "^c" 200        # native Ctrl+C disabled in macOS mode
+    Check "G2 native Ctrl+C disabled" (Get-Clipboard) "zz"
+    Send-Keys "%x" 200        # Alt(Command)+X = cut
+    $g3 = Get-EditValues
+    Check "G3 Alt+A/X select-all + cut" $(if ($g3 -match "^ \|") { "yes" } else { $g3 }) "yes"
+    Send-Keys "%v" 200        # Alt(Command)+V = paste -> cut content back
+    $g4 = Get-EditValues
+    Check "G4 Alt+V paste" $(if ($g4 -match "^CTask") { "yes" } else { $g4 }) "yes"
+    Send-Keys "{ESC}" 400
+
+    Send-Keys "%n" 600        # Alt(Command)+N = new task (app commands on Alt)
+    $g5 = Get-EditValues
+    Check "G5 Alt+N creates task" $(if ($g5 -ne "(none)") { "yes" } else { $g5 }) "yes"
+    Send-Keys "{ESC}" 400     # discard the empty draft
+    Send-Keys "^n" 400        # Ctrl+N is NOT new-task in macOS mode
+    $g6 = Get-EditValues
+    Check "G6 Ctrl+N is not new-task" $g6 "(none)"
+}
+finally {
+    # 还原用户设置（运行期间被钉为 Windows 模式，Suite G 临时切到 macOS）
+    if ($hadSettings) { Copy-Item $settingsBak $settingsJson -Force }
+    else { Remove-Item $settingsJson -Force -ErrorAction SilentlyContinue }
 }
 
 # ---------- cleanup ----------

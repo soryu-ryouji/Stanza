@@ -136,35 +136,41 @@ public static class Gesture
 /// </summary>
 public sealed class Keymap
 {
-    public static readonly IReadOnlyList<KeymapEntry> Defaults =
-    [
-        // ---- 应用级（全局分发，与键盘焦点无关） ----
-        new(ModifierKeys.Control, Key.S, AppCommand.Save),
-        new(ModifierKeys.Control, Key.O, AppCommand.Open),
-        new(ModifierKeys.Control, Key.N, AppCommand.NewTask),
-        new(ModifierKeys.Control | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
-        new(ModifierKeys.Control, Key.R, AppCommand.OpenRecent),
-        new(ModifierKeys.Control, Key.Z, AppCommand.Undo),
-        new(ModifierKeys.Alt, Key.D1, AppCommand.SelectBlock, "1"),
-        new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
-        new(ModifierKeys.Alt, Key.D3, AppCommand.SelectBlock, "3"),
-        new(ModifierKeys.Alt, Key.D4, AppCommand.SelectBlock, "4"),
+    /// <summary>默认键位：应用级命令的命令修饰键随键盘模式（Windows = Ctrl；macOS = Alt 扮演 Command，
+    /// 含 Alt+Shift 组合）。区块切换 Alt+1~4 与任务作用域键两模式一致。</summary>
+    private static IReadOnlyList<KeymapEntry> DefaultsFor(bool macOsMode)
+    {
+        var cmd = macOsMode ? ModifierKeys.Alt : ModifierKeys.Control;
+        return
+        [
+            // ---- 应用级（全局分发，与键盘焦点无关） ----
+            new(cmd, Key.S, AppCommand.Save),
+            new(cmd, Key.O, AppCommand.Open),
+            new(cmd, Key.N, AppCommand.NewTask),
+            new(cmd | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
+            new(cmd, Key.R, AppCommand.OpenRecent),
+            new(cmd, Key.Z, AppCommand.Undo),
+            new(ModifierKeys.Alt, Key.D1, AppCommand.SelectBlock, "1"),
+            new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
+            new(ModifierKeys.Alt, Key.D3, AppCommand.SelectBlock, "3"),
+            new(ModifierKeys.Alt, Key.D4, AppCommand.SelectBlock, "4"),
 
-        // ---- 任务作用域（仅任务列表焦点上下文分发；裸键不进文本框，见分发处的作用域检查） ----
-        new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
-        new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
-        new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
-        new(ModifierKeys.None, Key.Back, AppCommand.DiscardTask),
-        new(ModifierKeys.None, Key.Delete, AppCommand.DeleteTask),
-        new(ModifierKeys.None, Key.Up, AppCommand.NavigateUp),
-        new(ModifierKeys.None, Key.K, AppCommand.NavigateUp),
-        new(ModifierKeys.None, Key.Down, AppCommand.NavigateDown),
-        new(ModifierKeys.None, Key.J, AppCommand.NavigateDown),
-        new(ModifierKeys.None, Key.Left, AppCommand.NavigateLeft),
-        new(ModifierKeys.None, Key.H, AppCommand.NavigateLeft),
-        new(ModifierKeys.None, Key.Right, AppCommand.NavigateRight),
-        new(ModifierKeys.None, Key.L, AppCommand.NavigateRight),
-    ];
+            // ---- 任务作用域（仅任务列表焦点上下文分发；裸键不进文本框，见分发处的作用域检查） ----
+            new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
+            new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
+            new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
+            new(ModifierKeys.None, Key.Back, AppCommand.DiscardTask),
+            new(ModifierKeys.None, Key.Delete, AppCommand.DeleteTask),
+            new(ModifierKeys.None, Key.Up, AppCommand.NavigateUp),
+            new(ModifierKeys.None, Key.K, AppCommand.NavigateUp),
+            new(ModifierKeys.None, Key.Down, AppCommand.NavigateDown),
+            new(ModifierKeys.None, Key.J, AppCommand.NavigateDown),
+            new(ModifierKeys.None, Key.Left, AppCommand.NavigateLeft),
+            new(ModifierKeys.None, Key.H, AppCommand.NavigateLeft),
+            new(ModifierKeys.None, Key.Right, AppCommand.NavigateRight),
+            new(ModifierKeys.None, Key.L, AppCommand.NavigateRight),
+        ];
+    }
 
     /// <summary>任务作用域命令：仅在任务列表焦点上下文分发（MainWindow.Drag 中的作用域检查），
     /// 允许裸键绑定。应用级命令全局生效，必须带修饰键。未列入的新命令按应用级处理（安全方向）。</summary>
@@ -175,6 +181,14 @@ public sealed class Keymap
         or AppCommand.NavigateLeft or AppCommand.NavigateRight;
 
     public static Keymap Current { get; } = new Keymap();
+
+    /// <summary>键盘模式：false = Windows（文本编辑移动键在 Alt，应用快捷键在 Ctrl）；
+    /// true = macOS（Alt 扮演 Command：应用快捷键与文本复制键在 Alt，Ctrl 留给文本编辑移动键）。
+    /// 来自 settings.json（设置面板切换后调用 Reload 生效）。</summary>
+    public bool MacOsMode { get; private set; }
+
+    /// <summary>当前模式下的默认键位表（设置面板据此判定「与默认一致」，覆盖不落盘）。</summary>
+    public IReadOnlyList<KeymapEntry> DefaultEntries => DefaultsFor(MacOsMode);
 
     /// <summary>合并后的键位表。</summary>
     private List<KeymapEntry> _entries = new();
@@ -220,8 +234,10 @@ public sealed class Keymap
             : string.Join(" / ", entries.Select(e => Gesture.Format(e.Modifiers, e.Key)));
     }
 
-    private void Reload()
+    /// <summary>重载设置与用户键位文件并重建（设置面板切换键盘模式后调用）。</summary>
+    public void Reload()
     {
+        MacOsMode = SettingsStore.Load().MacOsMode;
         _overrides.Clear();
         foreach (var binding in KeymapStore.Load())
         {
@@ -234,11 +250,13 @@ public sealed class Keymap
             _overrides[(command, binding.Args)] = gestures;
         }
         Rebuild();
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     private void Rebuild()
     {
-        var keys = Defaults.Select(e => (e.Command, Param: ParamString(e.Parameter)))
+        var defaults = DefaultEntries;
+        var keys = defaults.Select(e => (e.Command, Param: ParamString(e.Parameter)))
             .Concat(_overrides.Keys.Select(k => (k.Command, Param: k.Parameter)))
             .Distinct();
         var entries = new List<KeymapEntry>();
@@ -247,7 +265,7 @@ public sealed class Keymap
             if (_overrides.TryGetValue((command, param), out var gestures))
                 entries.AddRange(gestures.Select(g => new KeymapEntry(g.Modifiers, g.Key, command, param)));
             else
-                entries.AddRange(Defaults.Where(
+                entries.AddRange(defaults.Where(
                     e => e.Command == command && ParamString(e.Parameter) == param));
         }
         _entries = entries;

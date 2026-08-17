@@ -553,6 +553,15 @@
                                          Checked="Lang_Checked"/>
                         </StackPanel>
 
+                        <TextBlock Text="{DynamicResource Settings_KeyboardMode}" FontSize="11" Margin="0,14,0,6"
+                                   Foreground="{StaticResource FaintBrush}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ModeWindows" Content="Windows" Style="{StaticResource LangChip}"
+                                         Margin="0,0,8,0" Checked="KbdMode_Checked"/>
+                            <RadioButton x:Name="ModeMac" Content="macOS" Style="{StaticResource LangChip}"
+                                         Checked="KbdMode_Checked"/>
+                        </StackPanel>
+
                         <Grid Margin="0,18,0,4">
                             <TextBlock Text="{DynamicResource Settings_Shortcuts}" FontSize="11"
                                        Foreground="{StaticResource FaintBrush}"/>

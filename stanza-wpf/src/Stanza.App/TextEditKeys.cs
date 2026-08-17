@@ -5,25 +5,67 @@ using System.Windows.Input;
 namespace Stanza.App;
 
 /// <summary>
-/// 文本框内的 macOS 风格编辑键（Emacs 绑定）：Ctrl+A/E 行首/行尾、Ctrl+B/F 左/右移一个字符、
-/// Ctrl+N/P 下移/上移一行、Ctrl+D/H 前删/回删一个字符、Ctrl+K 删到行尾。
-/// 经类级 PreviewKeyDown 处理器挂到所有 TextBox（App.OnStartup 注册），先于编辑框内建键行为
-/// （Ctrl+A 的全选语义随之被行首替代）。键集合固定为编辑语义：文本框内优先于键位表中的
-/// 应用级命令（OnPreProcessInput 让路，与编辑框内 Ctrl+Z 文本级撤销同一先例）。
+/// 文本框内的平台风格编辑键（挂到所有 TextBox 的类级 PreviewKeyDown，App.OnStartup 注册，
+/// 先于编辑框内建键行为）。两个键盘模式（Keymap.MacOsMode，设置面板切换）：
+/// Windows：Alt+A/E 行首/行尾、Alt+B/F 左/右移一个字符、Alt+N/P 下移/上移一行、
+///          Alt+D/H 前删/回删一个字符、Alt+K 删到行尾；Ctrl 组保持系统惯例（全选/复制/撤销）。
+/// macOS：  编辑移动键在 Ctrl（Emacs 绑定，同 macOS 文本框）；Alt 扮演 Command——
+///          Alt+C/X/V/A/Z 复制/剪切/粘贴/全选/撤销（Alt+Shift+Z 重做），
+///          原生 Ctrl 文本键（C/X/V/A/Z/Y）随之禁用，操作语言统一。
+/// 编辑手势在文本框内优先于键位表中的应用命令（OnPreProcessInput 让路）。
 /// </summary>
 public static class TextEditKeys
 {
-    /// <summary>属于编辑键集合的手势：仅 Ctrl（无 Shift/Alt）+ 集合内字母。</summary>
+    /// <summary>编辑移动键的修饰键：Windows = Alt，macOS = Ctrl。</summary>
+    private static ModifierKeys EditModifier => Keymap.Current.MacOsMode ? ModifierKeys.Control : ModifierKeys.Alt;
+
+    /// <summary>属于编辑移动键集合的手势：仅编辑修饰键（无其他修饰键）+ 集合内字母。</summary>
     public static bool IsEditingGesture(ModifierKeys modifiers, Key key)
-        => modifiers == ModifierKeys.Control
+        => modifiers == EditModifier
            && key is Key.A or Key.B or Key.D or Key.E or Key.F or Key.H or Key.K or Key.N or Key.P;
 
     /// <summary>类级 PreviewKeyDown 处理：命中集合即执行对应编辑操作并消费。</summary>
     public static void Handle(TextBox box, KeyEventArgs e)
     {
-        if (!IsEditingGesture(Keyboard.Modifiers, e.Key)) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;   // Alt 组合的主键在 SystemKey 上
+        var modifiers = Keyboard.Modifiers;
+
+        if (Keymap.Current.MacOsMode)
+        {
+            // Alt 扮演 Command：文本复制键（先于应用命令分发，见 OnPreProcessInput 的让路注释）
+            if (modifiers == ModifierKeys.Alt
+                && key is Key.C or Key.X or Key.V or Key.A or Key.Z)
+            {
+                e.Handled = true;
+                (key switch
+                {
+                    Key.C => ApplicationCommands.Copy,
+                    Key.X => ApplicationCommands.Cut,
+                    Key.V => ApplicationCommands.Paste,
+                    Key.A => ApplicationCommands.SelectAll,
+                    _ => ApplicationCommands.Undo,
+                }).Execute(null, box);
+                return;
+            }
+            if (modifiers == (ModifierKeys.Alt | ModifierKeys.Shift) && key == Key.Z)
+            {
+                e.Handled = true;
+                ApplicationCommands.Redo.Execute(null, box);
+                return;
+            }
+            // 原生 Ctrl 文本键禁用：macOS 模式下 Ctrl 只作编辑移动键，复制组统一在 Alt 上
+            // （Ctrl+A 是编辑移动键的行首，不在禁用列）
+            if (modifiers == ModifierKeys.Control
+                && key is Key.C or Key.X or Key.V or Key.Z or Key.Y)
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (!IsEditingGesture(modifiers, key)) return;
         e.Handled = true;
-        switch (e.Key)
+        switch (key)
         {
             case Key.A: EditingCommands.MoveToLineStart.Execute(null, box); break;
             case Key.E: EditingCommands.MoveToLineEnd.Execute(null, box); break;
@@ -33,12 +75,12 @@ public static class TextEditKeys
             case Key.H: EditingCommands.Backspace.Execute(null, box); break;
             case Key.N when box.AcceptsReturn: EditingCommands.MoveDownByLine.Execute(null, box); break;
             case Key.P when box.AcceptsReturn: EditingCommands.MoveUpByLine.Execute(null, box); break;
-            // 单行框的 N/P 无对应行：消费掉保持无操作（macOS 单行框同款）
+            // 单行框的 N/P 无对应行：消费掉保持无操作
             case Key.K: KillToLineEnd(box); break;
         }
     }
 
-    /// <summary>Ctrl+K 删到行尾；光标已在行尾时删换行符本身（与下一行合并，macOS kill 语义）。
+    /// <summary>删到行尾；光标已在行尾时删换行符本身（与下一行合并）。
     /// 有选区时退化为删除选区。选区替换（而非 Text 赋值）保留编辑框的撤销栈。</summary>
     private static void KillToLineEnd(TextBox box)
     {

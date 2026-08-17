@@ -102,6 +102,7 @@
     <!-- Settings panel -->
     <sys:String x:Key="Settings_Title">Settings</sys:String>
     <sys:String x:Key="Settings_Language">Language</sys:String>
+    <sys:String x:Key="Settings_KeyboardMode">Keyboard mode</sys:String>
     <sys:String x:Key="Settings_Shortcuts">Shortcuts</sys:String>
     <sys:String x:Key="Settings_Recording">Press shortcut…</sys:String>
     <sys:String x:Key="Settings_NeedModifier">Needs a modifier (Ctrl/Shift/Alt) or a function key</sys:String>

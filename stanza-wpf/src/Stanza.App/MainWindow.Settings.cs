@@ -58,6 +58,8 @@ public partial class MainWindow
     {
         LangZh.IsChecked = Loc.Current == "zh";
         LangEn.IsChecked = Loc.Current == "en";
+        ModeWindows.IsChecked = !Keymap.Current.MacOsMode;
+        ModeMac.IsChecked = Keymap.Current.MacOsMode;
         RebuildKeymapRows();
         SettingsOverlay.Visibility = Visibility.Visible;
         // 焦点必须落在浮层内，PreviewKeyDown（隧道）才会经过浮层
@@ -98,13 +100,32 @@ public partial class MainWindow
 
     // ==================== 语言 ====================
 
+    /// <summary>读取-修改-保存设置（各开关共用；新建对象整体覆盖会丢掉其他字段）。</summary>
+    private static void SaveSettings(Action<AppSettings> mutate)
+    {
+        var settings = SettingsStore.Load();
+        mutate(settings);
+        SettingsStore.Save(settings);
+    }
+
     private void Lang_Checked(object sender, RoutedEventArgs e)
     {
         var language = ReferenceEquals(sender, LangEn) ? "en" : "zh";
         if (language == Loc.Current) return;   // 打开面板回填选中态也会触发 Checked
         Loc.SetLanguage(language);
-        SettingsStore.Save(new AppSettings { Language = language });
+        SaveSettings(s => s.Language = language);
         RebuildKeymapRows();   // 命令名随语言变化
+    }
+
+    // ==================== 键盘模式 ====================
+
+    private void KbdMode_Checked(object sender, RoutedEventArgs e)
+    {
+        var macOsMode = ReferenceEquals(sender, ModeMac);
+        if (macOsMode == Keymap.Current.MacOsMode) return;   // 打开面板回填选中态也会触发 Checked
+        SaveSettings(s => s.MacOsMode = macOsMode);
+        Keymap.Current.Reload();   // 默认表的命令修饰键随模式变化（Changed 刷新动态提示）
+        RebuildKeymapRows();       // 行内手势描述随默认表变化
     }
 
     // ==================== 快捷键行 ====================
@@ -322,7 +343,7 @@ public partial class MainWindow
     /// <summary>写某命令的键位集合；与默认一致时不落覆盖（保持用户文件为纯增量）。</summary>
     private static void SetGestures(AppCommand command, string? parameter, List<(ModifierKeys, Key)> gestures)
     {
-        var defaults = Keymap.Defaults
+        var defaults = Keymap.Current.DefaultEntries
             .Where(x => x.Command == command && x.Parameter?.ToString() == parameter)
             .Select(x => (x.Modifiers, x.Key))
             .ToList();

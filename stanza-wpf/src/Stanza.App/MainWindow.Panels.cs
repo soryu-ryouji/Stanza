@@ -266,8 +266,9 @@ public partial class MainWindow
         RecentPopup.Closed += (_, _) => _recentCycleIndex = -1;
     }
 
-    /// <summary>Ctrl+R（VS Code quick-open 语义）：弹层未开则打开并高亮首行；
-    /// 已开则高亮循环下移（到底回顶）。松开 Ctrl 打开高亮行（OnPreProcessInput 的 KeyUp 处理）；
+    /// <summary>Ctrl+R（VS Code quick-open 语义）：弹层未开则打开并高亮「下一个」文件
+    /// （MRU 首行是当前文件，快速一开一松即切换到上一文件）；已开则高亮循环下移（到底回顶）。
+    /// 松开循环修饰键（Windows=Ctrl / macOS=Alt）打开高亮行（OnPreProcessInput 的 KeyUp 处理）；
     /// Esc 关闭不打开。</summary>
     private void OpenOrCycleRecent()
     {
@@ -278,7 +279,7 @@ public partial class MainWindow
         }
         _recentCycleIndex = RecentPopup.IsOpen
             ? (_recentCycleIndex + 1) % VM.Recents.Items.Count
-            : 0;
+            : VM.Recents.Items.Count > 1 ? 1 : 0;   // 首高亮落在下一个文件（首行是当前文件）
         RecentPopup.IsOpen = true;
         // Popup 首帧布局完成后行容器才可用；同优先级回调按投递顺序执行，连按时停在最后投递的行
         var index = _recentCycleIndex;
