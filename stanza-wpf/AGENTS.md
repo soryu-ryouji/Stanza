@@ -35,6 +35,7 @@ tests/Stanza.Core.Tests  只测 Stanza.Core：RFC §10.3 全部用例 + 解析�
 - `MainWindow` 按职责拆为 partial class：`MainWindow.xaml.cs`（主体、退出确认、文件对话框）、`MainWindow.Drag.cs`（拖拽排序/跨区块移动、按键分发）、`MainWindow.Panels.cs`（侧栏与弹层交互、勾选动画、文件拖入）、`MainWindow.Settings.cs`（设置面板：语言与快捷键）、`MainWindow.Windowing.cs`（无边框窗口的系统集成）。新增窗口交互代码时放进对应的 partial 文件
 - 快捷键的唯一来源是 `Keymap.cs`：`AppCommand` 枚举（用户键位文件的稳定标识）+ 默认键位 + 用户覆盖合并（%APPDATA%/Stanza/keymap.json，VS Code 语义：出现的命令整体替换、空列表解绑）。命令分两类：`IsTaskScoped` 判定的任务作用域命令（仅任务列表焦点上下文分发，允许裸键）与应用级命令（全局分发，必须带修饰键）；新增命令默认按应用级（安全方向）。`Esc`/`Enter` 上下文多义不进表；选择器面板内的键（方向键/Alt+JK/Alt+NP/Space/Enter）硬编码在 `FacetPicker_KeyDown`
 - 分发路径（`MainWindow.Drag.cs` 的 `OnPreProcessInput`）：应用命令查表后经 `VM.CommandFor` 执行；任务命令经 `TryExecuteTaskCommand` 执行——每个命令的焦点作用域谓词写死在分发处，用户改键只改触发手势，不改上下文语义（编辑框内输入、浮层内按键始终优先）
+- 文本框编辑键（`TextEditKeys.cs`）：macOS 风格 Emacs 手势（Ctrl+A/B/D/E/F/H/K/N/P）经类级 PreviewKeyDown 处理器挂到所有 TextBox，在 `OnPreProcessInput` 中先于应用命令让行（编辑框内 Ctrl+N 是下移一行而非新建任务，与 Ctrl+Z 文本级撤销同一先例）。备注框的 Enter 换行 / Ctrl+Enter 提交与列表续接（`NotesListEditing.cs`）硬编码在 `HandleTaskNotesKey`
 - ViewModel 层使用自实现的 `ViewModelBase` / `RelayCommand`，不引入 CommunityToolkit.Mvvm 等外部包
 - Win32 互操作集中在 `Services/NativeMethods.cs`
 

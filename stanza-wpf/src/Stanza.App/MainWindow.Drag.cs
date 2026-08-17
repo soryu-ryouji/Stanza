@@ -185,6 +185,12 @@ public partial class MainWindow
 
         // 应用级快捷键：查键位表分发到命令（Keymap.cs）。Alt 组合的主键在 SystemKey 上（同 CaptureGesture）
         var key = k.Key == Key.System ? k.SystemKey : k.Key;
+
+        // 文本框内的 Emacs 编辑手势（TextEditKeys）是文本编辑语义：键位表中的应用命令
+        // （如默认 Ctrl+N 新建任务）在编辑框内让路，与下方 Ctrl+Z 文本级撤销同一先例
+        if (Keyboard.FocusedElement is TextBoxBase && TextEditKeys.IsEditingGesture(Keyboard.Modifiers, key))
+            return;
+
         if (Keymap.Current.Resolve(key, Keyboard.Modifiers) is { } entry
             && VM.CommandFor(entry.Command) is { } command
             && command.CanExecute(entry.Parameter))
@@ -419,13 +425,19 @@ public partial class MainWindow
         e.Handled = true;
     }
 
-    /// <summary>备注编辑框按键（模板转发）：Enter 提交任务（与标题框 Enter 一致）；
-    /// Shift+Enter 换行，交给编辑框自身处理。</summary>
+    /// <summary>备注编辑框按键（模板转发）：Ctrl+Enter 提交任务（与标题框 Enter 一致）；
+    /// 裸 Enter 换行——行首是列表记号时自动续接/退出（NotesListEditing），其余交给编辑框自身。</summary>
     internal void HandleTaskNotesKey(TextBox box, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None) return;
-        e.Handled = true;   // 隧道阶段拦截，编辑框不会插入换行
-        CommitExpandedEdit();
+        if (e.Key != Key.Enter) return;
+        if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            e.Handled = true;   // 隧道阶段拦截，编辑框不会插入换行
+            CommitExpandedEdit();
+            return;
+        }
+        if (Keyboard.Modifiers == ModifierKeys.None)
+            e.Handled = NotesListEditing.TryHandleEnter(box);
     }
 
     /// <summary>确认当前展开的编辑：收起详情；空草稿被移除时焦点回到列表。

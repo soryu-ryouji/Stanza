@@ -223,7 +223,7 @@
                         </StackPanel>
 
                         <!-- 备注：透明融进详情卡，与卡片同一色面，空内容时水印提示。
-                             Enter 提交任务、Shift+Enter 换行（HandleTaskNotesKey） -->
+                             Enter 换行（列表记号自动续接）、Ctrl+Enter 提交任务（HandleTaskNotesKey） -->
                         <TextBox Text="{Binding NotesText, UpdateSourceTrigger=PropertyChanged}"
                                  Tag="{DynamicResource Watermark_Notes}" Margin="0,6,0,0" FontSize="14"
                                  AcceptsReturn="True" TextWrapping="Wrap"

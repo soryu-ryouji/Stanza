@@ -137,6 +137,15 @@ function Get-EditValues {
     return ($names -join " | ")
 }
 
+# 焦点编辑框的当前选中文本（光标折叠时为 ""）；TextPattern.GetSelection 对插入点返回退化区间
+function Get-FocusedEditSelection {
+    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
+    if (-not $f) { return "(no focus)" }
+    $tp = $f.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    if (-not $tp) { return "(no text pattern)" }
+    return (($tp.GetSelection() | ForEach-Object { $_.GetText(-1) }) -join "|")
+}
+
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -392,6 +401,63 @@ Check "A8 editor received letters" $(if ($a8 -match "hjkl") { "yes" } else { $a8
 Send-Keys "{ESC}" 400     # collapse + clear selection
 Send-Keys "j" 400
 Check "A9 j works right after Esc" (Get-TaskSel) "10"
+
+# ---------- Suite F: notes editing keys (US layout) ----------
+
+Write-Host "`nSuite F: notes editing keys (US layout)"
+
+Send-Keys "{ENTER}" 800   # expand selected -> title editor focused
+Send-Keys "{TAB}" 300     # title -> notes (caret at end)
+
+Send-Keys "- first" 300
+Send-Keys "{ENTER}" 300
+$f1 = Get-EditValues
+Check "F1 Enter continues '- ' list" $(if ($f1 -match "- first\r?\n- $") { "yes" } else { $f1 }) "yes"
+Check "F1b no selection left after completion" (Get-FocusedEditSelection) ""
+
+Send-Keys "{ENTER}" 300   # Enter again on the empty marker -> remove it
+$f2 = Get-EditValues
+Check "F2 Enter on empty marker exits list" $(if ($f2 -match "- first\r?\n$") { "yes" } else { $f2 }) "yes"
+
+Send-Keys "- {[} {]} todo" 300
+Send-Keys "{ENTER}" 300
+$f3 = Get-EditValues
+Check "F3 checkbox continues unchecked" $(if ($f3 -match "- \[ \] todo\r?\n- \[ \] $") { "yes" } else { $f3 }) "yes"
+Send-Keys "{ENTER}" 300   # exit list
+
+Send-Keys "1. one" 300
+Send-Keys "{ENTER}" 300
+$f4 = Get-EditValues
+Check "F4 ordered list increments" $(if ($f4 -match "1\. one\r?\n2\. $") { "yes" } else { $f4 }) "yes"
+
+Send-Keys "^{ENTER}" 700  # Ctrl+Enter commits from notes
+Check "F5 Ctrl+Enter commits" (Get-EditValues) "(none)"
+
+Send-Keys "{ENTER}" 800   # re-expand: notes persisted (plain Enter in notes is newline, not commit)
+Send-Keys "{TAB}" 300
+$f6 = Get-EditValues
+Check "F6 notes kept after commit" $(if ($f6 -match "1\. one\r?\n2\. ") { "yes" } else { $f6 }) "yes"
+Send-Keys "{ESC}" 400
+
+Send-Keys "j" 400
+Send-Keys "{ENTER}" 800   # expand -> title focused, caret at end
+Send-Keys "^a" 200        # line start
+Send-Keys "X" 200
+Send-Keys "^e" 200        # line end
+Send-Keys "Y" 200
+Send-Keys "^b" 200        # back one char
+Send-Keys "Z" 200         # inserted before Y
+Send-Keys "^d" 200        # forward-delete Y
+Send-Keys "^h" 200        # backspace Z
+Send-Keys "^a^f^f" 300    # line start, forward x2
+Send-Keys "^k" 200        # kill to end of line
+$f7 = Get-EditValues
+Check "F7 Emacs keys (a/e/b/f/d/h/k)" $(if ($f7 -match "^XT \|") { "yes" } else { $f7 }) "yes"
+Send-Keys "{ESC}" 400
+# 与 Suite A 相同的结束状态（选中第一项）：焦点停在列表上时的空操作 Esc 会重新选中首项
+# （原有的 WPF 焦点迁移怪癖，HEAD 上同样存在），留下选中让 B1 的 Esc 走「清除」分支
+Send-Keys "j" 400
+Check "F8 j selects first after Esc" (Get-TaskSel) "10"
 
 # ---------- Suite B: Chinese IME ----------
 

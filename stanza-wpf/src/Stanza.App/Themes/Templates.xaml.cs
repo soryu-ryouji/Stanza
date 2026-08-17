@@ -25,7 +25,7 @@ public partial class TaskTemplates : ResourceDictionary
         }
     }
 
-    // 标题/备注编辑框的按键在隧道阶段转发（先于编辑框自身消化）：Tab 在两者间切换、Enter 提交
+    // 标题/备注编辑框的按键在隧道阶段转发（先于编辑框自身消化）：Tab 在两者间切换、备注框 Ctrl+Enter 提交
     private void TaskTitleEditor_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (sender is TextBox box && Window.GetWindow(box) is MainWindow window)
