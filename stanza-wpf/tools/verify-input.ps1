@@ -177,6 +177,20 @@ function Find-RecentRow([string]$name) {
     return $null
 }
 
+# 面板视图按状态分组时列项嵌在 GroupItem 内（Children 直取为空）：按后代读取首个任务标题
+function Get-FirstTaskTitleDeep {
+    $win = Get-App
+    $tl = $win.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TaskList")))
+    if (-not $tl) { return "(?)" }
+    $items = $tl.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+    foreach ($it in $items) {
+        $texts = $it.FindAll([System.Windows.Automation.TreeScope]::Descendants, (CType ([System.Windows.Automation.ControlType]::Text)))
+        foreach ($t in $texts) { if ($t.Current.Name -match "^Task ") { return $t.Current.Name } }
+    }
+    return "(empty)"
+}
+
 function Get-FirstTaskTitle {
     $win = Get-App
     # locate by AutomationId: an empty list has no "Task " text for Find-TaskList to match
@@ -751,6 +765,27 @@ try {
     $f = [System.Windows.Automation.AutomationElement]::FocusedElement
     Check "H7 Shift+P panel keys work, focus parked back" $(if ($f -and $f.Current.ClassName -eq "ListBox") { "yes" } else { $f.Current.ClassName }) "yes"
     Check "H8 priority applied without side effects" (Get-FirstTaskTitle) "Task Beta"
+
+    # H9: 焦点在侧栏（鼠标点击区块行）时按 P 也能跳转项目列表
+    $h2File = Join-Path $workDir "h2.stanza"
+@'
+# DOING
+
+Task Beta
+
+Task Alpha +proj1
+'@ | Out-File -Encoding utf8 $h2File
+    Restart-AppWith $h2File
+    $blockList = (Get-App).FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "BlockList")))
+    $blockRow = $blockList.FindFirst([System.Windows.Automation.TreeScope]::Children, (CType ([System.Windows.Automation.ControlType]::ListItem)))
+    $brc = $blockRow.Current.BoundingRectangle
+    Ensure-Foreground
+    [MouseC]::ClickAt([int]($brc.X + $brc.Width / 2), [int]($brc.Y + $brc.Height / 2))
+    Start-Sleep -Milliseconds 600
+    Send-Keys "p" 700                  # 焦点在侧栏、无选中任务：跳转项目列表（预选 proj1 并预览）
+    Send-Keys "{ENTER}" 800            # 确认进入项目面板（分组视图：用后代读取首个任务）
+    Check "H9 p jumps with sidebar focus" (Get-FirstTaskTitleDeep) "Task Alpha"
 }
 finally {
     if ($hadSettings) { Copy-Item $settingsBak $settingsJson -Force }

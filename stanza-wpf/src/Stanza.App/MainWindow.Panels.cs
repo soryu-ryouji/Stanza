@@ -97,8 +97,11 @@ public partial class MainWindow
         var list = kind == FacetKind.Project ? ProjectList : TagList;
         var items = kind == FacetKind.Project ? VM.Projects : VM.Tags;
         if (items.Count == 0) return;
-        _jumpPrevFacet = VM.SelectedFacet;
-        _jumpPrevBlock = VM.SelectedBlock;
+        if (!_facetJumpActive)   // 跳转模式中对侧列表再按 P/T = 切换列表：保留进入前的视图快照（Esc 还原对象）
+        {
+            _jumpPrevFacet = VM.SelectedFacet;
+            _jumpPrevBlock = VM.SelectedBlock;
+        }
         _facetJumpActive = true;
         _jumpList = list;
         // 预选：已在同类 facet 面板时落在该 facet，否则列表第一项

@@ -339,12 +339,13 @@ public partial class MainWindow
                 AnimateCompleteTasks(VM.SelectedTasks.ToList());
                 return true;
 
-            // 打开标签/项目选择器：编辑框内字母是输入，不拦截。
-            // 无选中任务时转跳对应侧栏列表（预览跳转，见 EnterFacetJumpMode）
+            // 标签/项目键的双语义：有选中任务 = 打开设置器（任务操作，选中是更强的信号，不限焦点位置）；
+            // 无选中任务 = 跳转对应侧栏列表（导航，任意焦点位置可用——侧栏、落空均可）。
+            // 编辑框内字母是输入、浮层内按键归面板自身，不拦截
             case AppCommand.OpenTagPicker:
             case AppCommand.OpenProjectPicker:
-                if (RecentPopup.IsOpen || focus is null or TextBoxBase
-                    || !VisualTreeEx.IsWithin(focus, TaskList))
+                if (RecentPopup.IsOpen || _taskDragging || focus is TextBoxBase
+                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer))
                     return false;
                 if (VM.HasSelection)
                 {
