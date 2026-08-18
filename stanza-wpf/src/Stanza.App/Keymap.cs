@@ -138,7 +138,8 @@ public static class Gesture
 public sealed class Keymap
 {
     /// <summary>默认键位：应用级命令的命令修饰键随键盘模式（Windows = Ctrl；macOS = Alt 扮演 Command，
-    /// 含 Alt+Shift 组合）。区块切换 Alt+1~4 与任务作用域键两模式一致。</summary>
+    /// 含 Alt+Shift 组合）。例外：OpenRecent 两模式同为 Ctrl+R（VS Code macOS 惯例）。
+    /// 区块切换 Alt+1~4 与任务作用域键两模式一致。</summary>
     private static IReadOnlyList<KeymapEntry> DefaultsFor(bool macOsMode)
     {
         var cmd = macOsMode ? ModifierKeys.Alt : ModifierKeys.Control;
@@ -149,7 +150,9 @@ public sealed class Keymap
             new(cmd, Key.O, AppCommand.Open),
             new(cmd, Key.N, AppCommand.NewTask),
             new(cmd | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
-            new(cmd, Key.R, AppCommand.OpenRecent),
+            // OpenRecent 例外于键盘模式的命令修饰键迁移：VS Code macOS 的 Open Recent 是
+            // Ctrl+R（不用 Command），两种模式统一跟随该惯例
+            new(ModifierKeys.Control, Key.R, AppCommand.OpenRecent),
             new(cmd, Key.Z, AppCommand.Undo),
             new(ModifierKeys.Alt, Key.D1, AppCommand.SelectBlock, "1"),
             new(ModifierKeys.Alt, Key.D2, AppCommand.SelectBlock, "2"),
@@ -186,7 +189,8 @@ public sealed class Keymap
     public static Keymap Current { get; } = new Keymap();
 
     /// <summary>键盘模式：false = Windows（文本编辑移动键在 Alt，应用快捷键在 Ctrl）；
-    /// true = macOS（Alt 扮演 Command：应用快捷键与文本复制键在 Alt，Ctrl 留给文本编辑移动键）。
+    /// true = macOS（Alt 扮演 Command：应用快捷键与文本复制键在 Alt，Ctrl 留给文本编辑移动键；
+    /// OpenRecent 例外，两模式同为 Ctrl+R）。
     /// 来自 settings.json（设置面板切换后调用 Reload 生效）。</summary>
     public bool MacOsMode { get; private set; }
 

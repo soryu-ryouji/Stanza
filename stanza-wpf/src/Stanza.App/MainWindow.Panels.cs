@@ -269,10 +269,9 @@ public partial class MainWindow
         RecentPopup.Closed += (_, _) => _recentCycleIndex = -1;
     }
 
-    /// <summary>Ctrl+R（VS Code quick-open 语义）：弹层未开则打开并高亮「下一个」文件
+    /// <summary>Ctrl+R（VS Code quick-open 语义，两种键盘模式一致）：弹层未开则打开并高亮「下一个」文件
     /// （MRU 首行是当前文件，快速一开一松即切换到上一文件）；已开则高亮循环下移（到底回顶）。
-    /// 松开循环修饰键（Windows=Ctrl / macOS=Alt）打开高亮行（OnPreProcessInput 的 KeyUp 处理）；
-    /// Esc 关闭不打开。</summary>
+    /// 松开 Ctrl 打开高亮行（OnPreProcessInput 的 KeyUp 处理）；Esc 关闭不打开。</summary>
     private void OpenOrCycleRecent()
     {
         if (VM.Recents.Items.Count == 0)

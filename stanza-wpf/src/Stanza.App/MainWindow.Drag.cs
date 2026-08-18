@@ -171,10 +171,8 @@ public partial class MainWindow
         // Ctrl+R 快速切换的确认：弹层内有高亮行时，松开 Ctrl 即打开该行（VS Code quick-open 语义）
         if (k.RoutedEvent == Keyboard.KeyUpEvent)
         {
-            // 循环修饰键随键盘模式：Windows = Ctrl，macOS = Alt（扮演 Command）
-            var cycleReleased = Keymap.Current.MacOsMode
-                ? k.Key is Key.LeftAlt or Key.RightAlt
-                : k.Key is Key.LeftCtrl or Key.RightCtrl;
+            // 循环修饰键跟随 OpenRecent 绑定：两种键盘模式同为 Ctrl（VS Code macOS 惯例，见 Keymap）
+            var cycleReleased = k.Key is Key.LeftCtrl or Key.RightCtrl;
             if (_recentCycleIndex >= 0 && RecentPopup.IsOpen && cycleReleased)
             {
                 var path = VM.Recents.Items[_recentCycleIndex].Path;

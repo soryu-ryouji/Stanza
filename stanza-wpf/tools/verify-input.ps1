@@ -669,11 +669,26 @@ try {
     Send-Keys "^n" 400        # Ctrl+N is NOT new-task in macOS mode
     $g6 = Get-EditValues
     Check "G6 Ctrl+N is not new-task" $g6 "(none)"
+
+    # G7/G8: OpenRecent 例外于模式迁移——macOS 模式同为 Ctrl+R（VS Code macOS 惯例），Alt+R 不打开
+    [IO.File]::WriteAllText($recentJson,
+        (@{ LastFile = $gFile; RecentFiles = @($gFile, $aFile) } | ConvertTo-Json -Compress))
+    Restart-AppWith $gFile
+    Ensure-Foreground
+    Send-Keys "%r" 500        # Alt+R 在 macOS 模式不绑定 OpenRecent
+    Check "G7 Alt+R does not open recent popup" $(if (Find-RecentRow "a.stanza") { "open" } else { "closed" }) "closed"
+    [KbdV]::Down(0x11)
+    [KbdV]::Press(0x52)       # Ctrl+R
+    Start-Sleep -Milliseconds 600
+    Check "G8 Ctrl+R opens recent popup in macOS mode" (Get-FocusedRowFile) "a.stanza"
+    [KbdV]::Up(0x11)          # 松开 Ctrl = 打开高亮行（套件尾声，无后续断言依赖当前文件）
+    Start-Sleep -Milliseconds 600
 }
 finally {
-    # 还原用户设置（运行期间被钉为 Windows 模式，Suite G 临时切到 macOS）
+    # 还原用户设置与最近文件列表（运行期间被钉为 Windows 模式，Suite G 临时切到 macOS 并重写 MRU）
     if ($hadSettings) { Copy-Item $settingsBak $settingsJson -Force }
     else { Remove-Item $settingsJson -Force -ErrorAction SilentlyContinue }
+    Copy-Item $recentBak $recentJson -Force
 }
 
 # ---------- cleanup ----------
