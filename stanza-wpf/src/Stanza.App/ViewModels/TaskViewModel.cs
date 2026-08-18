@@ -78,6 +78,7 @@ public sealed class TaskViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsActive));
                 OnPropertyChanged(nameof(IsDone));
                 OnPropertyChanged(nameof(IsDeleted));
+                OnPropertyChanged(nameof(ShowCheckBox));
                 OnPropertyChanged(nameof(ShowCompleted));
             }
         }
@@ -86,6 +87,9 @@ public sealed class TaskViewModel : ViewModelBase
     public bool IsActive => State is TaskState.Doing or TaskState.Wait;
     public bool IsDone => State is TaskState.Done;
     public bool IsDeleted => State is TaskState.Delete;
+
+    /// <summary>勾选框可见性：活跃任务可勾选完成；已完成任务显示已勾状态（点击 = 取消完成）；回收站不显示。</summary>
+    public bool ShowCheckBox => State is not TaskState.Delete;
 
     // ---- 主行（内联元数据） ----
 

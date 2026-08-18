@@ -209,6 +209,9 @@ public sealed class MainViewModel : ViewModelBase
     // 标题区与工具栏的作用域属性：区块模式取区块状态，面板模式取面板/首个选中任务的状态
     public string ScopeTitle => _selectedFacet?.Token ?? _selectedBlock?.Name ?? "";
     public int ScopeTaskCount => _selectedFacet != null ? _panelTasks.Count : _selectedBlock?.TaskCount ?? 0;
+
+    /// <summary>标题区计数可见性：归档区块（已完成/回收站）不显示计数（归档统计无行动价值）。</summary>
+    public bool ShowScopeCount => _selectedFacet != null || _selectedBlock is { IsArchiveList: false };
     public bool ScopeHasTasks => ScopeTaskCount > 0;
     public bool ShowAddTask => _selectedFacet != null || _selectedBlock?.IsActiveList == true;
     public bool ShowClear => _selectedFacet == null && _selectedBlock?.IsArchiveList == true;
@@ -730,6 +733,9 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>完成：移至 DONE 顶部并规范化（§9）。</summary>
     public void CompleteTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Done, normalize: true);
 
+    /// <summary>恢复：移回 DOING 末尾（§9）。已完成任务勾选框取消勾选的路径，不播动画。</summary>
+    public void RestoreTask(TaskViewModel task) => TransitionTasks(new[] { task }, TaskState.Doing);
+
     /// <summary>完成一组任务（§9：移至 DONE 顶部并规范化，保持相对顺序）。</summary>
     public void CompleteTasks(IReadOnlyList<TaskViewModel> tasks) => TransitionTasks(tasks, TaskState.Done, normalize: true);
 
@@ -827,13 +833,16 @@ public sealed class MainViewModel : ViewModelBase
     // ---- 项目/标签聚合 ----
 
     /// <summary>重算侧栏项目/标签列表与面板内容。
+    /// 侧栏计数只覆盖活跃任务（DOING/WAIT）：归档任务（DONE/DELETE）不推高计数，
+    /// 活跃任务全部归档的项目/标签随之从侧栏消失（正在浏览其面板时退出回区块视图，见下方回退逻辑）。
+    /// 面板内容不受此限：仍按状态分段显示全部匹配任务。
     /// 触发点：文档加载/新建、任务增删与流转、任务编辑收起。
     /// 不在主行每次按键时刷新——避免正在编辑的任务因解析结果变化而中途从面板消失。</summary>
     private void RefreshFacets()
     {
-        var all = Blocks.SelectMany(b => b.Tasks).ToList();
-        RebuildFacetList(Projects, all.Where(t => t.ProjectName != null).Select(t => t.ProjectName!), FacetKind.Project);
-        RebuildFacetList(Tags, all.SelectMany(t => t.Tags), FacetKind.Tag);
+        var active = Blocks.SelectMany(b => b.Tasks).Where(t => t.IsActive).ToList();
+        RebuildFacetList(Projects, active.Where(t => t.ProjectName != null).Select(t => t.ProjectName!), FacetKind.Project);
+        RebuildFacetList(Tags, active.SelectMany(t => t.Tags), FacetKind.Tag);
         OnPropertyChanged(nameof(HasProjects));
         OnPropertyChanged(nameof(HasTags));
         OnPropertyChanged(nameof(ShowProjects));
@@ -882,11 +891,13 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     /// <summary>重建面板任务集（按区块规范序填充，组顺序随之确定）。
+    /// 面板只含活跃任务（DOING/WAIT）：已完成/回收站任务不进面板，避免污染显示区域；
+    /// 面板计数与侧栏计数由此保持一致。
     /// 增量对齐而非清空重填：未变化项保留容器、选中状态与滚动位置，避免视图跳动。</summary>
     private void RebuildPanel()
     {
         var matches = _selectedFacet is { } facet
-            ? Blocks.SelectMany(b => b.Tasks).Where(facet.Matches).ToList()
+            ? Blocks.SelectMany(b => b.Tasks).Where(t => t.IsActive).Where(facet.Matches).ToList()
             : new List<TaskViewModel>();
         SyncPanel(matches);
         OnPropertyChanged(nameof(ScopeTaskCount));
@@ -916,6 +927,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(TaskListSource));
         OnPropertyChanged(nameof(ScopeTitle));
         OnPropertyChanged(nameof(ScopeTaskCount));
+        OnPropertyChanged(nameof(ShowScopeCount));
         OnPropertyChanged(nameof(ScopeHasTasks));
         OnPropertyChanged(nameof(ShowAddTask));
         OnPropertyChanged(nameof(ShowClear));

@@ -81,6 +81,102 @@ public partial class MainWindow
         }
     }
 
+    // ==================== 项目/标签列表快速跳转（无选中任务时按 P/T） ====================
+
+    private bool _facetJumpActive;        // 跳转模式中（Esc 取消需要还原视图）
+    private ListBox? _jumpList;           // 跳转模式所在列表（ProjectList / TagList）
+    private FacetItemViewModel? _jumpPrevFacet;   // 进入前的 facet（可能为 null）
+    private BlockViewModel? _jumpPrevBlock;       // 进入前的区块
+
+    /// <summary>无选中任务时按 P/T：焦点跳到对应的侧栏列表（项目/标签），方向键/jk/Ctrl+N/P 移动选中，
+    /// 选中变化经 SelectionChanged → VM.SelectedFacet 驱动右侧面板实时预览；
+    /// Enter 确认（焦点进任务列表）、Esc 取消（恢复进入前视图）、焦点离开列表 = 隐式确认。
+    /// 对应列表为空时无操作。</summary>
+    private void EnterFacetJumpMode(FacetKind kind)
+    {
+        var list = kind == FacetKind.Project ? ProjectList : TagList;
+        var items = kind == FacetKind.Project ? VM.Projects : VM.Tags;
+        if (items.Count == 0) return;
+        _jumpPrevFacet = VM.SelectedFacet;
+        _jumpPrevBlock = VM.SelectedBlock;
+        _facetJumpActive = true;
+        _jumpList = list;
+        // 预选：已在同类 facet 面板时落在该 facet，否则列表第一项
+        var target = VM.SelectedFacet is { } current && current.Kind == kind ? current : items[0];
+        list.SelectedItem = target;
+        FocusFacetItem(list, target);
+    }
+
+    /// <summary>确认跳转：面板已是预览状态，焦点进任务列表（j/k 随即驱动任务选择）。</summary>
+    private void CommitFacetJump()
+    {
+        _facetJumpActive = false;
+        _jumpList = null;
+        _jumpPrevFacet = null;
+        _jumpPrevBlock = null;
+        ParkFocusOnTaskList();
+    }
+
+    /// <summary>取消跳转：恢复进入前的视图（facet 或区块；进入期间区块引用被 facet 顶掉，需显式恢复）。</summary>
+    private void CancelFacetJump()
+    {
+        _facetJumpActive = false;
+        _jumpList = null;
+        VM.SelectedFacet = _jumpPrevFacet;
+        if (_jumpPrevFacet == null)
+            VM.SelectedBlock = _jumpPrevBlock;
+        _jumpPrevFacet = null;
+        _jumpPrevBlock = null;
+        ParkFocusOnTaskList();
+    }
+
+    /// <summary>焦点离开跳转列表 = 跳转模式隐式确认（保留当前预览的面板），仅清理模式标记。</summary>
+    private void FacetList_FocusWithinChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!_facetJumpActive || !ReferenceEquals(sender, _jumpList)) return;
+        if (_jumpList!.IsKeyboardFocusWithin) return;
+        _facetJumpActive = false;
+        _jumpList = null;
+        _jumpPrevFacet = null;
+        _jumpPrevBlock = null;
+    }
+
+    /// <summary>项目/标签列表按键：jk 与 Ctrl+N/P（quick-open 语义）移动选中，焦点跟随选中项，
+    /// 后续方向键走 ListBox 原生导航；Enter/Esc 在窗口 OnKeyDown 按跳转模式标记处理。</summary>
+    private void FacetList_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not ListBox list) return;
+        var delta = e.Key switch
+        {
+            Key.J when Keyboard.Modifiers == ModifierKeys.None => 1,
+            Key.K when Keyboard.Modifiers == ModifierKeys.None => -1,
+            Key.N when Keyboard.Modifiers == ModifierKeys.Control => 1,
+            Key.P when Keyboard.Modifiers == ModifierKeys.Control => -1,
+            _ => 0,
+        };
+        if (delta == 0) return;
+        e.Handled = true;
+        var count = list.Items.Count;
+        if (count == 0) return;
+        var i = list.SelectedIndex;
+        var next = i < 0 ? (delta > 0 ? 0 : count - 1) : Math.Clamp(i + delta, 0, count - 1);
+        var item = (FacetItemViewModel)list.Items[next];
+        list.SelectedItem = item;
+        FocusFacetItem(list, item);
+    }
+
+    /// <summary>把键盘焦点交给侧栏列表中指定项的容器（方向键原生导航从焦点项继续）。</summary>
+    private void FocusFacetItem(ListBox list, FacetItemViewModel item)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (list.ItemContainerGenerator.ContainerFromItem(item) is UIElement container)
+                Keyboard.Focus(container);
+            else
+                list.Focus();
+        }));
+    }
+
     // ==================== 勾选完成 ====================
 
     /// <summary>由 Themes/TaskTemplates 资源字典中的勾选框转发调用。</summary>
@@ -93,6 +189,12 @@ public partial class MainWindow
     {
         if (checkBox.DataContext is not TaskViewModel task) return;
         e.Handled = true;
+        // 已完成任务的勾选框呈已勾状态：点击 = 取消完成，直接恢复回 DOING（§9），不播动画
+        if (task.IsDone)
+        {
+            VM.RestoreTask(task);
+            return;
+        }
         AnimateCompleteTasks(new[] { task });
     }
 

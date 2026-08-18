@@ -42,11 +42,6 @@ public sealed class BlockViewModel : ViewModelBase
     /// <summary>归档列表（DONE/DELETE）：工具栏提供「清空」。</summary>
     public bool IsArchiveList => State is TaskState.Done or TaskState.Delete;
 
-    public bool IsDoing => State is TaskState.Doing;
-    public bool IsWaiting => State is TaskState.Wait;
-    public bool IsDone => State is TaskState.Done;
-    public bool IsDeleted => State is TaskState.Delete;
-
     public IEnumerable<TaskViewModel> Tasks => Items.OfType<TaskViewModel>();
 
     public void InsertTask(int index, TaskViewModel task)

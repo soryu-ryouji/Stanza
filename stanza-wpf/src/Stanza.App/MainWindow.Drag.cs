@@ -192,6 +192,14 @@ public partial class MainWindow
         if (Keyboard.FocusedElement is TextBoxBase && TextEditKeys.IsEditingGesture(Keyboard.Modifiers, key))
             return;
 
+        // 侧栏项目/标签列表内的 Ctrl+N/P 是列表导航（quick-open 语义）：应用命令让路
+        // （Windows 模式下 Ctrl+N 默认新建任务），与文本编辑手势同一先例
+        if (Keyboard.FocusedElement is DependencyObject facetFocus
+            && (VisualTreeEx.IsWithin(facetFocus, ProjectList) || VisualTreeEx.IsWithin(facetFocus, TagList))
+            && key is Key.N or Key.P
+            && Keyboard.Modifiers == ModifierKeys.Control)
+            return;
+
         if (Keymap.Current.Resolve(key, Keyboard.Modifiers) is { } entry
             && VM.CommandFor(entry.Command) is { } command
             && command.CanExecute(entry.Parameter))
@@ -329,15 +337,20 @@ public partial class MainWindow
                 AnimateCompleteTasks(VM.SelectedTasks.ToList());
                 return true;
 
-            // 打开标签/项目选择器：编辑框内字母是输入，不拦截
+            // 打开标签/项目选择器：编辑框内字母是输入，不拦截。
+            // 无选中任务时转跳对应侧栏列表（预览跳转，见 EnterFacetJumpMode）
             case AppCommand.OpenTagPicker:
             case AppCommand.OpenProjectPicker:
                 if (RecentPopup.IsOpen || focus is null or TextBoxBase
-                    || !VisualTreeEx.IsWithin(focus, TaskList)
-                    || !VM.HasSelection)
+                    || !VisualTreeEx.IsWithin(focus, TaskList))
                     return false;
-                OpenFacetPicker(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project,
-                    SelectedTaskAnchor());
+                if (VM.HasSelection)
+                {
+                    OpenFacetPicker(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project,
+                        SelectedTaskAnchor());
+                    return true;
+                }
+                EnterFacetJumpMode(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project);
                 return true;
 
             // 打开状态选择器（移到…）：作用域同标签/项目选择器；
@@ -480,6 +493,14 @@ public partial class MainWindow
                 return;
             }
 
+            // 项目/标签列表跳转模式：Esc 取消并恢复进入前视图
+            if (_facetJumpActive)
+            {
+                CancelFacetJump();
+                e.Handled = true;
+                return;
+            }
+
             if (_taskDragging) { CancelTaskDrag(); e.Handled = true; }
             else
             {
@@ -498,6 +519,14 @@ public partial class MainWindow
 
         if (e.Key == Key.Enter)
         {
+            // 项目/标签列表跳转模式：Enter 确认预览中的面板，焦点进任务列表
+            if (_facetJumpActive)
+            {
+                CommitFacetJump();
+                e.Handled = true;
+                return;
+            }
+
             // 多行备注框的 Enter 是换行、按钮上的 Enter 是激活——都被控件消化，到不了这里
             if (VM.ExpandedTask != null)
             {

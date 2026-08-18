@@ -100,7 +100,8 @@
                                     <TextBlock x:Name="NameText" Grid.Column="1" Text="{Binding Name}"
                                                Margin="9,0,0,0" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{Binding TaskCount}" FontSize="11"
-                                               Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
+                                               Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"
+                                               Visibility="{Binding IsArchiveList, Converter={StaticResource InverseBoolToVis}}"/> <!-- 归档区块（已完成/回收站）不显示计数（归档统计无行动价值） -->
                                 </Grid>
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
@@ -145,6 +146,8 @@
                                          ItemContainerStyle="{StaticResource SidebarItemStyle}"
                                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                          SelectionChanged="ProjectList_SelectionChanged"
+                                         PreviewKeyDown="FacetList_PreviewKeyDown"
+                                         IsKeyboardFocusWithinChanged="FacetList_FocusWithinChanged"
                                          Visibility="{Binding ShowProjects, Converter={StaticResource BoolToVis}}"/>
                                 <Button Style="{StaticResource GhostButton}" Margin="8,10,8,0" Padding="8,3"
                                         HorizontalContentAlignment="Left"
@@ -176,6 +179,8 @@
                                          ItemContainerStyle="{StaticResource SidebarItemStyle}"
                                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                          SelectionChanged="TagList_SelectionChanged"
+                                         PreviewKeyDown="FacetList_PreviewKeyDown"
+                                         IsKeyboardFocusWithinChanged="FacetList_FocusWithinChanged"
                                          Visibility="{Binding ShowTags, Converter={StaticResource BoolToVis}}"/>
                             </StackPanel>
                         </ScrollViewer>
@@ -316,7 +321,8 @@
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="1" Text="{Binding ScopeTaskCount}" FontSize="13"
                                Foreground="{StaticResource FaintBrush}"
-                               Margin="8,0,0,5" VerticalAlignment="Bottom"/>
+                               Margin="8,0,0,5" VerticalAlignment="Bottom"
+                               Visibility="{Binding ShowScopeCount, Converter={StaticResource BoolToVis}}"/>
                 </Grid>
 
                 <!-- 像素滚动：面板视图分组后顶层容器是 GroupItem，逻辑滚动（默认）会把点击任务的
