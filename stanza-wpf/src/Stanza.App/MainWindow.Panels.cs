@@ -432,7 +432,7 @@ public partial class MainWindow
     internal void OpenFacetPicker(FacetKind kind, Point? anchor = null)
     {
         if (!VM.HasSelection) return;
-        CloseMovePicker();   // 浮层互斥：同一时刻只开一个选择器
+        CloseChoicePicker();   // 浮层互斥：同一时刻只开一个选择器
         _pickerKind = kind;
         _highlightKey = null;
         FacetPickerInput.Tag = Loc.Get(kind == FacetKind.Tag ? "Picker_Tag" : "Picker_Project");
@@ -456,11 +456,11 @@ public partial class MainWindow
 
     private bool FacetPickerOpen => FacetPickerPanel.Visibility == Visibility.Visible;
 
-    /// <summary>浮层承载两个选择器面板（标签/项目、状态），任一可见即需要浮层拦截点击。</summary>
+    /// <summary>浮层承载两个选择器面板（标签/项目、通用选择），任一可见即需要浮层拦截点击。</summary>
     private void UpdatePickerLayerVisibility()
         => PickerLayer.Visibility =
             FacetPickerPanel.Visibility == Visibility.Visible
-            || MovePickerPanel.Visibility == Visibility.Visible
+            || ChoicePickerPanel.Visibility == Visibility.Visible
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -481,8 +481,8 @@ public partial class MainWindow
         var source = e.OriginalSource as DependencyObject;
         if (!VisualTreeEx.IsWithin(source, FacetPickerPanel))
             CloseFacetPicker();
-        if (!VisualTreeEx.IsWithin(source, MovePickerPanel))
-            CloseMovePicker();
+        if (!VisualTreeEx.IsWithin(source, ChoicePickerPanel))
+            CloseChoicePicker();
     }
 
     private void RefreshFacetPicker()
@@ -672,92 +672,196 @@ public partial class MainWindow
         CloseFacetPicker();
     }
 
-    // ==================== 状态选择器（移到…） ====================
+    // ==================== 通用选择面板（状态 M / 优先级 Shift+P） ====================
 
-    private TaskState? _moveHighlight;   // 键盘高亮行（打开时按选中任务状态预置）
+    private IReadOnlyList<ChoiceItem> _choiceItems = [];
+    private int _choiceHighlight;
+    private (ModifierKeys Modifiers, Key Key) _choiceToggleKey;   // 再按激活键 = 关闭（开关语义）
+
+    /// <summary>选择面板的一行：文本 + 面板内加速键（命中即应用）+ 右侧键提示 + 当前值 ✓ 标记 +
+    /// 行首徽章工厂（可空：无徽章行的文本仍与有徽章行对齐，徽章列固定宽）+ 应用回调。
+    /// 行在打开时即时构建：本地化与当前值标记始终新鲜，也无需 Loc.Changed 的刷新挂钩。
+    /// 普通类（非记录）：行查找按引用相等（ChoiceIndexOf）。</summary>
+    private sealed class ChoiceItem
+    {
+        public required string Label { get; init; }
+        public required IReadOnlyList<Key> Keys { get; init; }
+        public required string KeyHint { get; init; }
+        public required bool IsCurrent { get; init; }
+        public Func<FrameworkElement>? Badge { get; init; }
+        public required Action Apply { get; init; }
+    }
+
+    // ---- 入口：状态（移到…） ----
 
     /// <summary>由快捷键（M，锚点为选中任务右上角）或右键菜单「状态…」（鼠标位置）打开。
-    /// 目标是四个固定状态：无输入框（无需过滤/新建），行在打开时按规范序即时构建——
-    /// 本地化名称与「当前状态」标记始终新鲜，也无需 Loc.Changed 的刷新挂钩。</summary>
+    /// 四个目标按规范序：数字 1-4 直达（与 Alt+1~4 的区块序号同义）。
+    /// 选中任务状态一致时当前状态行标 ✓，多选混合不标。</summary>
     internal void OpenMovePicker(Point? anchor = null)
     {
         if (!VM.HasSelection) return;
-        CloseFacetPicker();   // 浮层互斥：同一时刻只开一个选择器
+        var states = VM.SelectedTasks.Select(t => t.State).Distinct().ToList();
+        var uniform = states.Count == 1;
+        var current = uniform ? states[0] : (TaskState?)null;
 
-        RebuildMovePickerRows();
-
-        // 落位与夹取同标签选择器（参照物用已布局的 Root，Collapsed 面板自身无尺寸）
-        var pos = anchor ?? Mouse.GetPosition(Root);
-        Canvas.SetLeft(MovePickerPanel,
-            Math.Clamp(pos.X, 0, Math.Max(0, Root.ActualWidth - MovePickerPanel.Width - 8)));
-        Canvas.SetTop(MovePickerPanel,
-            Math.Clamp(pos.Y, 0, Math.Max(0, Root.ActualHeight - 150)));
-
-        MovePickerPanel.Visibility = Visibility.Visible;
-        UpdatePickerLayerVisibility();
-        // 无输入框：焦点锁面板本身，全部按键在 MovePicker_KeyDown 统一处理
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => Keyboard.Focus(MovePickerPanel)));
+        var items = new List<ChoiceItem>();
+        for (var i = 0; i < TaskStateNames.CanonicalOrder.Length; i++)
+        {
+            var state = TaskStateNames.CanonicalOrder[i];   // 循环体内局部变量：闭包按迭代捕获
+            items.Add(new ChoiceItem
+            {
+                Label = Loc.StateName(state),
+                Keys = new[] { Key.D1 + i, Key.NumPad1 + i },
+                KeyHint = (i + 1).ToString(),
+                IsCurrent = uniform && current == state,
+                Badge = () => new Ellipse { Width = 7, Height = 7, Fill = StateToBrushConverter.Of(state) },
+                Apply = () => ApplyMoveTo(state),
+            });
+        }
+        OpenChoicePicker(items, ModifierKeys.None, Key.M, anchor);
     }
 
-    private void CloseMovePicker()
+    /// <summary>状态行的应用：流转并把焦点落位到空缺处（同 Delete/Backspace 路径，支持连续操作）。</summary>
+    private void ApplyMoveTo(TaskState state)
     {
-        MovePickerPanel.Visibility = Visibility.Collapsed;
+        var index = FirstSelectedIndex();
+        VM.MoveSelectionTo(state);
+        FocusTaskAtIndex(index);
+    }
+
+    // ---- 入口：优先级 ----
+
+    /// <summary>由快捷键（Shift+P，锚点为选中任务右上角）打开。数字 1-4 对应象限 A-D
+    /// （Todoist/Linear 的数字选级惯例），0 = 无优先级（Linear 的键位惯例）。
+    /// 行首徽章为象限着色的小旗（与右键菜单优先级同一旗形）；无优先级行不带徽章。
+    /// 优先级只属于活跃任务：全归档选中不响应（分发处按 HasActiveSelection 拦截，这里再兜底）。
+    /// 选中活跃任务优先级一致时标 ✓（均无优先级标在无优先级行），混合不标。
+    /// 行描述取自 PriorityOptions（与右键子菜单同源）。</summary>
+    internal void OpenPriorityPicker(Point? anchor = null)
+    {
+        if (!VM.HasActiveSelection) return;
+        var priorities = VM.SelectedTasks.Where(t => t.IsActive).Select(t => t.Priority).Distinct().ToList();
+        var uniform = priorities.Count == 1;
+        var current = uniform ? priorities[0] : (char?)null;
+
+        var items = new List<ChoiceItem>();
+        foreach (var option in VM.PriorityOptions)   // 循环体内闭包：option 按迭代捕获
+        {
+            if (option.Value is { } q)   // 象限行 A-D
+            {
+                var digit = items.Count + 1;
+                items.Add(new ChoiceItem
+                {
+                    Label = Loc.Get($"Priority_Desc_{q}"),
+                    Keys = new[] { Key.D0 + digit, Key.NumPad0 + digit },
+                    KeyHint = digit.ToString(),
+                    IsCurrent = uniform && current == q,
+                    Badge = () => new TextBlock
+                    {
+                        Text = "\uE7C1",   // 小旗（象限着色，与右键菜单优先级同一旗形）
+                        FontFamily = (FontFamily)FindResource("IconFont"),
+                        FontSize = 11,
+                        Foreground = QuadrantToBrushConverter.Of(q),
+                    },
+                    Apply = () => VM.SetPriorityForSelection(q),
+                });
+            }
+            else   // 无优先级行（不带徽章，文本与旗子行左侧对齐）
+            {
+                items.Add(new ChoiceItem
+                {
+                    Label = option.Label,
+                    Keys = new[] { Key.D0, Key.NumPad0 },
+                    KeyHint = "0",
+                    IsCurrent = uniform && current == null,
+                    Apply = () => VM.SetPriorityForSelection(null),
+                });
+            }
+        }
+        OpenChoicePicker(items, ModifierKeys.Shift, Key.P, anchor);
+    }
+
+    // ---- 面板主体 ----
+
+    /// <summary>打开选择面板：互斥关闭标签选择器、构建行、落位夹取（参照物用已布局的 Root，
+    /// Collapsed 面板自身无尺寸）。焦点锁面板：全部按键在 ChoicePicker_KeyDown 统一处理。</summary>
+    private void OpenChoicePicker(IReadOnlyList<ChoiceItem> items, ModifierKeys toggleModifiers, Key toggleKey, Point? anchor)
+    {
+        CloseFacetPicker();   // 浮层互斥：同一时刻只开一个选择器
+        _choiceItems = items;
+        _choiceToggleKey = (toggleModifiers, toggleKey);
+        // 初始高亮：当前值行；无当前值（混合选中）时落在第一行
+        var current = -1;
+        for (var i = 0; i < items.Count; i++)
+            if (items[i].IsCurrent) { current = i; break; }
+        _choiceHighlight = current >= 0 ? current : 0;
+        RebuildChoiceRows();
+
+        var pos = anchor ?? Mouse.GetPosition(Root);
+        Canvas.SetLeft(ChoicePickerPanel,
+            Math.Clamp(pos.X, 0, Math.Max(0, Root.ActualWidth - ChoicePickerPanel.Width - 8)));
+        Canvas.SetTop(ChoicePickerPanel,
+            Math.Clamp(pos.Y, 0, Math.Max(0, Root.ActualHeight - 180)));
+
+        ChoicePickerPanel.Visibility = Visibility.Visible;
+        UpdatePickerLayerVisibility();
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => Keyboard.Focus(ChoicePickerPanel)));
+    }
+
+    private void CloseChoicePicker()
+    {
+        ChoicePickerPanel.Visibility = Visibility.Collapsed;
         UpdatePickerLayerVisibility();
         if (Keyboard.FocusedElement is DependencyObject focus
-            && VisualTreeEx.IsWithin(focus, MovePickerPanel))
+            && VisualTreeEx.IsWithin(focus, ChoicePickerPanel))
             ParkFocusOnTaskList();
     }
 
-    /// <summary>按规范序构建四行：状态色点 + 名称 +（当前状态）✓ + 数字提示。
-    /// 初始高亮：选中任务状态一致时落在当前状态行，否则落在第一行（DOING）。</summary>
-    private void RebuildMovePickerRows()
+    /// <summary>按行描述重建行按钮（每次打开调用，行数少，成本可忽略）。</summary>
+    private void RebuildChoiceRows()
     {
-        MovePickerRows.Children.Clear();
-        var states = VM.SelectedTasks.Select(t => t.State).Distinct().ToList();
-        var current = states.Count == 1 ? states[0] : (TaskState?)null;
-        _moveHighlight = current ?? TaskStateNames.CanonicalOrder[0];
-
-        for (var i = 0; i < TaskStateNames.CanonicalOrder.Length; i++)
+        ChoicePickerRows.Children.Clear();
+        foreach (var item in _choiceItems)
         {
-            var state = TaskStateNames.CanonicalOrder[i];
             var row = new Button
             {
                 Style = (Style)FindResource("PickerRowButton"),
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                DataContext = state,
-                Content = MakeMovePickerRowContent(state, i + 1, current == state),
+                DataContext = item,
+                Content = MakeChoiceRowContent(item),
             };
-            row.Click += MovePickerRow_Click;
-            row.MouseEnter += MovePickerRow_MouseEnter;
-            MovePickerRows.Children.Add(row);
+            row.Click += ChoiceRow_Click;
+            row.MouseEnter += ChoiceRow_MouseEnter;
+            ChoicePickerRows.Children.Add(row);
         }
-        UpdateMoveHighlightVisuals();
+        UpdateChoiceHighlightVisuals();
     }
 
-    /// <summary>行内容：色点 + 本地化状态名 + 当前状态 ✓ + 右侧数字键提示。
+    /// <summary>行内容：徽章（状态色点 / 象限字母）+ 文本 + 当前值 ✓ + 右侧键提示。
     /// 文字前景色绑定行按钮：高亮（悬停/键盘 Tag=true）时随按钮反白。</summary>
-    private Grid MakeMovePickerRowContent(TaskState state, int digit, bool isCurrent)
+    private Grid MakeChoiceRowContent(ChoiceItem item)
     {
         var foreground = new Binding(nameof(Button.Foreground))
         {
             RelativeSource = new RelativeSource(RelativeSourceMode.FindAncestor, typeof(Button), 1),
         };
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        // 徽章列固定宽：无徽章行（无优先级）的文本与有徽章行左侧对齐
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(14) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var dot = new Ellipse
+        if (item.Badge is { } badgeFactory)
         {
-            Width = 7,
-            Height = 7,
-            VerticalAlignment = VerticalAlignment.Center,
-            Fill = StateToBrushConverter.Of(state),
-        };
+            var badge = badgeFactory();
+            badge.VerticalAlignment = VerticalAlignment.Center;
+            badge.HorizontalAlignment = HorizontalAlignment.Left;
+            grid.Children.Add(badge);
+        }
         var name = new TextBlock
         {
-            Text = Loc.StateName(state),
+            Text = item.Label,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(9, 0, 0, 0),
@@ -765,17 +869,17 @@ public partial class MainWindow
         name.SetBinding(TextBlock.ForegroundProperty, foreground);
         var check = new TextBlock
         {
-            Text = "\uE73E",
+            Text = "",
             FontFamily = (FontFamily)FindResource("IconFont"),
             FontSize = 10,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0, 0, 0),
-            Visibility = isCurrent ? Visibility.Visible : Visibility.Collapsed,
+            Visibility = item.IsCurrent ? Visibility.Visible : Visibility.Collapsed,
         };
         check.SetBinding(TextBlock.ForegroundProperty, foreground);
         var key = new TextBlock
         {
-            Text = digit.ToString(),
+            Text = item.KeyHint,
             FontSize = 11,
             Opacity = 0.55,
             VerticalAlignment = VerticalAlignment.Center,
@@ -786,91 +890,107 @@ public partial class MainWindow
         Grid.SetColumn(name, 1);
         Grid.SetColumn(check, 2);
         Grid.SetColumn(key, 3);
-        grid.Children.Add(dot);
         grid.Children.Add(name);
         grid.Children.Add(check);
         grid.Children.Add(key);
         return grid;
     }
 
-    // 焦点锁在面板上：数字 1-4 直达（含小键盘）、方向键/jk 移动高亮、Enter/Space 确认、
-    // Esc 或再按 M 关闭（开关语义）
-    private void MovePicker_KeyDown(object sender, KeyEventArgs e)
+    // 焦点锁在面板上：加速键直达、方向键/jk/Ctrl+N/P 移动高亮、Enter/Space 确认、
+    // Esc 或再按激活键关闭（开关语义）
+    private void ChoicePicker_KeyDown(object sender, KeyEventArgs e)
     {
-        var digit = e.Key switch
-        {
-            >= Key.D1 and <= Key.D4 => e.Key - Key.D1 + 1,
-            >= Key.NumPad1 and <= Key.NumPad4 => e.Key - Key.NumPad1 + 1,
-            _ => 0,
-        };
-        if (digit > 0)
+        for (var i = 0; i < _choiceItems.Count; i++)
+            if (_choiceItems[i].Keys.Contains(e.Key))
+            {
+                e.Handled = true;
+                ApplyChoice(i);
+                return;
+            }
+        if (e.Key == _choiceToggleKey.Key && Keyboard.Modifiers == _choiceToggleKey.Modifiers)
         {
             e.Handled = true;
-            ApplyMoveChoice(TaskStateNames.CanonicalOrder[digit - 1]);
+            CloseChoicePicker();
             return;
         }
         switch (e.Key)
         {
             case Key.Escape:
-            case Key.M:
                 e.Handled = true;
-                CloseMovePicker();
+                CloseChoicePicker();
                 return;
             case Key.Up:
             case Key.K:
                 e.Handled = true;
-                CycleMoveHighlight(-1);
+                CycleChoiceHighlight(-1);
                 return;
             case Key.Down:
             case Key.J:
                 e.Handled = true;
-                CycleMoveHighlight(1);
+                CycleChoiceHighlight(1);
+                return;
+            // Ctrl+N/P（quick-open 语义）：Windows 模式下 Ctrl+N 的应用命令分发已在
+            // OnPreProcessInput 让路（焦点在面板内）；macOS 模式该组合本来空闲
+            case Key.N when Keyboard.Modifiers == ModifierKeys.Control:
+                e.Handled = true;
+                CycleChoiceHighlight(1);
+                return;
+            case Key.P when Keyboard.Modifiers == ModifierKeys.Control:
+                e.Handled = true;
+                CycleChoiceHighlight(-1);
                 return;
             case Key.Enter:
             case Key.Space:
                 e.Handled = true;
-                if (_moveHighlight is { } state) ApplyMoveChoice(state);
+                ApplyChoice(_choiceHighlight);
                 return;
         }
     }
 
-    private void CycleMoveHighlight(int delta)
+    private void CycleChoiceHighlight(int delta)
     {
-        var order = TaskStateNames.CanonicalOrder;
-        var i = Array.IndexOf(order, _moveHighlight ?? order[0]);
-        _moveHighlight = order[Math.Clamp(i + delta, 0, order.Length - 1)];
-        UpdateMoveHighlightVisuals();
+        if (_choiceItems.Count == 0) return;
+        _choiceHighlight = Math.Clamp(_choiceHighlight + delta, 0, _choiceItems.Count - 1);
+        UpdateChoiceHighlightVisuals();
     }
 
     /// <summary>高亮迁移：覆写行按钮 Tag（PickerRowButton 样式以 Tag=true 渲染高亮行）。</summary>
-    private void UpdateMoveHighlightVisuals()
+    private void UpdateChoiceHighlightVisuals()
     {
-        foreach (var row in MovePickerRows.Children.OfType<Button>())
-            row.Tag = row.DataContext is TaskState s && s == _moveHighlight;
+        var i = 0;
+        foreach (var row in ChoicePickerRows.Children.OfType<Button>())
+            row.Tag = i++ == _choiceHighlight;
     }
 
-    private void MovePickerRow_MouseEnter(object sender, MouseEventArgs e)
+    /// <summary>行的引用相等查找。</summary>
+    private int ChoiceIndexOf(ChoiceItem item)
     {
-        if (sender is Button { DataContext: TaskState state })
-        {
-            _moveHighlight = state;
-            UpdateMoveHighlightVisuals();
-        }
+        for (var i = 0; i < _choiceItems.Count; i++)
+            if (ReferenceEquals(_choiceItems[i], item)) return i;
+        return -1;
     }
 
-    private void MovePickerRow_Click(object sender, RoutedEventArgs e)
+    private void ChoiceRow_MouseEnter(object sender, MouseEventArgs e)
     {
-        if (sender is Button { DataContext: TaskState state })
-            ApplyMoveChoice(state);
+        if (sender is not Button { DataContext: ChoiceItem item }) return;
+        var i = ChoiceIndexOf(item);
+        if (i < 0 || i == _choiceHighlight) return;
+        _choiceHighlight = i;
+        UpdateChoiceHighlightVisuals();
     }
 
-    /// <summary>流转并关闭；焦点落位到空缺处（同 Delete/Backspace 路径，支持连续操作）。</summary>
-    private void ApplyMoveChoice(TaskState state)
+    private void ChoiceRow_Click(object sender, RoutedEventArgs e)
     {
-        var index = FirstSelectedIndex();
-        VM.MoveSelectionTo(state);
-        CloseMovePicker();
-        FocusTaskAtIndex(index);
+        if (sender is not Button { DataContext: ChoiceItem item }) return;
+        var i = ChoiceIndexOf(item);
+        if (i >= 0) ApplyChoice(i);
+    }
+
+    /// <summary>应用并关闭；流转后的焦点落位由各行 Apply 回调负责。</summary>
+    private void ApplyChoice(int index)
+    {
+        CloseChoicePicker();
+        _choiceItems[index].Apply();
     }
 
     // ==================== 底部工具栏：清空二次确认 ====================

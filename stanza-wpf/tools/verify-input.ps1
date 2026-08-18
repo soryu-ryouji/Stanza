@@ -691,6 +691,72 @@ finally {
     Copy-Item $recentBak $recentJson -Force
 }
 
+# ---------- Suite H: choice picker keyboard nav (state / priority panels) ----------
+
+Write-Host "`nSuite H: choice picker keyboard nav"
+$hFile = Join-Path $workDir "h.stanza"
+@'
+# DOING
+
+Task Alpha
+
+Task Beta
+'@ | Out-File -Encoding utf8 $hFile
+try {
+    [IO.File]::WriteAllText($settingsJson, '{"Language":"zh","MacOsMode":false}')
+    Restart-AppWith $hFile
+    Set-AppLayout 0x08040804 "zh-CN"   # 回归目标：面板键在中文输入法下不得被 IME 吞掉
+
+    Send-Keys "j" 500                  # select Alpha
+    Send-Keys "m" 700                  # state picker; highlight starts on DOING row
+    Send-Keys "{DOWN}" 300             # -> WAIT
+    Send-Keys "{ENTER}" 700            # move Alpha to WAIT
+    Check "H1 arrows navigate + Enter applies" (Get-FirstTaskTitle) "Task Beta"
+
+    Send-Keys "j" 500
+    Send-Keys "m" 700
+    Send-Keys "k" 300                  # clamped at first row (DOING) -> no-op
+    Send-Keys "{ENTER}" 700
+    Check "H2 k navigates (clamped no-op)" (Get-FirstTaskTitle) "Task Beta"
+
+    Send-Keys "m" 700                  # Beta still selected
+    Send-Keys "j" 300                  # -> WAIT
+    Send-Keys "{ENTER}" 700
+    Check "H3 j navigates" (Get-FirstTaskTitle) "(empty)"
+
+    Send-Keys "%2" 700                 # WAIT block
+    Send-Keys "k" 500                  # 切区块后首项可能被预选（焦点在列表内时选中跟随焦点）：
+                                       # 用 k（向上收夹）确定性落在首项 Alpha，避免依赖预选项
+    Send-Keys "m" 700                  # highlight starts on WAIT row
+    Send-Keys "^n" 300                 # -> DONE（Ctrl+N 不许泄漏成新建任务）
+    Send-Keys "{ENTER}" 700
+    Check "H4 Ctrl+N navigates (no new-task leak)" (Get-FirstTaskTitle) "Task Beta"
+
+    Send-Keys "j" 500                  # select Beta
+    Send-Keys "m" 700
+    Send-Keys "^p" 300                 # -> DOING
+    Send-Keys "{ENTER}" 700
+    Check "H5 Ctrl+P navigates" (Get-FirstTaskTitle) "(empty)"
+
+    Send-Keys "%1" 700                 # DOING block
+    Send-Keys "j" 500                  # select Beta
+    Send-Keys "m" 700
+    Send-Keys "2" 700                  # digit accelerator: -> WAIT
+    Check "H6 digit applies directly" (Get-FirstTaskTitle) "(empty)"
+
+    Send-Keys "%2" 700                 # WAIT block; select Beta again
+    Send-Keys "j" 500
+    Send-Keys "+p" 800                 # priority picker (Shift+P)
+    Send-Keys "1" 700                  # set quadrant A; panel closes, focus parks on list
+    $f = [System.Windows.Automation.AutomationElement]::FocusedElement
+    Check "H7 Shift+P panel keys work, focus parked back" $(if ($f -and $f.Current.ClassName -eq "ListBox") { "yes" } else { $f.Current.ClassName }) "yes"
+    Check "H8 priority applied without side effects" (Get-FirstTaskTitle) "Task Beta"
+}
+finally {
+    if ($hadSettings) { Copy-Item $settingsBak $settingsJson -Force }
+    else { Remove-Item $settingsJson -Force -ErrorAction SilentlyContinue }
+}
+
 # ---------- cleanup ----------
 
 Get-Process Stanza -ErrorAction SilentlyContinue | Stop-Process -Force

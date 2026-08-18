@@ -93,7 +93,11 @@
     <sys:String x:Key="Priority_B">B  重要不紧急</sys:String>
     <sys:String x:Key="Priority_C">C  紧急不重要</sys:String>
     <sys:String x:Key="Priority_D">D  不重要不紧急</sys:String>
-    <sys:String x:Key="Priority_Clear">清除优先级</sys:String>
+    <sys:String x:Key="Priority_Desc_A">重要且紧急</sys:String>
+    <sys:String x:Key="Priority_Desc_B">重要不紧急</sys:String>
+    <sys:String x:Key="Priority_Desc_C">紧急不重要</sys:String>
+    <sys:String x:Key="Priority_Desc_D">不重要不紧急</sys:String>
+    <sys:String x:Key="Priority_Clear">无优先级</sys:String>
 
     <!-- 设置面板 -->
     <sys:String x:Key="Settings_Title">设置</sys:String>
@@ -121,6 +125,7 @@
     <sys:String x:Key="Cmd_OpenTagPicker">打开标签面板</sys:String>
     <sys:String x:Key="Cmd_OpenProjectPicker">打开项目面板</sys:String>
     <sys:String x:Key="Cmd_OpenMovePicker">打开状态面板</sys:String>
+    <sys:String x:Key="Cmd_OpenPriorityPicker">打开优先级面板</sys:String>
     <sys:String x:Key="Cmd_DiscardTask">移入回收站</sys:String>
     <sys:String x:Key="Cmd_DeleteTask">彻底删除</sys:String>
     <sys:String x:Key="Cmd_NavigateUp">选中上一个</sys:String>

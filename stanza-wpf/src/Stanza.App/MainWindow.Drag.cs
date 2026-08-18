@@ -98,6 +98,7 @@ public partial class MainWindow
     }
 
     // 列表可能混有拖拽占位项（GapItem），用 OfType 过滤而非 Cast
+    // 列表可能混有拖拽占位项（GapItem），用 OfType 过滤而非 Cast
     private void TaskList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => VM.UpdateSelection(TaskList.SelectedItems.OfType<TaskViewModel>().ToList());
 
@@ -192,10 +193,11 @@ public partial class MainWindow
         if (Keyboard.FocusedElement is TextBoxBase && TextEditKeys.IsEditingGesture(Keyboard.Modifiers, key))
             return;
 
-        // 侧栏项目/标签列表内的 Ctrl+N/P 是列表导航（quick-open 语义）：应用命令让路
+        // 侧栏项目/标签列表与选择面板内的 Ctrl+N/P 是列表导航（quick-open 语义）：应用命令让路
         // （Windows 模式下 Ctrl+N 默认新建任务），与文本编辑手势同一先例
         if (Keyboard.FocusedElement is DependencyObject facetFocus
-            && (VisualTreeEx.IsWithin(facetFocus, ProjectList) || VisualTreeEx.IsWithin(facetFocus, TagList))
+            && (VisualTreeEx.IsWithin(facetFocus, ProjectList) || VisualTreeEx.IsWithin(facetFocus, TagList)
+                || VisualTreeEx.IsWithin(facetFocus, ChoicePickerPanel))
             && key is Key.N or Key.P
             && Keyboard.Modifiers == ModifierKeys.Control)
             return;
@@ -363,6 +365,16 @@ public partial class MainWindow
                 OpenMovePicker(SelectedTaskAnchor());
                 return true;
 
+            // 打开优先级选择器（Shift+P）：作用域同其他选择器；优先级只属于活跃任务，
+            // 全归档选中不响应。拖拽中不打开：排序重排会使拖拽持有的引用失效
+            case AppCommand.OpenPriorityPicker:
+                if (RecentPopup.IsOpen || _taskDragging || focus is null or TextBoxBase
+                    || !VisualTreeEx.IsWithin(focus, TaskList)
+                    || !VM.HasActiveSelection)
+                    return false;
+                OpenPriorityPicker(SelectedTaskAnchor());
+                return true;
+
             // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
             case AppCommand.DiscardTask:
             case AppCommand.DeleteTask:
@@ -424,6 +436,7 @@ public partial class MainWindow
     private void FocusTaskForArrow(Key key)
     {
         var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
+        if (tasks.Count == 0)
         if (tasks.Count == 0)
         {
             (TaskList as UIElement).Focus();

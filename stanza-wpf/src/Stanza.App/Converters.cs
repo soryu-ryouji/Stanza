@@ -86,14 +86,17 @@ public sealed class QuadrantToBrushConverter : IValueConverter
     private static readonly Brush Faint = Freeze(new SolidColorBrush(Color.FromRgb(0x8E, 0x8E, 0x93)));
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is char q ? q switch
-        {
-            'A' => Danger,
-            'B' => Accent,
-            'C' => Amber,
-            'D' => Faint,
-            _ => Ink,
-        } : Ink;
+        => value is char q ? Of(q) : Ink;
+
+    /// <summary>代码侧直接取色（优先级选择器的行由代码构建，不走 XAML 绑定）。</summary>
+    public static Brush Of(char q) => q switch
+    {
+        'A' => Danger,
+        'B' => Accent,
+        'C' => Amber,
+        'D' => Faint,
+        _ => Ink,
+    };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

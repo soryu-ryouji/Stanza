@@ -33,7 +33,7 @@
                 <ContextMenu Opened="FacetContextMenu_Opened">
                     <MenuItem Icon="&#xE8EF;" Header="{DynamicResource Menu_State}" Tag="OpenMovePicker" Click="FacetMenu_StateClick">
                     </MenuItem>
-                    <MenuItem Icon="&#xE7C1;" Header="{DynamicResource Menu_Priority}" ItemContainerStyle="{StaticResource PriorityMenuItem}"
+                    <MenuItem Icon="&#xE7C1;" Header="{DynamicResource Menu_Priority}" ItemContainerStyle="{StaticResource PriorityMenuItem}" Tag="OpenPriorityPicker"
                               ItemsSource="{Binding PlacementTarget.Tag.PriorityOptions, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
                     </MenuItem>

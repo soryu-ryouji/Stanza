@@ -93,7 +93,11 @@
     <sys:String x:Key="Priority_B">B  Important, not urgent</sys:String>
     <sys:String x:Key="Priority_C">C  Urgent, not important</sys:String>
     <sys:String x:Key="Priority_D">D  Not important, not urgent</sys:String>
-    <sys:String x:Key="Priority_Clear">Clear priority</sys:String>
+    <sys:String x:Key="Priority_Desc_A">Important and urgent</sys:String>
+    <sys:String x:Key="Priority_Desc_B">Important, not urgent</sys:String>
+    <sys:String x:Key="Priority_Desc_C">Urgent, not important</sys:String>
+    <sys:String x:Key="Priority_Desc_D">Not important, not urgent</sys:String>
+    <sys:String x:Key="Priority_Clear">No priority</sys:String>
 
     <!-- Settings panel -->
     <sys:String x:Key="Settings_Title">Settings</sys:String>
@@ -120,6 +124,7 @@
     <sys:String x:Key="Cmd_OpenTagPicker">Open Tag Picker</sys:String>
     <sys:String x:Key="Cmd_OpenProjectPicker">Open Project Picker</sys:String>
     <sys:String x:Key="Cmd_OpenMovePicker">Open State Picker</sys:String>
+    <sys:String x:Key="Cmd_OpenPriorityPicker">Open Priority Picker</sys:String>
     <sys:String x:Key="Cmd_DiscardTask">Move to Trash</sys:String>
     <sys:String x:Key="Cmd_DeleteTask">Delete Permanently</sys:String>
     <sys:String x:Key="Cmd_NavigateUp">Select Previous</sys:String>

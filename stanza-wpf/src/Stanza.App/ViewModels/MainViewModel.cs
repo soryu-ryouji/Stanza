@@ -78,7 +78,7 @@ public sealed class MainViewModel : ViewModelBase
         ActivateSelectionCommand = new RelayCommand(_ => TransitionTasks(SelectedTasks.ToList(), TaskState.Doing), _ => HasSelection);
         DeleteSelectionCommand = new RelayCommand(_ => DeleteTasksPermanently(SelectedTasks.ToList()), _ => HasSelection);
         SetPriorityCommand = new RelayCommand(
-            p => { if (p is PriorityOption option) SetPriority(option); },
+            p => { if (p is PriorityOption option) SetPriorityForSelection(option.Value); },
             _ => HasSelection);
 
         Recents = new RecentFilesViewModel(
@@ -249,6 +249,9 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>是否有选中任务（驱动工具栏切换为任务操作）。</summary>
     public bool HasSelection => _selectedTasks.Count > 0;
 
+    /// <summary>选中中包含活跃任务（优先级只属于活跃任务：全归档选中时优先级面板键不响应）。</summary>
+    public bool HasActiveSelection => _selectedTasks.Any(t => t.IsActive);
+
     /// <summary>视图在 ListBox 选择变化时同步选中集。</summary>
     public void UpdateSelection(IReadOnlyList<TaskViewModel> tasks) => SelectedTasks = tasks;
 
@@ -404,13 +407,14 @@ public sealed class MainViewModel : ViewModelBase
         new PriorityOption("Priority_Clear", null),
     };
 
-    /// <summary>设置选中任务的优先级（仅限活跃状态任务）。</summary>
-    private void SetPriority(PriorityOption option)
+    /// <summary>设置选中任务的优先级（仅限活跃状态任务；null = 清除）。
+    /// 右键子菜单（PriorityOption）与优先级面板（字母直达）共用的唯一入口。</summary>
+    public void SetPriorityForSelection(char? value)
     {
         var targets = SelectedTasks.Where(t => t.IsActive).ToList();
         if (targets.Count == 0) return;
         PushUndoSnapshot();
-        foreach (var t in targets) t.Priority = option.Value;
+        foreach (var t in targets) t.Priority = value;
         SettleSort();   // 排序键变化后重排（象限 → 截止日期）
     }
 
