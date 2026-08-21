@@ -137,4 +137,28 @@ public class MainViewModelTests : StaTestHost.StaFactBase
         Assert.Contains("#紧急", text);
         Assert.Contains("    备注", text);
     });
+
+    [Fact]
+    public void TaskPropertyEdit_MarksDirty() => OnUi(() =>
+    {
+        // 任务内容变化 → ContentChanged 事件 → NotifyContentChanged 标脏（重构后的事件链路回归）
+        var dir = Path.Combine(Path.GetTempPath(), "stanza-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "todo.stanza");
+        File.WriteAllText(path, "# DOING\n\n任务一\n\n");
+
+        var vm = new MainViewModel();
+        vm.OpenFile(path);
+        var task = Assert.Single(vm.Blocks[0].Tasks);
+        Assert.False(vm.IsDirty);
+
+        task.Priority = 'A';   // 结构化属性编辑
+        Assert.True(vm.IsDirty);
+
+        vm.Save();
+        Assert.False(vm.IsDirty);
+
+        task.NotesText = "备注";   // 备注编辑
+        Assert.True(vm.IsDirty);
+    });
 }

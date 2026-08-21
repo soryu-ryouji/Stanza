@@ -5,7 +5,7 @@
         xmlns:app="clr-namespace:Stanza.App"
         xmlns:behaviors="clr-namespace:Stanza.App.Behaviors"
         Title="Stanza" Width="1020" Height="700" MinWidth="760" MinHeight="520"
-        Icon="pack://application:,,,/Assets/icon.png"
+        Icon="pack://application:,,,/Stanza;component/Assets/icon.png"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         FontFamily="Segoe UI, Microsoft YaHei UI"

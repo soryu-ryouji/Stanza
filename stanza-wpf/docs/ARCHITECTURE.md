@@ -25,7 +25,8 @@ stanza-wpf/
 │   ├── Stanza.Core/          # 纯逻辑层：格式解析/写出、状态规则、排序（无 UI 依赖）
 │   └── Stanza.App/           # WPF 应用层：窗口、视图模型、服务、主题
 ├── tests/
-│   └── Stanza.Core.Tests/    # 仅 Core 有测试（Parser / Writer / Transition）
+│   ├── Stanza.Core.Tests/    # Core 测试（Parser / Writer / Transition）
+│   └── Stanza.App.Tests/     # App 测试（TaskViewModel 纯文本逻辑 / MainViewModel 编排，STA 宿主 + APPDATA 隔离）
 ├── tools/                    # 发布与验证脚本
 └── docs/
     └── ARCHITECTURE.md       # 本文档
@@ -341,7 +342,7 @@ RebuildPanel：匹配活跃任务 → SyncPanel 增量对齐 → ListCollectionV
 | `TaskViewModel` 双轨状态 | 编辑文本与结构化属性同步（`_effective` 合并展示值） | 中：语义最微妙的类；已有往返/捕获/提交测试覆盖，下沉 Core 会污染其「格式规则」定位，不建议 |
 | 事件转发链 | 模板 → `Templates.xaml.cs` → `Window.GetWindow` → MainWindow | 低：样板化但直接；引入命令绑定可简化 |
 | 全局单例 | `Keymap.Current`、`Loc` 静态类 | 低：测试隔离困难，但改动面大、收益有限 |
-| 测试覆盖 | Core 82 个 + App 层 12 个（TaskViewModel/MainViewModel 纯逻辑） | 建议继续补：选择器/聚合边界、流转编排的更多组合 |
+| 测试覆盖 | Core 82 个 + App 层 31 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线：真实窗口 + 视觉树 + 消息泵，见 UiTestHost） | 建议继续补：拖拽状态机、选择器交互；接线层可随功能增量补（浮层、焦点、右键菜单） |
 
 ## 11. 附录：文件清单速查
 
