@@ -34,42 +34,26 @@ stanza-wpf/
 
 ## 2. 总体分层
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Stanza.App（net10.0-windows）               │
-│                                                                     │
-│  ┌─────────────┐   ┌──────────────────────────────────────────────┐ │
-│  │   视图层     │   │  XAML：MainWindow.xaml + Themes/             │ │
-│  │  (View)     │   │  Templates.xaml + Minimal.xaml + Strings.*   │ │
-│  │             │   │  code-behind：MainWindow.*.cs（5 个 partial）│ │
-│  └──────┬──────┘   └──────────────────────┬───────────────────────┘ │
-│         │ 绑定 DataContext / 事件转发       │ 事件处理器（模板转发）      │
-│         ▼                                  ▼                        │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │                 ViewModels 层（Stanza.App/ViewModels）         │  │
-│  │  MainViewModel（文档生命周期/命令/撤销/聚合）                    │  │
-│  │  BlockViewModel · TaskViewModel · FacetViewModel               │  │
-│  │  RecentFilesViewModel · GapItem · RelayCommand                 │  │
-│  └──────┬─────────────────────────────────────────┬─────────────┘  │
-│         │ 模型调用                                │ 服务调用          │
-│         ▼                                        ▼                 │
-│  ┌──────────────────┐                 ┌──────────────────────────┐  │
-│  │   Services 层     │                 │  Keymap（快捷键表）         │  │
-│  │  Loc（本地化）     │                 │  TextEditKeys（编辑键）     │  │
-│  │  *Store（JSON）   │                 │  NotesListEditing（列表续接）│  │
-│  │  NativeMethods   │                 │  Behaviors/（附加属性）     │  │
-│  └──────┬───────────┘                 └────────────┬─────────────┘  │
-│         ▼                                          │                │
-│  ┌─────────────────────────────────────────────────┴──────────────┐ │
-│  │                     Stanza.Core（net10.0 纯库）                  │ │
-│  │  StanzaDocument/Block/Task（模型）· StanzaParser · StanzaWriter │ │
-│  │  TaskTransitions/ActiveTaskOrdering（规则）· TimestampKeywords  │ │
-│  │  StanzaPatterns（正则）· TaskState（枚举）                       │ │
-│  └────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph App["Stanza.App（net10.0-windows）"]
+        subgraph View["视图层（View）"]
+            Xaml["XAML：MainWindow.xaml + Themes/<br/>（Templates / Minimal / Strings.*）"]
+            CodeBehind["code-behind：MainWindow.*.cs（10 个 partial）"]
+        end
+        VM["ViewModels 层（Stanza.App/ViewModels）<br/>MainViewModel（文档生命周期 / 命令 / 撤销 / 聚合）<br/>BlockViewModel · TaskViewModel · FacetViewModel<br/>RecentFilesViewModel · GapItem · RelayCommand"]
+        Svc["Services 层<br/>Loc（本地化）· *Store（JSON）· NativeMethods"]
+        Input["输入与编辑组件<br/>Keymap（快捷键表）· TextEditKeys（编辑键）<br/>NotesListEditing（列表续接）· Behaviors/（附加属性）"]
+        Xaml -->|绑定 DataContext| VM
+        CodeBehind -->|事件处理器（模板转发）| VM
+        VM -->|服务调用| Svc
+        VM --> Input
+    end
+    VM -->|模型调用| Core["Stanza.Core（net10.0 纯库）<br/>StanzaDocument / Block / Task（模型）· StanzaParser · StanzaWriter<br/>TaskTransitions / ActiveTaskOrdering（规则）· TimestampKeywords<br/>StanzaPatterns（正则）· TaskState（枚举）"]
+    Svc -.-> Core
 ```
 
-**依赖方向**：Core ← App 单向。Core 不引用 App，App 的 ViewModel 层是唯一入口（视图不直接碰 Core 类型，除 `TaskState` 等枚举经 ViewModel 暴露）。
+**依赖方向**：Core ← App 单向。Core 不引用 App，App 的 ViewModel 层是唯一入口（视图不直接碰 Core 类型，除 `TaskState` 等枚举经 ViewModel 暴露）。VM 层内部同样单向：父（MainViewModel）持有子（Block/Task/Facet），子 VM 不持有父引用，内容变化经事件上报（见 §4.2）。
 
 ## 3. Stanza.Core：纯逻辑层（约 540 行）
 
@@ -98,13 +82,13 @@ stanza-wpf/
 
 ## 4. Stanza.App：视图模型层
 
-### 4.1 MainViewModel（拆分后 4 个 partial 文件，共约 1040 行）
+### 4.1 MainViewModel（拆分后 4 个 partial 文件，共约 1050 行）
 
 单一根 ViewModel，持有整个文档状态，按主题拆分为 4 个 partial 文件（成员集合不变）：
 
 | 文件 | 关注点 |
 | ---- | ---- |
-| `MainViewModel.cs`（582 行） | 字段与构造函数、区块/选择/展开状态、作用域属性（Scope*）、命令属性与 `CommandFor`、优先级、任务操作（创建/流转/排序）、`LoadDocument`/`SetStatus` |
+| `MainViewModel.cs`（593 行） | 字段与构造函数、区块/选择/展开状态、作用域属性（Scope*）、命令属性与 `CommandFor`、优先级、任务操作（创建/流转/排序）、任务事件挂接（`Track`）、`LoadDocument`/`SetStatus` |
 | `MainViewModel.Facets.cs`（260 行） | 项目/标签聚合：侧栏列表（Projects/Tags）、分段面板（PanelView + RebuildPanel）、选择器候选（FacetNames）与批量属性操作（ToggleTag 等）、聚合刷新（RefreshFacets） |
 | `MainViewModel.Document.cs`（147 行） | 文档生命周期：打开/新建/保存、序列化（SerializeDocument，唯一序列化路径）、脏追踪（NotifyContentChanged/FlushDirty） |
 | `MainViewModel.Undo.cs`（56 行） | 撤销：文本快照栈（PushUndoSnapshot/Undo）、容量裁剪、视图动画接管钩子（UndoRequested） |
@@ -121,8 +105,8 @@ stanza-wpf/
 | 排序 | `SettleSort` → `ApplySort`（仅活跃区块，稳定排序） |
 | 项目/标签聚合 | `RefreshFacets`（侧栏列表）+ `RebuildPanel`（面板任务集） |
 | 作用域属性 | `ScopeTitle/ScopeTaskCount/ScopeIsActive/...` 驱动标题区与工具栏 |
-| 视图回调注入 | `PickOpenFile`/`PickSaveFile`/`OpenRecentRequested`/`CompleteSelectionRequested`/`UndoRequested` 等 `Action` 属性，由窗口构造时注入 |
-| 自动保存 | 1.2s 防抖 `DispatcherTimer`，`NotifyContentChanged` 触发 |
+| 视图回调注入 | `PickOpenFile`/`PickSaveFile`/`OpenRecentRequested`/`CompleteSelectionRequested`/`UndoRequested` 等 `Action` 属性，由窗口构造时注入；`TaskCreated` 事件（新任务后视图滚动聚焦） |
+| 自动保存 | 1.2s 防抖 `DispatcherTimer`，`NotifyContentChanged` 触发（任务级变化经 `TaskViewModel.ContentChanged` 事件汇入，见 §4.2） |
 
 **四个区块始终存在**：`LoadDocument`/`NewDocument` 按 `CanonicalOrder` 建 4 个 `BlockViewModel`（对应 DOING/WAIT/DONE/DELETE），空区块也保留（`ExistedInSource` 决定空区块是否写回文件，§6.3）。
 
@@ -131,7 +115,7 @@ stanza-wpf/
 | 类 | 说明 |
 | ---- | ---- |
 | `BlockViewModel` | 一个状态区块视图模型。`Items` 是 `ObservableCollection<object>`（**任务与拖拽占位项混装**，类型擦除是为了容纳 `GapItem`）；`TaskCount` 随集合变更广播；`Name` 本地化 |
-| `TaskViewModel` | 任务的可编辑视图模型（约 390 行）。编辑文本 + 结构化属性双轨（见 3.1）；`_projectEffective`/`_tagsEffective` 是「结构化属性 ∪ 输入中记号」的展示值；`ToModel()` 是唯一的 VM→Core 序列化出口；时间戳以续行形式存续 |
+| `TaskViewModel` | 任务的可编辑视图模型（388 行）。编辑文本 + 结构化属性双轨（见 3.1）；`_projectEffective`/`_tagsEffective` 是「结构化属性 ∪ 输入中记号」的展示值；`ToModel()` 是唯一的 VM→Core 序列化出口；时间戳以续行形式存续。**不持有文档 VM 引用**：内容变化经 `ContentChanged` 事件上报，MainViewModel 在全部实例化路径经 `Track` 挂接（脏追踪/自动保存入口） |
 | `FacetViewModel` | 侧栏项目/标签条目（Name + Count + Token + `Matches`）。纯派生数据，不持久化 |
 | `GapItem` | 拖拽位置预览占位（Height + 面板分段 State），不是任务 |
 | `RecentFilesViewModel` | 最近文件 MRU（上限 8），经回调打开文件，持久化由 `RecentFilesStore` 负责 |
@@ -146,22 +130,22 @@ stanza-wpf/
 
 ## 5. Stanza.App：视图层
 
-### 5.1 MainWindow 的九个 partial（code-behind 约 2700 行）
+### 5.1 MainWindow 的十个 partial（code-behind 约 2700 行）
 
-无边框透明窗口，`MainWindow.xaml` 定义静态布局，九个 `.cs` 各管一块。**code-behind 权重很高**：交互（拖拽、键盘、动画、焦点）都在这里，视图模型只管数据与规则。
+无边框透明窗口，`MainWindow.xaml` 定义静态布局，十个 `.cs` 各管一块。**code-behind 权重很高**：交互（拖拽、键盘、动画、焦点）都在这里，视图模型只管数据与规则。
 
 | 文件 | 行数 | 职责 |
 | ---- | ---- | ---- |
 | `MainWindow.xaml.cs` | 208 | 构造与装配（VM 注入回调、属性监听、焦点管理钩子）；窗口拖拽/最小化/最大化/关闭；退出确认遮罩（应用内，非 MessageBox）；文件对话框 |
-| `MainWindow.Keyboard.cs` | ~430 | **键盘分发与焦点管理**：应用级快捷键分发（`OnPreProcessInput`）、任务作用域命令执行（`TryExecuteTaskCommand` + 焦点作用域检查）、Shift+jk 扩展选中、Esc/Enter 语义键、焦点管理（`NavKeysDeadOnFocus`、`ParkFocusOnTaskList`） |
-| `MainWindow.Drag.cs` | ~400 | **任务拖拽状态机**：点击/双击判定、拖拽阈值、占位项预览（区块模式悬停切换 / 面板模式按分段）、幽灵卡片、自动滚动、新建任务滚动聚焦 |
-| `MainWindow.Pickers.cs` | ~600 | 两个选择器浮层：标签/项目选择器（FacetPicker，输入过滤 + 键盘高亮）与通用选择面板（ChoicePicker，状态 M / 优先级 Shift+P，加速键直达） |
-| `MainWindow.Panels.cs` | ~200 | 侧栏导航与窗口级交互：空白点击收起、项目/标签选中互斥、P/T 快速跳转模式、外部文件拖入 |
-| `MainWindow.Animations.cs` | ~170 | 完成动画（勾选→变灰→淡出→补位）与撤销回归动画（按内容键 diff + 倒放） |
-| `MainWindow.Recent.cs` | ~60 | 最近文件弹层：Ctrl+R 循环切换、键盘高亮行、条目移除 |
+| `MainWindow.Keyboard.cs` | 524 | **键盘分发与焦点管理**：应用级快捷键分发（`OnPreProcessInput`）、任务作用域命令执行（`TryExecuteTaskCommand` + 焦点作用域检查）、Shift+jk 扩展选中、Esc/Enter 语义键、焦点管理（`NavKeysDeadOnFocus`、`ParkFocusOnTaskList`） |
+| `MainWindow.Drag.cs` | 396 | **任务拖拽状态机**：点击/双击判定、拖拽阈值、占位项预览（区块模式悬停切换 / 面板模式按分段）、幽灵卡片、自动滚动、新建任务滚动聚焦 |
+| `MainWindow.Pickers.cs` | 602 | 两个选择器浮层：标签/项目选择器（FacetPicker，输入过滤 + 键盘高亮）与通用选择面板（ChoicePicker，状态 M / 优先级 Shift+P，加速键直达） |
+| `MainWindow.Panels.cs` | 212 | 侧栏导航与窗口级交互：空白点击收起、项目/标签选中互斥、P/T 快速跳转模式、外部文件拖入 |
+| `MainWindow.Animations.cs` | 187 | 完成动画（勾选→变灰→淡出→补位）与撤销回归动画（按内容键 diff + 倒放） |
+| `MainWindow.Recent.cs` | 78 | 最近文件弹层：Ctrl+R 循环切换、键盘高亮行、条目移除 |
 | `MainWindow.Settings.cs` | 381 | 设置浮层：语言、键盘模式（Windows/macOS）、快捷键表编辑（录制/冲突转移/重置） |
 | `MainWindow.Windowing.cs` | 108 | Win32 集成：`WndProc` 钩子（WM_NCHITTEST 边缘缩放、WM_GETMINMAXINFO 工作区约束）、squircle 裁剪、最大化去阴影圆角 |
-| `MainWindow.Toolbar.cs` | ~40 | 底部工具栏：清空（DONE/DELETE）的二次确认（3 秒自动恢复） |
+| `MainWindow.Toolbar.cs` | 46 | 底部工具栏：清空（DONE/DELETE）的二次确认（3 秒自动恢复） |
 
 **视图 ↔ VM 的通信方式**（没有引入 MVVM 框架，这是手写约定）：
 
@@ -173,21 +157,21 @@ stanza-wpf/
 
 ### 5.2 窗口布局（MainWindow.xaml）
 
-```
-ShadowHost（Margin 16，阴影留白）
-├── ShadowShape              # 静态阴影源（独立层，避免动画重算模糊）
-└── WindowFrame              # 窗口主体，squircle 裁剪
-    └── Root
-        ├── ContentArea（208px 侧栏 | * 任务区）
-        │   ├── 侧栏：BlockList（区块）＋ ScrollViewer（项目/标签分组）＋ 底部工具按钮（打开/新建/最近/设置）＋ RecentPopup
-        │   └── 任务区：拖拽条 → 标题区（ScopeTitle）→ TaskList（分组 ListBox）→ 底部工具栏
-        │       （TaskList 模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）
-        ├── 无文档遮罩（欢迎页）
-        ├── 悬浮状态条 + 窗口按钮（右上角）
-        ├── GhostCanvas（拖拽幽灵卡片）
-        ├── DropOverlay（文件拖入遮罩）
-        ├── SettingsOverlay / ExitOverlay（模态浮层，应用内视觉树）
-        └── PickerLayer（FacetPickerPanel 标签/项目选择器 + ChoicePickerPanel 状态/优先级）
+```mermaid
+flowchart TB
+    ShadowHost["ShadowHost（Margin 16，阴影留白）"]
+    ShadowHost --> ShadowShape["ShadowShape：静态阴影源<br/>（独立层，避免动画重算模糊）"]
+    ShadowHost --> WindowFrame["WindowFrame：窗口主体，squircle 裁剪"]
+    WindowFrame --> Root["Root"]
+    Root --> ContentArea["ContentArea（208px 侧栏 | * 任务区）"]
+    ContentArea --> Sidebar["侧栏：BlockList（区块）+ ScrollViewer（项目/标签分组）<br/>+ 底部工具按钮（打开/新建/最近/设置）+ RecentPopup"]
+    ContentArea --> TaskArea["任务区：拖拽条 → 标题区（ScopeTitle）<br/>→ TaskList（分组 ListBox）→ 底部工具栏<br/>（模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）"]
+    Root --> Welcome["无文档遮罩（欢迎页）"]
+    Root --> StatusBar["悬浮状态条 + 窗口按钮（右上角）"]
+    Root --> Ghost["GhostCanvas（拖拽幽灵卡片）"]
+    Root --> Drop["DropOverlay（文件拖入遮罩）"]
+    Root --> Overlays["SettingsOverlay / ExitOverlay（模态浮层，应用内视觉树）"]
+    Root --> Pickers["PickerLayer（FacetPickerPanel 标签/项目选择器<br/>+ ChoicePickerPanel 状态/优先级）"]
 ```
 
 **关键决策**：所有浮层（设置、退出确认、选择器）都在窗口同一视觉树内，不用独立 `Popup`/HWND——规避跨 HWND 的焦点与失活时序问题，模态收编键盘靠路由事件过滤。
@@ -213,19 +197,20 @@ ShadowHost（Margin 16，阴影留白）
 
 快捷键体系是三层结构，全部手写，是重构时最需要小心保持语义的部分：
 
-```
-InputManager.Current.PreProcessInput（路由前分发，MainWindow.Keyboard.cs）
-│
-├─ 1. 模态浮层打开？ → 跳过（浮层自己的路由事件接管）
-├─ 2. Ctrl+R 循环确认（KeyUp 时机）
-├─ 3. 应用级命令（Keymap.Current.Resolve → VM.CommandFor → Execute）
-│      ├─ 编辑框内 Emacs 编辑手势让路（TextEditKeys）
-│      ├─ 侧栏列表/选择面板内 Ctrl+N/P 列表导航让路
-│      └─ 编辑框内 Ctrl+Z 文本级撤销让路
-├─ 4. 任务作用域命令（TryExecuteTaskCommand，逐命令检查焦点作用域）
-│      例：Space 完成（限任务列表焦点、非编辑框）；T/P 双语义（有选中=打开选择器，
-│          无选中=侧栏跳转模式）；hjkl 导航（NavKeysDeadOnFocus 判定接管时机）
-└─ 5. Shift+jk 扩展选中（vim 语义）
+```mermaid
+flowchart TB
+    Start["InputManager.PreProcessInput<br/>（路由前分发，MainWindow.Keyboard.cs）"]
+    Start --> Modal{"模态浮层打开？"}
+    Modal -->|是| Skip["跳过：浮层自己的路由事件接管"]
+    Modal -->|否| CtrlR["1. Ctrl+R 循环确认（KeyUp 时机）"]
+    CtrlR --> AppCmd{"2. 应用级命令？<br/>Keymap.Resolve → VM.CommandFor"}
+    AppCmd -->|未命中| TaskCmd["3. 任务作用域命令：TryExecuteTaskCommand<br/>逐命令检查焦点作用域<br/>例：Space 完成（限任务列表焦点、非编辑框）；<br/>T/P 双语义（有选中 = 打开选择器，无选中 = 侧栏跳转模式）；<br/>hjkl 导航（NavKeysDeadOnFocus 判定接管时机）"]
+    TaskCmd --> ShiftJk["4. Shift+jk 扩展选中（vim 语义）"]
+    AppCmd -->|命中| GiveWay{"让路检查"}
+    GiveWay -->|编辑框内 Emacs 编辑手势（TextEditKeys）| Route["交还路由"]
+    GiveWay -->|侧栏列表/选择面板内 Ctrl+N/P 列表导航| Route
+    GiveWay -->|编辑框内 Ctrl+Z 文本级撤销| Route
+    GiveWay -->|无冲突| Execute["command.Execute（e.Cancel 消费按键）"]
 ```
 
 配套组件：
@@ -252,69 +237,80 @@ InputManager.Current.PreProcessInput（路由前分发，MainWindow.Keyboard.cs�
 
 ### 8.1 打开文档
 
-```
-OpenFile(path)
-  └─ StanzaParser.Parse(文本) → StanzaDocument（含 Warnings）
-      └─ LoadDocument(doc)
-          ├─ 清空撤销栈；按 CanonicalOrder 建 4 个 BlockViewModel
-          ├─ 每个模型任务 → TaskViewModel.FromModel（编辑文本 = ComposeEditableHeader，
-          │    时间戳行分离为属性，备注去缩进）
-          ├─ SelectedBlock = 首个有任务的区块
-          ├─ SettleSort（活跃区块按象限→截止排序）
-          └─ RefreshFacets（重算侧栏项目/标签 + 面板）
+```mermaid
+flowchart TB
+    Open["OpenFile(path)"] --> Parse["StanzaParser.Parse → StanzaDocument（含 Warnings）"]
+    Parse --> Load["LoadDocument(doc)"]
+    Load --> Blocks["清空撤销栈；按 CanonicalOrder 建 4 个 BlockViewModel"]
+    Load --> Tasks["每个模型任务 → TaskViewModel.FromModel<br/>（编辑文本 = ComposeEditableHeader；时间戳行分离为属性；备注去缩进）<br/>经 Track 挂接 ContentChanged 事件"]
+    Load --> Sel["SelectedBlock = 首个有任务的区块"]
+    Load --> Sort["SettleSort（活跃区块按象限 → 截止排序）"]
+    Load --> Facets["RefreshFacets（重算侧栏项目/标签 + 面板）"]
 ```
 
 ### 8.2 保存与脏追踪
 
-```
-任意编辑（HeaderText/NotesText/流转/拖拽/批量属性）→ VM.NotifyContentChanged()
-  ├─ IsDirty = true；状态栏「未保存」
-  └─ 已有文件路径 → 1.2s 防抖计时器
-保存：SerializeDocument（VM → StanzaDocument → StanzaWriter.Write，唯一序列化路径）
-  └─ File.WriteAllText（UTF-8 无 BOM）；空区块按 ExistedInSource 决定是否写回
-关闭：Window_Closing 拦截 → 应用内退出遮罩（保存/放弃/取消三选）
+```mermaid
+flowchart TB
+    TaskEdit["任务级编辑（HeaderText / NotesText /<br/>Priority / 时间戳 / 标签项目批量操作）"]
+    DocOps["文档级操作（流转 / 拖拽 / 排序落定 /<br/>空草稿移除 / 撤销）"]
+    TaskEdit -->|TaskViewModel.ContentChanged 事件<br/>（Track 挂接）| Notify["MainViewModel.NotifyContentChanged()"]
+    DocOps -->|直接调用| Notify
+    Notify --> Dirty["IsDirty = true；状态栏「未保存」"]
+    Notify --> HasPath{"已有文件路径？"}
+    HasPath -->|是| Debounce["1.2s 防抖计时器 → Save"]
+    HasPath -->|否| Wait["等用户显式 Ctrl+S 再弹保存对话框"]
+    Save["Save：SerializeDocument（唯一序列化路径）<br/>VM → StanzaDocument → StanzaWriter.Write"]
+    Save --> Write["File.WriteAllText（UTF-8 无 BOM）<br/>空区块按 ExistedInSource 决定是否写回"]
+    Debounce --> Save
+    Close["Window_Closing 拦截"] --> ExitMask["应用内退出遮罩（保存 / 放弃 / 取消三选）"]
 ```
 
 ### 8.3 状态流转（完成/废弃/恢复/推迟）
 
-```
-TransitionTasks(tasks, target)
-  ├─ PushUndoSnapshot（操作前文本快照）
-  ├─ 逐任务：从原区块移除 + DetachTask（解除展开/选中）
-  ├─ 进 DONE/DELETE：NormalizeForTarget —— Core 规则（TaskTransitions.NormalizeForState）
-  │    清优先级；进 DONE 追加完成时间戳；时间戳增量转为任务属性
-  ├─ 插入目标区块（§9：DONE/DELETE 置顶、DOING/WAIT 追加）
-  ├─ SettleSort + RefreshFacets + NotifyContentChanged
+```mermaid
+flowchart TB
+    T["TransitionTasks(tasks, target)"] --> Snapshot["PushUndoSnapshot（操作前文本快照）"]
+    Snapshot --> Detach["逐任务：从原区块移除 + DetachTask（解除展开/选中）"]
+    Detach --> Normalize{"进 DONE/DELETE？"}
+    Normalize -->|是| CoreRule["NormalizeForTarget → Core 规则（TaskTransitions.NormalizeForState）<br/>清优先级；进 DONE 追加完成时间戳；时间戳增量转为任务属性"]
+    Normalize -->|否| Insert
+    CoreRule --> Insert["插入目标区块（§9：DONE/DELETE 置顶、DOING/WAIT 追加）"]
+    Insert --> After["SettleSort + RefreshFacets + NotifyContentChanged"]
 ```
 
 ### 8.4 撤销（文本快照，非命令栈）
 
-```
-变更入口统一 PushUndoSnapshot：SerializeDocument() 入栈（与栈顶相同则跳过）
-Undo：弹出快照 → StanzaParser.Parse → LoadDocument(clearUndo:false)
-  ├─ 恢复时保持当前区块视图（scope 记录）
-  ├─ 撤销本身标脏并触发自动保存
-  └─ 视图可接管为动画流程（UndoRequested → UndoWithAnimation：让位→灰态浮现→恢复）
+```mermaid
+flowchart TB
+    Push["变更入口统一 PushUndoSnapshot：<br/>SerializeDocument() 入栈（与栈顶相同则跳过）"]
+    Undo["Undo：弹出快照 → StanzaParser.Parse<br/>→ LoadDocument(clearUndo: false)"]
+    Undo --> Scope["恢复时保持当前区块视图（scope 记录）"]
+    Undo --> MarkDirty["撤销本身标脏并触发自动保存"]
+    Undo --> Anim["视图可接管为动画流程<br/>（UndoRequested → UndoWithAnimation：让位 → 灰态浮现 → 恢复）"]
 ```
 
 ### 8.5 任务拖拽（手写鼠标状态机）
 
-```
-按下记录（_downTask/_downPos，排除编辑框/按钮/勾选框）→ 位移超 7px 判定拖拽
-  ├─ PushUndoSnapshot（拖拽前状态！）
-  ├─ 收起展开态、取消选中；幽灵卡片（GhostCanvas）+ 占位项（GapItem）实时预览
-  ├─ 区块模式：悬停侧栏区块切换目标；面板模式：按分段决定目标状态与位置
-  └─ 提交：VM.DropTask（含 §9 规范化）/ 面板内重排；Esc 取消归还原集合
+```mermaid
+flowchart TB
+    Down["按下记录（_downTask/_downPos，排除编辑框/按钮/勾选框）"] --> Threshold{"位移超 7px？"}
+    Threshold -->|是| DragStart["判定拖拽：PushUndoSnapshot（拖拽前状态）<br/>收起展开态、取消选中"]
+    DragStart --> Ghost["幽灵卡片（GhostCanvas）+ 占位项（GapItem）实时预览"]
+    Ghost --> Hover["区块模式：悬停侧栏区块切换目标<br/>面板模式：按分段决定目标状态与位置"]
+    Hover --> Drop["提交：VM.DropTask（含 §9 规范化）/ 面板内重排"]
+    DragStart -.->|Esc| Cancel["取消归还原集合"]
 ```
 
 ### 8.6 项目/标签聚合
 
-```
-RefreshFacets（触发：加载/新建/任务增删流转/编辑收起——不在输入时实时刷）
-  ├─ 全部任务名字（含归档）决定条目存留；活跃任务计数决定 Count 与排序
-  ├─ 计数归零条目保留（显示 0），彻底消失才移除
-  └─ 正在浏览的面板计数归零 → 退出面板回区块视图
-RebuildPanel：匹配活跃任务 → SyncPanel 增量对齐 → ListCollectionView 分组显示
+```mermaid
+flowchart TB
+    Refresh["RefreshFacets<br/>（触发：加载/新建/任务增删流转/编辑收起——不在输入时实时刷）"]
+    Refresh --> Names["全部任务名字（含归档）决定条目存留；<br/>活跃任务计数决定 Count 与排序"]
+    Refresh --> Zero["计数归零条目保留（显示 0），彻底消失才移除"]
+    Refresh --> Bail["正在浏览的面板计数归零 → 退出面板回区块视图"]
+    Refresh --> Rebuild["RebuildPanel：匹配活跃任务 → SyncPanel 增量对齐<br/>→ ListCollectionView 分组显示"]
 ```
 
 ## 9. 关键设计决策（重构时不要破坏的约定）
@@ -326,7 +322,7 @@ RebuildPanel：匹配活跃任务 → SyncPanel 增量对齐 → ListCollectionV
 5. **四个区块常驻**：BlockViewModel 永远对应四种状态；空区块是否写回由 `ExistedInSource` 决定。
 6. **浮层不用独立窗口**：设置/退出确认/选择器都在主窗口视觉树内，模态靠键盘路由过滤。
 7. **快捷键三层分发**：路由前分发应用命令（无焦点也可用）、任务作用域命令逐命令检查焦点作用域、编辑框内手势让路。改键只改触发手势，不改变作用域语义。
-8. **视图 ↔ VM 通信靠回调注入**：VM 不引用视图类型，需要视图能力时经 `Action` 属性注入（保持 VM 可测）。
+8. **通信按语义分流：能力 = 回调注入，变化 = 事件**：VM 借用视图能力（文件对话框、动画接管）时经 `Action` 属性注入；声明变化（任务编辑 `TaskViewModel.ContentChanged`、任务创建 `MainViewModel.TaskCreated`）用事件，由订阅方响应。VM 不引用视图类型，子 VM 不持有父 VM 引用（任务实例化一律经 `MainViewModel.Track` 挂接）——保持 VM 可测、依赖单向。
 9. **焦点管理是显式职责**：键盘操作的正确性依赖「焦点停回任务列表」等约定，改动键盘路径时需同步检查焦点。
 10. **`Items` 类型擦除**：区块与面板集合都是 `ObservableCollection<object>`（容纳 GapItem），遍历任务一律 `OfType<TaskViewModel>()`。
 
