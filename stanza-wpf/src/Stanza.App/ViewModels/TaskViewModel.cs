@@ -6,11 +6,13 @@ namespace Stanza.App.ViewModels;
 /// <summary>
 /// 任务的可编辑视图模型。主行以纯文本形式内联编辑，但编辑文本只含 日期 + 描述：
 /// 优先级（§7.2.1）、项目（§7.2.4）、标签（§7.2.5）是结构化属性，键入的完整记号被自动捕获隐藏，
-/// 通过右键菜单/选择器管理。任何修改都通知 MainViewModel 触发自动保存。
+/// 通过右键菜单/选择器管理。任何修改都经 ContentChanged 事件通知持有方（MainViewModel）触发自动保存。
 /// </summary>
 public sealed class TaskViewModel : ViewModelBase
 {
-    private readonly MainViewModel _owner;
+    /// <summary>内容变化通知（声明式，不携带变更内容；订阅方统一响应「有变化」）。
+    /// 由持有方（MainViewModel）在构造时经 Track 挂接，驱动脏追踪与自动保存。</summary>
+    public event EventHandler? ContentChanged;
 
     private TaskState _state;
     private string _headerText = "";
@@ -35,11 +37,9 @@ public sealed class TaskViewModel : ViewModelBase
     private DateOnly? _createdAt;
     private readonly List<DateOnly> _completedDates = new();
 
-    public TaskViewModel(MainViewModel owner) => _owner = owner;
-
-    public static TaskViewModel FromModel(MainViewModel owner, StanzaTask model, TaskState state)
+    public static TaskViewModel FromModel(StanzaTask model, TaskState state)
     {
-        var vm = new TaskViewModel(owner) { _state = state, _priority = model.Priority, _project = model.Project };
+        var vm = new TaskViewModel { _state = state, _priority = model.Priority, _project = model.Project };
         vm._tags.AddRange(model.Tags);
         vm.LoadNotes(model.Notes);
         // 编辑文本只含 日期 + 描述：优先级/项目/标签都是结构化属性（§7.2.1/§7.2.4/§7.2.5）
@@ -106,7 +106,7 @@ public sealed class TaskViewModel : ViewModelBase
                 _headerEdited = true;
                 CaptureTypedTokens();
                 RefreshParsed();
-                _owner.NotifyContentChanged();
+                NotifyContentChanged();
             }
         }
     }
@@ -189,7 +189,7 @@ public sealed class TaskViewModel : ViewModelBase
         _tags.Clear();
         _tags.AddRange(merged);
         SetHeaderSilently(StanzaWriter.ComposeEditableHeader(m));
-        _owner.NotifyContentChanged();
+        NotifyContentChanged();
     }
 
     /// <summary>把 Core 规范化（§9 流转）后的主行模型写回：项目/标签进入结构化属性，
@@ -212,7 +212,7 @@ public sealed class TaskViewModel : ViewModelBase
             if (Set(ref _priority, value))
             {
                 OnPropertyChanged(nameof(DisplayQuadrant));
-                _owner.NotifyContentChanged();
+                NotifyContentChanged();
             }
         }
     }
@@ -256,7 +256,7 @@ public sealed class TaskViewModel : ViewModelBase
         if (_createdAt != null) return;
         _createdAt = date;
         NotifyTimestampsChanged();
-        _owner.NotifyContentChanged();
+        NotifyContentChanged();
     }
 
     /// <summary>追加一条完成时间（§7.4.3：每次进入 DONE 追加一条，历史完整保留）。</summary>
@@ -264,8 +264,10 @@ public sealed class TaskViewModel : ViewModelBase
     {
         _completedDates.Add(date);
         NotifyTimestampsChanged();
-        _owner.NotifyContentChanged();
+        NotifyContentChanged();
     }
+
+    private void NotifyContentChanged() => ContentChanged?.Invoke(this, EventArgs.Empty);
 
     private void NotifyTimestampsChanged()
     {
@@ -313,7 +315,7 @@ public sealed class TaskViewModel : ViewModelBase
     private void AfterMetaMutation()
     {
         RefreshParsed();   // 重算有效值并发出展示通知
-        _owner.NotifyContentChanged();
+        NotifyContentChanged();
     }
 
     // ---- 备注 ----
@@ -326,7 +328,7 @@ public sealed class TaskViewModel : ViewModelBase
             if (Set(ref _notesText, value ?? ""))
             {
                 OnPropertyChanged(nameof(HasNotes));
-                _owner.NotifyContentChanged();
+                NotifyContentChanged();
             }
         }
     }
