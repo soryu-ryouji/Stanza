@@ -38,7 +38,7 @@ stanza-wpf/
 flowchart TB
     subgraph App["Stanza.App（net10.0-windows）"]
         subgraph View["视图层（View）"]
-            Xaml["XAML：MainWindow.xaml + Themes/<br/>（Templates / Minimal / Strings.*）"]
+            Xaml["XAML：MainWindow.xaml（框架 + 浮层）<br/>+ Views/（SidebarView · TaskAreaView）+ Themes/"]
             CodeBehind["code-behind：MainWindow.*.cs（10 个 partial）"]
         end
         VM["ViewModels 层（Stanza.App/ViewModels）<br/>MainViewModel（文档生命周期 / 命令 / 撤销 / 聚合）<br/>BlockViewModel · TaskViewModel · FacetViewModel<br/>RecentFilesViewModel · GapItem · RelayCommand"]
@@ -132,7 +132,7 @@ flowchart TB
 
 ### 5.1 MainWindow 的十个 partial（code-behind 约 2700 行）
 
-无边框透明窗口，`MainWindow.xaml` 定义静态布局，十个 `.cs` 各管一块。**code-behind 权重很高**：交互（拖拽、键盘、动画、焦点）都在这里，视图模型只管数据与规则。
+无边框透明窗口，`MainWindow.xaml` 定义框架与浮层（334 行），侧栏与任务区拆分为 `Views/SidebarView`（272 行）与 `Views/TaskAreaView`（142 行）两个纯视觉组件，十个 `.cs` 各管一块。**code-behind 权重很高**：交互（拖拽、键盘、动画、焦点）都在这里，视图模型只管数据与规则。
 
 | 文件 | 行数 | 职责 |
 | ---- | ---- | ---- |
@@ -164,8 +164,8 @@ flowchart TB
     ShadowHost --> WindowFrame["WindowFrame：窗口主体，squircle 裁剪"]
     WindowFrame --> Root["Root"]
     Root --> ContentArea["ContentArea（208px 侧栏 | * 任务区）"]
-    ContentArea --> Sidebar["侧栏：BlockList（区块）+ ScrollViewer（项目/标签分组）<br/>+ 底部工具按钮（打开/新建/最近/设置）+ RecentPopup"]
-    ContentArea --> TaskArea["任务区：拖拽条 → 标题区（ScopeTitle）<br/>→ TaskList（分组 ListBox）→ 底部工具栏<br/>（模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）"]
+    ContentArea --> Sidebar["Views/SidebarView：BlockList（区块）+ 项目/标签分组<br/>+ 底部工具按钮（打开/新建/最近/设置）+ RecentPopup"]
+    ContentArea --> TaskArea["Views/TaskAreaView：拖拽条 → 标题区（ScopeTitle）<br/>→ TaskList（分组 ListBox）→ 底部工具栏<br/>（模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）"]
     Root --> Welcome["无文档遮罩（欢迎页）"]
     Root --> StatusBar["悬浮状态条 + 窗口按钮（右上角）"]
     Root --> Ghost["GhostCanvas（拖拽幽灵卡片）"]
@@ -175,6 +175,8 @@ flowchart TB
 ```
 
 **关键决策**：所有浮层（设置、退出确认、选择器）都在窗口同一视觉树内，不用独立 `Popup`/HWND——规避跨 HWND 的焦点与失活时序问题，模态收编键盘靠路由事件过滤。
+
+**区域组件**：侧栏（`Views/SidebarView`）与任务区（`Views/TaskAreaView`）是纯视觉结构 UserControl——不设自己的 DataContext（继承窗口的 MainViewModel，绑定零改动），事件经 `Window.GetWindow` 转发回窗口同名方法（同模板转发模式），元素以 `x:FieldModifier="public"` 暴露、窗口以同名 internal 属性转发（各 partial 引用名不变）。交互（键盘分发/拖拽/焦点/浮层）跨组件，不随视觉结构下沉，仍由窗口统筹。
 
 ### 5.3 主题与模板
 
@@ -345,7 +347,7 @@ flowchart TB
 ```
 src/Stanza.Core/                      src/Stanza.App/
 ├── StanzaDocument.cs                  ├── App.xaml(.cs)            # 入口
-├── StanzaBlock.cs                     ├── MainWindow.xaml          # 静态布局
+├── StanzaBlock.cs                     ├── MainWindow.xaml          # 框架与浮层（侧栏/任务区拆至 Views/）
 ├── StanzaTask.cs                      ├── MainWindow.xaml.cs       # 装配/窗口/退出确认
 ├── StanzaParser.cs                    ├── MainWindow.Keyboard.cs   # 键盘分发/焦点管理
 ├── StanzaWriter.cs                    ├── MainWindow.Drag.cs       # 拖拽状态机
@@ -362,6 +364,7 @@ src/Stanza.Core/                      src/Stanza.App/
                                         ├── Converters.cs            # 值转换器
                                         ├── VisualTreeEx.cs          # 视觉树工具
                                         ├── SquircleGeometry.cs      # 连续圆角几何
+                                        ├── Views/                   # 区域组件：SidebarView · TaskAreaView（纯视觉结构）
                                         ├── ViewModels/              # 视图模型层（MainViewModel 拆 4 个 partial）
                                         ├── Services/                # 本地化/存储/PInvoke
                                         ├── Behaviors/               # 附加属性行为

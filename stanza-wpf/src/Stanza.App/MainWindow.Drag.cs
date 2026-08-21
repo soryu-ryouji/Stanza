@@ -32,7 +32,7 @@ public partial class MainWindow
 
     // ==================== 按下与判定 ====================
 
-    private void TaskList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    internal void TaskList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         // 点在输入框 / 按钮上时不启动拖拽（保留编辑与按钮行为）
         var source = e.OriginalSource as DependencyObject;
@@ -77,7 +77,7 @@ public partial class MainWindow
         }));
     }
 
-    private void TaskList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    internal void TaskList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         // 右键：未选中的项先单选它（已选中的项保留多选），再交给卡片上的 ContextMenu
         var source = e.OriginalSource as DependencyObject;
@@ -91,7 +91,7 @@ public partial class MainWindow
     }
 
     // 列表可能混有拖拽占位项（GapItem），用 OfType 过滤而非 Cast
-    private void TaskList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    internal void TaskList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => VM.UpdateSelection(TaskList.SelectedItems.OfType<TaskViewModel>().ToList());
 
     // ==================== 移动与松开 ====================

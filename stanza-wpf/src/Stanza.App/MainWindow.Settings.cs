@@ -56,7 +56,7 @@ public partial class MainWindow
 
     // ==================== 打开 / 关闭 ====================
 
-    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    internal void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         LangZh.IsChecked = Loc.Current == "zh";
         LangEn.IsChecked = Loc.Current == "en";

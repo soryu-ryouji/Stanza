@@ -1,0 +1,272 @@
+<UserControl x:Class="Stanza.App.Views.SidebarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <!-- 侧栏项目/标签条目：名称（含 +/# 前缀）+ 任务数 -->
+        <DataTemplate x:Key="FacetItemTemplate">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="NameText" Text="{Binding Name}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="11"
+                           Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center">
+                    <!-- 计数为 0 时不显示数字，条目本身保留 -->
+                    <TextBlock.Style>
+                        <Style TargetType="{x:Type TextBlock}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                    <Setter TargetName="NameText" Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                    <Setter TargetName="NameText" Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Border Background="{StaticResource SidebarBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 侧栏顶部：文件名（兼窗口拖拽面） -->
+            <Border Grid.Row="0" Background="Transparent"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <TextBlock Text="{Binding FileName}" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{StaticResource GrayBrush}" Margin="14,0,8,0"
+                           ToolTip="{Binding FilePath}" TextTrimming="CharacterEllipsis"/>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ListBox x:Name="BlockList" x:FieldModifier="public" Grid.Row="0"
+                         ItemsSource="{Binding Blocks}"
+                         SelectedItem="{Binding SelectedBlock, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                         Margin="0,2,0,0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                     Fill="{Binding State, Converter={StaticResource StateToBrush}}"/>
+                            <TextBlock x:Name="NameText" Grid.Column="1" Text="{Binding Name}"
+                                       Margin="9,0,0,0" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding TaskCount}" FontSize="11"
+                                       Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"
+                                       Visibility="{Binding IsArchiveList, Converter={StaticResource InverseBoolToVis}}"/> <!-- 归档区块（已完成/回收站）不显示计数（归档统计无行动价值） -->
+                        </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                                <Setter TargetName="NameText" Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="NameText" Property="FontWeight" Value="SemiBold"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- 项目 / 标签：聚合面板入口；分组头可点击收起列表；内容超出时整体滚动 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,8,0,4">
+                        <Button Style="{StaticResource GhostButton}" Margin="8,4,8,0" Padding="8,3"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding ToggleFacetSectionCommand}" CommandParameter="projects"
+                                ToolTip="{DynamicResource Tip_ToggleSection}"
+                                Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                           Foreground="{StaticResource FaintBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ProjectsExpanded}" Value="False">
+                                                    <Setter Property="RenderTransform">
+                                                        <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{DynamicResource Sidebar_Projects}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}"/>
+                            </StackPanel>
+                        </Button>
+                        <ListBox x:Name="ProjectList" x:FieldModifier="public" ItemsSource="{Binding Projects}"
+                                 ItemTemplate="{StaticResource FacetItemTemplate}"
+                                 ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 SelectionChanged="ProjectList_SelectionChanged"
+                                 PreviewKeyDown="FacetList_PreviewKeyDown"
+                                 IsKeyboardFocusWithinChanged="FacetList_FocusWithinChanged"
+                                 Visibility="{Binding ShowProjects, Converter={StaticResource BoolToVis}}"/>
+                        <Button Style="{StaticResource GhostButton}" Margin="8,10,8,0" Padding="8,3"
+                                HorizontalContentAlignment="Left"
+                                Command="{Binding ToggleFacetSectionCommand}" CommandParameter="tags"
+                                ToolTip="{DynamicResource Tip_ToggleSection}"
+                                Visibility="{Binding HasTags, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="9"
+                                           Foreground="{StaticResource FaintBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TagsExpanded}" Value="False">
+                                                    <Setter Property="RenderTransform">
+                                                        <Setter.Value><RotateTransform Angle="-90"/></Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{DynamicResource Sidebar_Tags}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}"/>
+                            </StackPanel>
+                        </Button>
+                        <ListBox x:Name="TagList" x:FieldModifier="public" ItemsSource="{Binding Tags}"
+                                 ItemTemplate="{StaticResource FacetItemTemplate}"
+                                 ItemContainerStyle="{StaticResource SidebarItemStyle}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 SelectionChanged="TagList_SelectionChanged"
+                                 PreviewKeyDown="FacetList_PreviewKeyDown"
+                                 IsKeyboardFocusWithinChanged="FacetList_FocusWithinChanged"
+                                 Visibility="{Binding ShowTags, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+            <!-- 左下角：打开 / 新建 / 最近（左）+ 设置（右）；含快捷键的 tooltip 由代码按当前键位合成 -->
+            <Grid Grid.Row="2" Margin="8,6">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="OpenButton" x:FieldModifier="public" Style="{StaticResource ToolIconButton}"
+                            Command="{Binding OpenCommand}">
+                        <Path Data="M2.5,4 H6.5 L8.5,6.5 H13.5 V12.5 H2.5 Z" Width="16" Height="16"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                              StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                    <Button x:Name="NewDocButton" x:FieldModifier="public" Style="{StaticResource ToolIconButton}"
+                            Command="{Binding NewDocumentCommand}">
+                        <Path Data="M4.5,2.5 H9.5 L11.5,4.5 V13.5 H4.5 Z M9.5,2.5 V4.5 H11.5 M8,7.5 V10.5 M6.5,9 H9.5"
+                              Width="16" Height="16"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                              StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                    <Button x:Name="RecentButton" x:FieldModifier="public" Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_RecentFiles}"
+                            Click="RecentButton_Click">
+                        <Path Data="M8,2.8 A5.2,5.2 0 1 0 8,13.2 A5.2,5.2 0 1 0 8,2.8 M8,5.2 V8 L10.2,9.2"
+                              Width="16" Height="16"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                              StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                </StackPanel>
+                <Button HorizontalAlignment="Right" Style="{StaticResource ToolIconButton}"
+                        ToolTip="{DynamicResource Tip_Settings}" Click="SettingsButton_Click">
+                    <!-- 设置：Segoe Fluent Icons 齿轮（与右键菜单图标同字体；原自绘齿轮像太阳） -->
+                    <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="15"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                </Button>
+            </Grid>
+            </Grid>
+            <Popup x:Name="RecentPopup" x:FieldModifier="public" PlacementTarget="{Binding ElementName=RecentButton}"
+                   Placement="Top" AllowsTransparency="True">
+                <Border x:Name="RecentPanel" x:FieldModifier="public" Background="White" CornerRadius="8" Padding="4"
+                        BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                        Width="208" Margin="0,0,0,2">
+                    <Border.RenderTransform>
+                        <TranslateTransform Y="0"/>
+                    </Border.RenderTransform>
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <ItemsControl x:Name="RecentItems" x:FieldModifier="public" ItemsSource="{Binding Recents.Items}">
+                            <!-- 条目容器拉伸到整行宽度，保证每行一致 -->
+                            <ItemsControl.ItemContainerStyle>
+                                <Style TargetType="{x:Type ContentPresenter}">
+                                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                </Style>
+                            </ItemsControl.ItemContainerStyle>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button x:Name="RowButton" HorizontalContentAlignment="Stretch" Padding="8,5"
+                                            ToolTip="{Binding Path}"
+                                            Command="{Binding DataContext.Recents.OpenCommand, RelativeSource={RelativeSource AncestorType={x:Type Popup}}}"
+                                            CommandParameter="{Binding Path}"
+                                            Click="RecentItem_Click">
+                                        <Button.Style>
+                                            <Style TargetType="{x:Type Button}" BasedOn="{StaticResource GhostButton}">
+                                                <Style.Triggers>
+                                                    <!-- Ctrl+R 键盘循环的高亮：与 hover 同款视觉 -->
+                                                    <Trigger Property="IsKeyboardFocused" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="24"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <Button x:Name="RemoveButton" Content="×" FontSize="11"
+                                                    Grid.Column="1" VerticalAlignment="Center"
+                                                    Style="{StaticResource GhostButton}" Padding="6,1"
+                                                    ToolTip="{DynamicResource Tip_RemoveRecent}"
+                                                    Command="{Binding DataContext.Recents.RemoveCommand, RelativeSource={RelativeSource AncestorType={x:Type Popup}}}"
+                                                    CommandParameter="{Binding Path}"
+                                                    Opacity="0" IsHitTestVisible="False"/>
+                                        </Grid>
+                                    </Button>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=RowButton}" Value="True">
+                                            <Setter TargetName="RemoveButton" Property="Opacity" Value="1"/>
+                                            <Setter TargetName="RemoveButton" Property="IsHitTestVisible" Value="True"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{DynamicResource Recent_Empty}" FontSize="11" Padding="8,6"
+                                   Foreground="{StaticResource FaintBrush}"
+                                   Visibility="{Binding Recents.Items.Count, Converter={StaticResource ZeroToVis}}"/>
+                        <!-- 固定在列表底部的新建入口，点击后关闭弹层 -->
+                        <Separator/>
+                        <Button x:Name="RecentNewButton" x:FieldModifier="public" Style="{StaticResource GhostButton}" Content="{DynamicResource Tip_NewFile}"
+                                HorizontalContentAlignment="Left" Padding="8,5"
+                                Command="{Binding NewDocumentCommand}"
+                                Click="RecentItem_Click"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+    </Border>
+</UserControl>

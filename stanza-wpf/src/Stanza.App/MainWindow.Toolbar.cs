@@ -15,7 +15,7 @@ public partial class MainWindow
     private bool _clearArmed;
     private DispatcherTimer? _clearTimer;
 
-    private void ClearButton_Click(object sender, RoutedEventArgs e)
+    internal void ClearButton_Click(object sender, RoutedEventArgs e)
     {
         if (!_clearArmed)
         {

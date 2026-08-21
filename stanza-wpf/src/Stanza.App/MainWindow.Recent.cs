@@ -65,12 +65,12 @@ public partial class MainWindow
 
     // 弹层的关闭路径：再点按钮切换、点弹层内条目（RecentItem_Click）、
     // 点窗口其他位置（ContentArea_PreviewMouseLeftButtonDown）
-    private void RecentButton_Click(object sender, RoutedEventArgs e)
+    internal void RecentButton_Click(object sender, RoutedEventArgs e)
         => RecentPopup.IsOpen = !RecentPopup.IsOpen;
 
     // 条目内「移除」按钮的 Click 会冒泡到行按钮，但其 OriginalSource 是移除按钮自身；
     // 仅条目本体（或底部「新建文件」按钮）被点击时才关闭弹层——移除记录后弹层保持开启，便于连续清理
-    private void RecentItem_Click(object sender, RoutedEventArgs e)
+    internal void RecentItem_Click(object sender, RoutedEventArgs e)
     {
         if (!ReferenceEquals(e.OriginalSource, sender)) return;
         RecentPopup.IsOpen = false;

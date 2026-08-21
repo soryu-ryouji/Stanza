@@ -49,13 +49,13 @@ public partial class MainWindow
     // Selector 会保留旧选中（等待条目出现），造成两个列表同时「选中」的假象
     private bool _syncingFacetSelection;
 
-    private void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    internal void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingFacetSelection) return;
         if (ProjectList.SelectedItem is FacetItemViewModel f) VM.SelectedFacet = f;
     }
 
-    private void TagList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    internal void TagList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingFacetSelection) return;
         if (TagList.SelectedItem is FacetItemViewModel f) VM.SelectedFacet = f;
@@ -130,7 +130,7 @@ public partial class MainWindow
     }
 
     /// <summary>焦点离开跳转列表 = 跳转模式隐式确认（保留当前预览的面板），仅清理模式标记。</summary>
-    private void FacetList_FocusWithinChanged(object sender, DependencyPropertyChangedEventArgs e)
+    internal void FacetList_FocusWithinChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (!_facetJumpActive || !ReferenceEquals(sender, _jumpList)) return;
         if (_jumpList!.IsKeyboardFocusWithin) return;
@@ -142,7 +142,7 @@ public partial class MainWindow
 
     /// <summary>项目/标签列表按键：jk 与 Ctrl+N/P（quick-open 语义）移动选中，焦点跟随选中项，
     /// 后续方向键走 ListBox 原生导航；Enter/Esc 在窗口 OnKeyDown 按跳转模式标记处理。</summary>
-    private void FacetList_PreviewKeyDown(object sender, KeyEventArgs e)
+    internal void FacetList_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (sender is not ListBox list) return;
         var delta = e.Key switch

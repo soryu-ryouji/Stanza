@@ -1,0 +1,142 @@
+<UserControl x:Class="Stanza.App.Views.TaskAreaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="38"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部拖拽条：与侧栏顶条同高，贯穿至悬浮按钮下方 -->
+        <Border Grid.Row="0" Background="Transparent"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown"/>
+
+        <!-- 区块标题区：兼作窗口拖拽面 -->
+        <Grid Grid.Row="1" Margin="35,18,35,4" Background="Transparent"
+              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding ScopeTitle}" FontSize="22" FontWeight="SemiBold"
+                       FontFamily="Helvetica, Segoe UI"
+                       TextTrimming="CharacterEllipsis"/>
+            <TextBlock Grid.Column="1" Text="{Binding ScopeTaskCount}" FontSize="13"
+                       Foreground="{StaticResource FaintBrush}"
+                       Margin="8,0,0,5" VerticalAlignment="Bottom"
+                       Visibility="{Binding ShowScopeCount, Converter={StaticResource BoolToVis}}"/>
+        </Grid>
+
+        <!-- 像素滚动：面板视图分组后顶层容器是 GroupItem，逻辑滚动（默认）会把点击任务的
+             整个分段滚动置顶；像素滚动下 BringIntoView 只做最小位移 -->
+        <!-- TaskList 的 ItemTemplateSelector 用 DynamicResource：TaskListTemplateSelector 定义在窗口级
+             （Templates.xaml 合入 Window.Resources），StaticResource 在组件构造（InitializeComponent）时求值，查不到窗口级资源 -->
+        <ListBox x:Name="TaskList" x:FieldModifier="public" Grid.Row="2"
+                 Style="{StaticResource TaskListBox}"
+                 ItemsSource="{Binding TaskListSource}"
+                 SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+                 ItemTemplateSelector="{DynamicResource TaskListTemplateSelector}"
+                 VirtualizingStackPanel.IsVirtualizing="False"
+                 ScrollViewer.CanContentScroll="False"
+                 SelectionMode="Extended"
+                 SelectionChanged="TaskList_SelectionChanged"
+                 ScrollViewer.VerticalScrollBarVisibility="Visible"
+                 behaviors:ScrollBarAutoHide.Enabled="True"
+                 Padding="27,2,27,12"
+                 PreviewMouseLeftButtonDown="TaskList_PreviewMouseLeftButtonDown"
+                 PreviewMouseRightButtonDown="TaskList_PreviewMouseRightButtonDown">
+            <!-- 面板视图（项目/标签）按状态分段；区块视图无分组描述，不渲染组头。
+                 组头与侧栏区块条目使用同一套状态色点，分段间留出间距便于区分 -->
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="9,20,0,4">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                         Fill="{Binding Name, Converter={StaticResource StateToBrush}}"/>
+                                <TextBlock Text="{Binding Name, Converter={StaticResource StateToName}}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource GrayBrush}" Margin="7,0,0,0"/>
+                                <TextBlock Text="{Binding ItemCount}" FontSize="11"
+                                           Foreground="{StaticResource FaintBrush}"
+                                           Margin="6,0,0,0" VerticalAlignment="Bottom"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+        </ListBox>
+
+        <TextBlock x:Name="EmptyHint" x:FieldModifier="public" Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextAlignment="Center" Foreground="{StaticResource FaintBrush}" LineHeight="22"
+                   Visibility="{Binding ScopeHasTasks, Converter={StaticResource InverseBoolToVis}}"/>
+
+        <!-- 底部工具栏：无选中时显示列表级操作，有选中时切换为任务操作（居中、纯图标） -->
+        <Border Grid.Row="3" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0"
+                Padding="0,3">
+            <Grid>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
+                    <Button x:Name="AddTaskButton" x:FieldModifier="public" Style="{StaticResource ToolIconButton}"
+                            Command="{Binding NewTaskCommand}"
+                            Visibility="{Binding ShowAddTask, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="14"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button x:Name="ClearButton" x:FieldModifier="public" Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Clear}"
+                            Click="ClearButton_Click"
+                            IsEnabled="{Binding SelectedBlock.HasTasks}"
+                            Visibility="{Binding ShowClear, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE74D;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Complete}"
+                            Command="{Binding CompleteSelectionCommand}"
+                            Visibility="{Binding ScopeIsActive, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Defer}"
+                            Command="{Binding DeferSelectionCommand}"
+                            Visibility="{Binding ScopeIsDoing, Converter={StaticResource BoolToVis}}">
+                        <!-- 暂停符：等待/挂起 -->
+                        <TextBlock Text="&#xE769;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Activate}"
+                            Command="{Binding ActivateSelectionCommand}"
+                            Visibility="{Binding ScopeIsWaiting, Converter={StaticResource BoolToVis}}">
+                        <!-- 播放符：开始执行 -->
+                        <TextBlock Text="&#xE768;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Restore}"
+                            Command="{Binding RestoreSelectionCommand}"
+                            Visibility="{Binding ScopeIsArchive, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE7A7;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Discard}"
+                            Command="{Binding DiscardSelectionCommand}"
+                            Visibility="{Binding ScopeIsDeleted, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="&#xE74D;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                    <Button Style="{StaticResource DangerToolIconButton}" ToolTip="{DynamicResource Tip_Delete}"
+                            Command="{Binding DeleteSelectionCommand}"
+                            Visibility="{Binding ScopeIsDeleted, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

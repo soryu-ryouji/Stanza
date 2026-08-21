@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -69,9 +70,28 @@ public partial class MainWindow : Window
     /// <summary>启动时恢复上次打开的文件。</summary>
     public void OpenStartupFile() => VM.OpenStartupFile();
 
+    // ==================== 区域组件元素转发 ====================
+
+    // 视觉结构拆分为 Views/SidebarView 与 Views/TaskAreaView；组件内元素经此转发，
+    // 各 partial 中的引用名不变。交互（键盘分发/拖拽/焦点/浮层）跨组件，由窗口统筹。
+    internal ListBox BlockList => Sidebar.BlockList;
+    internal ListBox ProjectList => Sidebar.ProjectList;
+    internal ListBox TagList => Sidebar.TagList;
+    internal Button OpenButton => Sidebar.OpenButton;
+    internal Button NewDocButton => Sidebar.NewDocButton;
+    internal Button RecentButton => Sidebar.RecentButton;
+    internal Popup RecentPopup => Sidebar.RecentPopup;
+    internal Border RecentPanel => Sidebar.RecentPanel;
+    internal ItemsControl RecentItems => Sidebar.RecentItems;
+    internal Button RecentNewButton => Sidebar.RecentNewButton;
+    internal ListBox TaskList => TaskArea.TaskList;
+    internal TextBlock EmptyHint => TaskArea.EmptyHint;
+    internal Button AddTaskButton => TaskArea.AddTaskButton;
+    internal Button ClearButton => TaskArea.ClearButton;
+
     // ==================== 窗口 ====================
 
-    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    internal void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
         {
