@@ -837,23 +837,29 @@ public sealed class MainViewModel : ViewModelBase
     // ---- 项目/标签聚合 ----
 
     /// <summary>重算侧栏项目/标签列表与面板内容。
-    /// 侧栏计数只覆盖活跃任务（DOING/WAIT）：归档任务（DONE/DELETE）不推高计数，
-    /// 活跃任务全部归档的项目/标签随之从侧栏消失（正在浏览其面板时退出回区块视图，见下方回退逻辑）。
+    /// 侧栏计数只覆盖活跃任务（DOING/WAIT）：归档任务（DONE/DELETE）不推高计数；
+    /// 活跃任务全部归档的项目/标签保留显示 0，只有文档中不再存在（任务被永久删除）时才从侧栏移除。
+    /// 正在浏览其面板且计数归零时退出回区块视图（见下方回退逻辑）。
     /// 面板内容不受此限：仍按状态分段显示全部匹配任务。
     /// 触发点：文档加载/新建、任务增删与流转、任务编辑收起。
     /// 不在主行每次按键时刷新——避免正在编辑的任务因解析结果变化而中途从面板消失。</summary>
     private void RefreshFacets()
     {
-        var active = Blocks.SelectMany(b => b.Tasks).Where(t => t.IsActive).ToList();
-        RebuildFacetList(Projects, active.Where(t => t.ProjectName != null).Select(t => t.ProjectName!), FacetKind.Project);
-        RebuildFacetList(Tags, active.SelectMany(t => t.Tags), FacetKind.Tag);
+        var all = Blocks.SelectMany(b => b.Tasks).ToList();
+        var active = all.Where(t => t.IsActive).ToList();
+        RebuildFacetList(Projects,
+            active.Where(t => t.ProjectName != null).Select(t => t.ProjectName!),
+            all.Where(t => t.ProjectName != null).Select(t => t.ProjectName!),
+            FacetKind.Project);
+        RebuildFacetList(Tags, active.SelectMany(t => t.Tags), all.SelectMany(t => t.Tags), FacetKind.Tag);
         OnPropertyChanged(nameof(HasProjects));
         OnPropertyChanged(nameof(HasTags));
         OnPropertyChanged(nameof(ShowProjects));
         OnPropertyChanged(nameof(ShowTags));
 
-        // 当前项目/标签已没有任何任务：退出面板，回到首个有任务的区块
-        if (_selectedFacet != null && !Projects.Contains(_selectedFacet) && !Tags.Contains(_selectedFacet))
+        // 浏览中的项目/标签计数已归零（条目保留显示 0）或已从文档消失：退出面板，回到首个有任务的区块
+        if (_selectedFacet != null &&
+            (_selectedFacet.Count == 0 || !Projects.Contains(_selectedFacet) && !Tags.Contains(_selectedFacet)))
         {
             SelectedFacet = null;
             SelectedBlock = Blocks.FirstOrDefault(b => b.HasTasks) ?? Blocks.FirstOrDefault();
@@ -862,20 +868,25 @@ public sealed class MainViewModel : ViewModelBase
         NotifyScopeChanged();
     }
 
-    /// <summary>重建侧栏列表：复用同名实例（选中/悬停状态随之保留），仅更新计数并按需增删移动。</summary>
+    /// <summary>重建侧栏列表：复用同名实例（选中/悬停状态随之保留），仅更新计数并按需增删移动。
+    /// 计数只来自活跃任务；文档中仍存在但计数为 0 的条目保留（显示 0），已彻底消失（无任何任务引用）的移除。</summary>
     private static void RebuildFacetList(
-        ObservableCollection<FacetItemViewModel> list, IEnumerable<string> names, FacetKind kind)
+        ObservableCollection<FacetItemViewModel> list, IEnumerable<string> activeNames,
+        IEnumerable<string> allNames, FacetKind kind)
     {
-        var counts = names
+        var counts = activeNames
             .GroupBy(n => n, StringComparer.Ordinal)
             .Select(g => (Name: g.Key, Count: g.Count()))
             .OrderByDescending(x => x.Count)
             .ThenBy(x => x.Name, StringComparer.Ordinal)
             .ToList();
+        var existingNames = allNames.ToHashSet(StringComparer.Ordinal);
 
         for (var i = list.Count - 1; i >= 0; i--)
-            if (counts.All(c => c.Name != list[i].Name))
+            if (!existingNames.Contains(list[i].Name))
                 list.RemoveAt(i);
+            else if (counts.All(c => c.Name != list[i].Name))
+                list[i].Count = 0;   // 计数归零：保留条目，仅清计数
 
         for (var i = 0; i < counts.Count; i++)
         {

@@ -31,7 +31,18 @@
                     <TextBlock x:Name="NameText" Text="{Binding Name}" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="11"
-                               Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
+                               Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center">
+                        <!-- 计数为 0 时不显示数字，条目本身保留 -->
+                        <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
                 <DataTemplate.Triggers>
                     <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
