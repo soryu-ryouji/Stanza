@@ -11,7 +11,7 @@ namespace Stanza.App;
 
 /// <summary>
 /// 标签/项目选择器（FacetPickerPanel）：右键菜单（标签…/项目…）或 T/P 打开，
-/// 输入过滤 + 键盘高亮 + 创建新名称。焦点始终锁输入框（VS Code quick-open 语义）。
+/// 输入过滤 + 键盘高亮（方向键/Ctrl+N/P）+ 创建新名称。焦点始终锁输入框（VS Code quick-open 语义）。
 /// 行构建/高亮状态机/开闭落位骨架见 MainWindow.Pickers.cs。
 /// </summary>
 public partial class MainWindow
@@ -116,16 +116,15 @@ public partial class MainWindow
             CloseFacetPicker();
             return;
         }
-        // 方向键与 Alt+J/K（vim 语义）、Alt+N/P（VS Code quick-open 的 next/previous 语义）移动高亮行。
-        // Alt 组合的主键在 SystemKey 上（同 OnPreProcessInput）
+        // 方向键与 Ctrl+N/P（选项导航的统一键位，两种键盘模式一致）移动高亮行。
+        // Windows 模式 Alt 组是文本编辑手势、macOS 模式 Alt 扮演 Command（Alt+N=新建任务），均不用于选项导航；
+        // 输入框内 Ctrl+N/P 的应用命令（新建任务）已在 OnPreProcessInput 让路（焦点在本面板内）
         var navDelta = e.Key switch
         {
             Key.Up => -1,
             Key.Down => 1,
-            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.K => -1,
-            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.J => 1,
-            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.P => -1,
-            Key.System when Keyboard.Modifiers == ModifierKeys.Alt && e.SystemKey == Key.N => 1,
+            Key.P when Keyboard.Modifiers == ModifierKeys.Control => -1,
+            Key.N when Keyboard.Modifiers == ModifierKeys.Control => 1,
             _ => 0,
         };
         if (navDelta != 0)

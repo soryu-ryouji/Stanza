@@ -67,11 +67,12 @@ public partial class MainWindow
         if (Keyboard.FocusedElement is TextBoxBase && TextEditKeys.IsEditingGesture(Keyboard.Modifiers, key))
             return;
 
-        // 侧栏项目/标签列表与选择面板内的 Ctrl+N/P 是列表导航（quick-open 语义）：应用命令让路
-        // （Windows 模式下 Ctrl+N 默认新建任务），与文本编辑手势同一先例
+        // 侧栏项目/标签列表与选择面板内的 Ctrl+N/P 是选项导航（quick-open 语义，两种键盘模式统一）：
+        // 应用命令让路（Windows 模式下 Ctrl+N 默认新建任务），与文本编辑手势同一先例
         if (Keyboard.FocusedElement is DependencyObject facetFocus
             && (VisualTreeEx.IsWithin(facetFocus, ProjectList) || VisualTreeEx.IsWithin(facetFocus, TagList)
-                || VisualTreeEx.IsWithin(facetFocus, ChoicePickerPanel))
+                || VisualTreeEx.IsWithin(facetFocus, ChoicePickerPanel)
+                || VisualTreeEx.IsWithin(facetFocus, FacetPickerPanel))
             && key is Key.N or Key.P
             && Keyboard.Modifiers == ModifierKeys.Control)
             return;
@@ -200,6 +201,16 @@ public partial class MainWindow
         var focus = Keyboard.FocusedElement as DependencyObject;
         switch (command)
         {
+            // 新建任务（默认裸 N，两平台一致）：非输入上下文即可——文本框内是输入字符，
+            // 选择器/最近文件弹层/拖拽中让位；焦点落空（列表本体/窗口）时可用（与原 Ctrl+N 的全局语义一致）
+            case AppCommand.NewTask:
+                if (RecentPopup.IsOpen || _taskDragging || focus is TextBoxBase
+                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer))
+                    return false;
+                if (!VM.NewTaskCommand.CanExecute(null)) return false;
+                VM.NewTaskCommand.Execute(null);
+                return true;
+
             // 标记选中任务已完成（§9）。限任务列表焦点：编辑框内 Space 是输入、按钮上 Space 是激活
             case AppCommand.CompleteTask:
                 if (RecentPopup.IsOpen || focus is null or TextBoxBase

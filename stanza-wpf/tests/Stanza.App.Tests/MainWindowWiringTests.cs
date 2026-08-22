@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using Stanza.App.Behaviors;
 using Stanza.App.Services;
 using Stanza.App.ViewModels;
 using Stanza.Core;
@@ -120,6 +121,39 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
     });
 
     [Fact]
+    public void NKey_CreatesTask_OutsideTextInput_TypesInsideEditor() => OnUi(() =>
+    {
+        var path = WriteTempDoc("# DOING\n\n任务一\n\n");
+        var window = UiTestHost.CreateWindow(path);
+        try
+        {
+            var vm = VM(window);
+            var doing = vm.Blocks[0];
+            window.Activate();
+            window.TaskList.Focus();
+            UiTestHost.PumpUntil(() => Keyboard.FocusedElement != null, "焦点进入任务列表");
+
+            // 非输入上下文按裸 N：新建任务（任务作用域分发，焦点检查通过）
+            UiTestHost.SendKey(window, Key.N);
+            UiTestHost.PumpUntil(() => doing.Tasks.Count() == 2, "裸 N 新建任务");
+            var draft = doing.Tasks.Last();
+            Assert.True(draft.IsExpanded);   // 新任务展开待编辑
+
+            // 编辑框内按 N：任务作用域检查让位给文本输入，不触发新建
+            // （合成输入不产生 WPF 文本输入事件，字符插入是内建行为不在此验证；断言「未消费」的外在表现）
+            UiTestHost.PumpUntil(() => Keyboard.FocusedElement is TextBox, "焦点进新任务编辑框");
+            UiTestHost.SendKey(window, Key.N);
+            UiTestHost.Pump(200);
+            Assert.Equal(2, doing.Tasks.Count());   // 未再次新建
+            Assert.True(Keyboard.FocusedElement is TextBox);   // 焦点未被抢走
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
     public void PriorityPicker_AcceleratorKeyAppliesAndCloses() => OnUi(() =>
     {
         var path = WriteTempDoc("# DOING\n\n任务一\n\n");
@@ -182,6 +216,36 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
 
             Assert.Equal(Visibility.Collapsed, window.FacetPickerPanel.Visibility);
             Assert.NotNull(task.ProjectName);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void FacetJumpMode_PreviewHighlightUntilCommitted() => OnUi(() =>
+    {
+        var path = WriteTempDoc("# DOING\n\n任务一 +Apollo\n\n");
+        var window = UiTestHost.CreateWindow(path);
+        try
+        {
+            var vm = VM(window);
+            window.Activate();
+
+            // 无选中任务时按 P：进入侧栏跳转模式，预览高亮态激活（浅色，区别于正式选中）
+            UiTestHost.SendKey(window, Key.P);
+            UiTestHost.PumpUntil(
+                () => PreviewHighlight.GetIsActive(window.Sidebar.ProjectList),
+                "跳转模式预览高亮激活");
+            Assert.NotNull(vm.SelectedFacet);   // 移动选中即预览面板
+
+            // Enter 确认：预览高亮态退出，条目呈现正式选中色
+            UiTestHost.SendKey(window, Key.Enter);
+            UiTestHost.PumpUntil(
+                () => !PreviewHighlight.GetIsActive(window.Sidebar.ProjectList),
+                "确认后预览高亮退出");
+            Assert.NotNull(vm.SelectedFacet);   // 面板保持（确认而非取消）
         }
         finally
         {

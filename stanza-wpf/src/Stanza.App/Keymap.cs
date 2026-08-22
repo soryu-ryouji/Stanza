@@ -146,10 +146,9 @@ public sealed class Keymap
         var cmd = macOsMode ? ModifierKeys.Alt : ModifierKeys.Control;
         return
         [
-            // ---- 应用级（全局分发，与键盘焦点无关） ----
+            // ---- 应用级（全局分发，与键盘焦点无关；必须带修饰键） ----
             new(cmd, Key.S, AppCommand.Save),
             new(cmd, Key.O, AppCommand.Open),
-            new(cmd, Key.N, AppCommand.NewTask),
             new(cmd | ModifierKeys.Shift, Key.N, AppCommand.NewDocument),
             // OpenRecent 例外于键盘模式的命令修饰键迁移：VS Code macOS 的 Open Recent 是
             // Ctrl+R（不用 Command），两种模式统一跟随该惯例
@@ -162,6 +161,7 @@ public sealed class Keymap
 
             // ---- 任务作用域（仅任务列表焦点上下文分发；裸键不进文本框，见分发处的作用域检查） ----
             new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
+            new(ModifierKeys.None, Key.N, AppCommand.NewTask),   // 裸键新建（两模式一致），焦点检查见 TryExecuteTaskCommand
             new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
             new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
             new(ModifierKeys.None, Key.M, AppCommand.OpenMovePicker),
@@ -179,10 +179,11 @@ public sealed class Keymap
         ];
     }
 
-    /// <summary>任务作用域命令：仅在任务列表焦点上下文分发（MainWindow.Drag 中的作用域检查），
+    /// <summary>任务作用域命令：仅在焦点上下文检查通过后分发（MainWindow.Keyboard 中的作用域检查），
     /// 允许裸键绑定。应用级命令全局生效，必须带修饰键。未列入的新命令按应用级处理（安全方向）。</summary>
     public static bool IsTaskScoped(AppCommand command) => command is
-        AppCommand.CompleteTask or AppCommand.OpenTagPicker or AppCommand.OpenProjectPicker
+        AppCommand.CompleteTask or AppCommand.NewTask
+        or AppCommand.OpenTagPicker or AppCommand.OpenProjectPicker
         or AppCommand.OpenMovePicker or AppCommand.OpenPriorityPicker
         or AppCommand.DiscardTask or AppCommand.DeleteTask
         or AppCommand.NavigateUp or AppCommand.NavigateDown

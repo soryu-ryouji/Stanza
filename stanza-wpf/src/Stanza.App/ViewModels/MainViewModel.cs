@@ -256,12 +256,12 @@ public sealed partial class MainViewModel : ViewModelBase
     public ICommand DeleteSelectionCommand { get; }
     public ICommand SetPriorityCommand { get; }
 
-    /// <summary>键位表命令 ID → 命令实例（Keymap 分发用；ID 是后续用户键位文件的稳定标识）。</summary>
+    /// <summary>键位表命令 ID → 命令实例（Keymap 分发用；ID 是后续用户键位文件的稳定标识）。
+    /// 仅含应用级命令；任务作用域命令（含 NewTask）经 TryExecuteTaskCommand 的焦点检查分发，不走此映射。</summary>
     public ICommand? CommandFor(AppCommand command) => command switch
     {
         AppCommand.Save => SaveCommand,
         AppCommand.Open => OpenCommand,
-        AppCommand.NewTask => NewTaskCommand,
         AppCommand.NewDocument => NewDocumentCommand,
         AppCommand.OpenRecent => OpenRecentCommand,
         AppCommand.Undo => UndoCommand,

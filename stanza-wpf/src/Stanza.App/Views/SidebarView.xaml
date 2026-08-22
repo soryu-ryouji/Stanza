@@ -1,6 +1,7 @@
 <UserControl x:Class="Stanza.App.Views.SidebarView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
 
     <UserControl.Resources>
         <!-- 侧栏项目/标签条目：名称（含 +/# 前缀）+ 任务数 -->
@@ -27,10 +28,22 @@
                 </TextBlock>
             </Grid>
             <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+                <!-- 选中文字分两级：移动预览（P/T 跳转模式）蓝字正常字重，正式选中蓝字加粗 -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"/>
+                        <Condition Binding="{Binding Path=(behaviors:PreviewHighlight.IsActive), RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
                     <Setter TargetName="NameText" Property="Foreground" Value="{StaticResource AccentBrush}"/>
                     <Setter TargetName="NameText" Property="FontWeight" Value="SemiBold"/>
-                </DataTrigger>
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"/>
+                        <Condition Binding="{Binding Path=(behaviors:PreviewHighlight.IsActive), RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="NameText" Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                </MultiDataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>

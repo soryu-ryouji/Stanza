@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
+using Stanza.App.Behaviors;
 using Stanza.App.ViewModels;
 
 namespace Stanza.App;
@@ -85,14 +86,16 @@ public partial class MainWindow
     private BlockViewModel? _jumpPrevBlock;       // 进入前的区块
 
     /// <summary>无选中任务时按 P/T：焦点跳到对应的侧栏列表（项目/标签），方向键/jk/Ctrl+N/P 移动选中，
-    /// 选中变化经 SelectionChanged → VM.SelectedFacet 驱动右侧面板实时预览；
-    /// Enter 确认（焦点进任务列表）、Esc 取消（恢复进入前视图）、焦点离开列表 = 隐式确认。
+    /// 选中变化经 SelectionChanged → VM.SelectedFacet 驱动右侧面板实时预览（预览期间条目呈浅色高亮，
+    /// 与正式选中区分）；Enter 确认（焦点进任务列表）、Esc 取消（恢复进入前视图）、焦点离开列表 = 隐式确认。
     /// 对应列表为空时无操作。</summary>
     private void EnterFacetJumpMode(FacetKind kind)
     {
         var list = kind == FacetKind.Project ? ProjectList : TagList;
         var items = kind == FacetKind.Project ? VM.Projects : VM.Tags;
         if (items.Count == 0) return;
+        if (_jumpList != null && !ReferenceEquals(_jumpList, list))
+            PreviewHighlight.SetIsActive(_jumpList, false);   // 切换列表：旧列表退出预览态
         if (!_facetJumpActive)   // 跳转模式中对侧列表再按 P/T = 切换列表：保留进入前的视图快照（Esc 还原对象）
         {
             _jumpPrevFacet = VM.SelectedFacet;
@@ -100,32 +103,39 @@ public partial class MainWindow
         }
         _facetJumpActive = true;
         _jumpList = list;
+        PreviewHighlight.SetIsActive(list, true);   // 移动预览：选中条目呈浅色高亮
         // 预选：已在同类 facet 面板时落在该 facet，否则列表第一项
         var target = VM.SelectedFacet is { } current && current.Kind == kind ? current : items[0];
         list.SelectedItem = target;
         FocusFacetItem(list, target);
     }
 
-    /// <summary>确认跳转：面板已是预览状态，焦点进任务列表（j/k 随即驱动任务选择）。</summary>
-    private void CommitFacetJump()
+    /// <summary>退出跳转模式：清模式标记与预览高亮态（视图快照由调用方先行取用）。</summary>
+    private void ExitFacetJumpMode()
     {
+        if (_jumpList != null) PreviewHighlight.SetIsActive(_jumpList, false);
         _facetJumpActive = false;
         _jumpList = null;
         _jumpPrevFacet = null;
         _jumpPrevBlock = null;
+    }
+
+    /// <summary>确认跳转：面板已是预览状态，焦点进任务列表（j/k 随即驱动任务选择）。</summary>
+    private void CommitFacetJump()
+    {
+        ExitFacetJumpMode();
         ParkFocusOnTaskList();
     }
 
     /// <summary>取消跳转：恢复进入前的视图（facet 或区块；进入期间区块引用被 facet 顶掉，需显式恢复）。</summary>
     private void CancelFacetJump()
     {
-        _facetJumpActive = false;
-        _jumpList = null;
-        VM.SelectedFacet = _jumpPrevFacet;
-        if (_jumpPrevFacet == null)
-            VM.SelectedBlock = _jumpPrevBlock;
-        _jumpPrevFacet = null;
-        _jumpPrevBlock = null;
+        var prevFacet = _jumpPrevFacet;
+        var prevBlock = _jumpPrevBlock;
+        ExitFacetJumpMode();
+        VM.SelectedFacet = prevFacet;
+        if (prevFacet == null)
+            VM.SelectedBlock = prevBlock;
         ParkFocusOnTaskList();
     }
 
@@ -134,10 +144,7 @@ public partial class MainWindow
     {
         if (!_facetJumpActive || !ReferenceEquals(sender, _jumpList)) return;
         if (_jumpList!.IsKeyboardFocusWithin) return;
-        _facetJumpActive = false;
-        _jumpList = null;
-        _jumpPrevFacet = null;
-        _jumpPrevBlock = null;
+        ExitFacetJumpMode();
     }
 
     /// <summary>项目/标签列表按键：jk 与 Ctrl+N/P（quick-open 语义）移动选中，焦点跟随选中项，

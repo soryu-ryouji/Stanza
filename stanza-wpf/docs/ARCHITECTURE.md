@@ -196,6 +196,7 @@ flowchart TB
   - `RevealBehavior`：展开/收起动画（MaxHeight 动画 + 边距补偿 + 卡片外观 `IsChromeActive` 生命周期；基准边距绝对推算，打断不漂移）。
   - `CustomCaretBehavior`：自绘 2px 圆角光标（WPF 系统光标 1px 且不可调；对齐字形墨水范围、按系统闪烁频率）。
   - `ScrollBarAutoHide`：滚动条自动隐藏（滚动淡入、闲置 1.2s 淡出）。
+  - `PreviewHighlight`：P/T 跳转模式的预览高亮态——facet 列表选中项在移动预览时呈浅色（浅蓝底+蓝字正常字重），正式选中才为蓝底+加粗，区分两级选中强度。
 
 ## 6. 输入与快捷键体系（架构特色）
 
@@ -221,7 +222,7 @@ flowchart TB
 
 | 组件 | 职责 |
 | ---- | ---- |
-| `Keymap.cs` | `AppCommand` 枚举（应用级 7 个 + 任务作用域 11 个，稳定 ID 供用户键位文件引用）；默认键位表随键盘模式（Windows=Ctrl / macOS=Alt 扮演 Command）；用户覆盖（`%APPDATA%/Stanza/keymap.json`，整体替换语义同 VS Code）；`Gesture` 手势字符串互转 |
+| `Keymap.cs` | `AppCommand` 枚举（应用级 6 个 + 任务作用域 12 个，稳定 ID 供用户键位文件引用）；默认键位表随键盘模式（Windows=Ctrl / macOS=Alt 扮演 Command）；NewTask 两模式统一为裸键 N（任务作用域，编辑框内让位）；用户覆盖（`%APPDATA%/Stanza/keymap.json`，整体替换语义同 VS Code）；`Gesture` 手势字符串互转 |
 | `TextEditKeys.cs` | 文本框内平台风格编辑键（类级 PreviewKeyDown，先于内建行为）：Windows 模式 Alt 组（Alt+A/E/B/F/D/H/K/N/P），macOS 模式 Ctrl 组（Emacs 绑定）+ Alt 复制/粘贴/撤销 |
 | `NotesListEditing.cs` | 备注编辑框的列表记号自动续接（`-`、`- [ ]`、`1.`），Enter 续接/空记号退出。编辑器自由文本辅助，**不进 Core** |
 | 焦点管理 | `ParkFocusOnTaskList`（焦点停回任务列表，防 IME 吞键）、`NavKeysDeadOnFocus`（裸导航键接管时机判定）、`FocusTaskAtIndex`（删除后落位）。焦点语义是整个键盘体系的地基 |
