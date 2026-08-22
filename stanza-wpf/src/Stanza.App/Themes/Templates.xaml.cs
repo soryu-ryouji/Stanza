@@ -42,6 +42,14 @@ public partial class TaskTemplates : ResourceDictionary
     // 经 PlacementTarget（任务卡片，位于正常视觉树）中转
     private void FacetMenu_TagClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Tag);
 
+    // 「截止…」：打开日期选择器（同 D 键/工具栏按钮路径）
+    private void FacetMenu_DueClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Parent: ContextMenu { PlacementTarget: { } target } }
+            && Window.GetWindow(target) is MainWindow window)
+            window.OpenDuePicker();   // anchor 为 null：取鼠标位置
+    }
+
     private void FacetMenu_ProjectClick(object sender, RoutedEventArgs e) => ForwardFacetClick(sender, FacetKind.Project);
 
     // 「状态…」：在鼠标位置打开状态选择器（ContextMenu 关闭后由主窗口浮层接管，同标签/项目路径）

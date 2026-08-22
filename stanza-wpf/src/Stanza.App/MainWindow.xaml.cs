@@ -28,6 +28,7 @@ public partial class MainWindow : Window
             UndoRequested = UndoWithAnimation,
         };
         vm.TaskCreated += OnTaskCreated;
+        DueCalendar.DatePicked += OnDueDatePicked;   // 月历点选：应用并关闭（MainWindow.DatePicker.cs）
         DataContext = vm;
 
         // 区块切换后把焦点放进任务列表：否则焦点停在侧栏被点击的区块条目上，

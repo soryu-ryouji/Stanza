@@ -24,6 +24,7 @@
     <sys:String x:Key="Tip_Clear">Clear</sys:String>
     <sys:String x:Key="Tip_ClearConfirm">Click again to confirm</sys:String>
     <sys:String x:Key="Tip_Complete">Complete</sys:String>
+    <sys:String x:Key="Tip_DueDate">Set due date</sys:String>
     <sys:String x:Key="Tip_Defer">Move to WAIT</sys:String>
     <sys:String x:Key="Tip_Activate">Move to DOING</sys:String>
     <sys:String x:Key="Tip_Restore">Restore</sys:String>
@@ -48,6 +49,12 @@
 
     <!-- Tag/project picker -->
     <sys:String x:Key="Picker_Clear">Clear</sys:String>
+    <sys:String x:Key="DuePicker_Today">Today</sys:String>
+    <sys:String x:Key="DuePicker_Tomorrow">Tomorrow</sys:String>
+    <sys:String x:Key="DuePicker_NextWeek">In a week</sys:String>
+    <sys:String x:Key="DuePicker_Clear">Clear due date</sys:String>
+    <sys:String x:Key="DuePicker_Watermark">Date</sys:String>
+    <sys:String x:Key="DuePicker_Error">Invalid date (e.g. 2026-08-18 or 08-18)</sys:String>
     <sys:String x:Key="Picker_Tag">Tag</sys:String>
     <sys:String x:Key="Picker_Project">Project</sys:String>
     <sys:String x:Key="Picker_ErrorTag">Must start with a letter; letters, digits, _ and - allowed</sys:String>
@@ -71,6 +78,7 @@
     <!-- Task context menu -->
     <sys:String x:Key="Menu_State">State…</sys:String>
     <sys:String x:Key="Menu_Priority">Priority</sys:String>
+    <sys:String x:Key="Menu_Due">Due…</sys:String>
     <sys:String x:Key="Menu_Tags">Tags…</sys:String>
     <sys:String x:Key="Menu_Project">Project…</sys:String>
     <sys:String x:Key="Menu_Delete">Delete permanently</sys:String>

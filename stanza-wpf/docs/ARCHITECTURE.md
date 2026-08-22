@@ -130,7 +130,7 @@ flowchart TB
 
 ## 5. Stanza.App：视图层
 
-### 5.1 MainWindow 的十个 partial（code-behind 约 2700 行）
+### 5.1 MainWindow 的十一个 partial（code-behind 约 2800 行）
 
 无边框透明窗口，`MainWindow.xaml` 定义框架与浮层（334 行），侧栏与任务区拆分为 `Views/SidebarView`（272 行）与 `Views/TaskAreaView`（142 行）两个纯视觉组件，十个 `.cs` 各管一块。**code-behind 权重很高**：交互（拖拽、键盘、动画、焦点）都在这里，视图模型只管数据与规则。
 
@@ -142,6 +142,7 @@ flowchart TB
 | `MainWindow.Pickers.cs` | 265 | **选择器骨架**（两个选择器共用）：`PickerItem` 行描述符、代码行构建、高亮状态机（含尾部目标）、浮层开闭/落位/互斥 |
 | `MainWindow.FacetPicker.cs` | 213 | 标签/项目选择器（FacetPicker）：输入过滤 + 键盘高亮 + 创建新名称；连续 toggle（标签）/ 单选替换（项目）语义 |
 | `MainWindow.ChoicePicker.cs` | 185 | 通用选择面板（ChoicePicker，状态 M / 优先级 Shift+P）：入口行描述符、加速键直达、开关语义 |
+| `MainWindow.DatePicker.cs` | ~150 | 日期选择器（截止日，D / 工具栏 / 右键菜单）：Things 3 式浅色卡片——手输框 + 快捷预设行 + 自绘周历（`Views/WeekView`，四星期窗口） |
 | `MainWindow.Panels.cs` | 212 | 侧栏导航与窗口级交互：空白点击收起、项目/标签选中互斥、P/T 快速跳转模式、外部文件拖入 |
 | `MainWindow.Animations.cs` | 187 | 完成动画（勾选→变灰→淡出→补位）与撤销回归动画（按内容键 diff + 倒放） |
 | `MainWindow.Recent.cs` | 78 | 最近文件弹层：Ctrl+R 循环切换、键盘高亮行、条目移除 |
@@ -173,7 +174,7 @@ flowchart TB
     Root --> Ghost["GhostCanvas（拖拽幽灵卡片）"]
     Root --> Drop["DropOverlay（文件拖入遮罩）"]
     Root --> Overlays["SettingsOverlay / ExitOverlay（模态浮层，应用内视觉树）"]
-    Root --> Pickers["PickerLayer（FacetPickerPanel 标签/项目选择器<br/>+ ChoicePickerPanel 状态/优先级）"]
+    Root --> Pickers["PickerLayer（FacetPickerPanel 标签/项目 + ChoicePickerPanel 状态/优先级<br/>+ DatePickerPanel 截止日期）"]
 ```
 
 **关键决策**：所有浮层（设置、退出确认、选择器）都在窗口同一视觉树内，不用独立 `Popup`/HWND——规避跨 HWND 的焦点与失活时序问题，模态收编键盘靠路由事件过滤。
@@ -223,7 +224,7 @@ flowchart TB
 
 | 组件 | 职责 |
 | ---- | ---- |
-| `Keymap.cs` | `AppCommand` 枚举（应用级 6 个 + 任务作用域 12 个，稳定 ID 供用户键位文件引用）；默认键位表随键盘模式（Windows=Ctrl / macOS=Alt 扮演 Command）；NewTask 两模式统一为裸键 N（任务作用域，编辑框内让位）；用户覆盖（`%APPDATA%/Stanza/keymap.json`，整体替换语义同 VS Code）；`Gesture` 手势字符串互转 |
+| `Keymap.cs` | `AppCommand` 枚举（应用级 6 个 + 任务作用域 13 个，稳定 ID 供用户键位文件引用）；默认键位表随键盘模式（Windows=Ctrl / macOS=Alt 扮演 Command）；NewTask 两模式统一为裸键 N（任务作用域，编辑框内让位）；用户覆盖（`%APPDATA%/Stanza/keymap.json`，整体替换语义同 VS Code）；`Gesture` 手势字符串互转 |
 | `TextEditKeys.cs` | 文本框内平台风格编辑键（类级 PreviewKeyDown，先于内建行为）：Windows 模式 Alt 组（Alt+A/E/B/F/D/H/K/N/P），macOS 模式 Ctrl 组（Emacs 绑定）+ Alt 复制/粘贴/撤销 |
 | `NotesListEditing.cs` | 备注编辑框的列表记号自动续接（`-`、`- [ ]`、`1.`），Enter 续接/空记号退出。编辑器自由文本辅助，**不进 Core** |
 | 焦点管理 | `ParkFocusOnTaskList`（焦点停回任务列表，防 IME 吞键）、`NavKeysDeadOnFocus`（裸导航键接管时机判定）、`FocusTaskAtIndex`（删除后落位）。焦点语义是整个键盘体系的地基 |
@@ -344,7 +345,7 @@ flowchart TB
 | `TaskViewModel` 双轨状态 | 编辑文本与结构化属性同步（`_effective` 合并展示值） | 中：语义最微妙的类；已有往返/捕获/提交测试覆盖，下沉 Core 会污染其「格式规则」定位，不建议 |
 | 事件转发链 | 模板 → `Templates.xaml.cs` → `Window.GetWindow` → MainWindow | 低：样板化但直接；引入命令绑定可简化 |
 | 全局单例 | `Keymap.Current`、`Loc` 静态类 | 低：测试隔离困难，但改动面大、收益有限 |
-| 测试覆盖 | Core 82 个 + App 层 43 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线与键盘分发：真实窗口 + 视觉树 + 消息泵，见 UiTestHost） | 修饰键组合受合成输入限制（修饰键取自真实键盘设备），Ctrl 系路径人工验证 |
+| 测试覆盖 | Core 83 个 + App 层 59 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线与键盘分发：真实窗口 + 视觉树 + 消息泵，见 UiTestHost） | 修饰键组合受合成输入限制（修饰键取自真实键盘设备），Ctrl 系路径人工验证 |
 
 ## 11. 附录：文件清单速查
 
@@ -358,8 +359,9 @@ src/Stanza.Core/                      src/Stanza.App/
 ├── TaskTransitions.cs                 ├── MainWindow.Pickers.cs    # 选择器骨架（行描述符/高亮/开闭落位）
 ├── TaskState.cs                       ├── MainWindow.FacetPicker.cs # 标签/项目选择器
 ├── TimestampKeywords.cs               ├── MainWindow.ChoicePicker.cs # 状态/优先级选择面板
-├── StanzaPatterns.cs                  ├── MainWindow.Panels.cs     # 侧栏导航/跳转/文件拖放
-└──                                     ├── MainWindow.Animations.cs # 完成/撤销动画
+├── StanzaPatterns.cs                  ├── MainWindow.DatePicker.cs  # 日期选择器（截止日）
+└──                                     ├── MainWindow.Panels.cs     # 侧栏导航/跳转/文件拖放
+                                        ├── MainWindow.Animations.cs # 完成/撤销动画
                                         ├── MainWindow.Recent.cs     # 最近文件弹层
                                         ├── MainWindow.Toolbar.cs    # 清空二次确认
                                         ├── MainWindow.Settings.cs   # 设置浮层/键位编辑
@@ -370,7 +372,7 @@ src/Stanza.Core/                      src/Stanza.App/
                                         ├── Converters.cs            # 值转换器
                                         ├── VisualTreeEx.cs          # 视觉树工具
                                         ├── SquircleGeometry.cs      # 连续圆角几何
-                                        ├── Views/                   # 区域组件：SidebarView · TaskAreaView（纯视觉结构）
+                                        ├── Views/                   # 区域组件：SidebarView · TaskAreaView（纯视觉结构）· WeekView（自绘周历）
                                         ├── ViewModels/              # 视图模型层（MainViewModel 拆 4 个 partial）
                                         ├── Services/                # 本地化/存储/PInvoke
                                         ├── Behaviors/               # 附加属性行为

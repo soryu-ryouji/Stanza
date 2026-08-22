@@ -20,4 +20,5 @@ public partial class TaskAreaView : UserControl
     private void TaskList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => Host.TaskList_PreviewMouseLeftButtonDown(sender, e);
     private void TaskList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e) => Host.TaskList_PreviewMouseRightButtonDown(sender, e);
     private void ClearButton_Click(object sender, RoutedEventArgs e) => Host.ClearButton_Click(sender, e);
+    private void DueDateButton_Click(object sender, RoutedEventArgs e) => Host.DueDateButton_Click(sender, e);
 }

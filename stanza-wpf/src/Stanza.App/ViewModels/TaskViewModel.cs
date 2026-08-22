@@ -241,7 +241,20 @@ public sealed class TaskViewModel : ViewModelBase
     /// <summary>用于标题着色的象限字母：仅在 DOING/WAIT 且有优先级时非 null（其余情况标题保持默认墨色）。</summary>
     public char? DisplayQuadrant => State is TaskState.Doing or TaskState.Wait ? Priority : null;
 
-    public DateOnly? Due => _due;
+    public DateOnly? Due
+    {
+        get => _due;
+        set
+        {
+            if (Set(ref _due, value))
+            {
+                OnPropertyChanged(nameof(DueDisplay));
+                OnPropertyChanged(nameof(HasDue));
+                OnPropertyChanged(nameof(Urgency));
+                NotifyContentChanged();
+            }
+        }
+    }
     public string DueDisplay => Due?.ToString("yyyy-MM-dd") ?? "";
     public bool HasDue => Due != null;
 

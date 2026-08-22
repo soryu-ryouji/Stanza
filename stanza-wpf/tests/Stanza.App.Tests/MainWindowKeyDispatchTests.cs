@@ -1,8 +1,10 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using Stanza.App;
 using Stanza.App.Behaviors;
 using Stanza.App.ViewModels;
 using Stanza.Core;
@@ -174,6 +176,192 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
             // 焦点回到任务区：恢复完整色
             UiTestHost.SendKey(window, Key.Right);
             UiTestHost.PumpUntil(() => ReferenceEquals(card.Background, activeBrush), "回焦恢复完整色");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DKey_OpensDuePicker_PresetAndClearApply() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            window.OpenDuePicker();   // Shift+T 入口（合成输入无法注入修饰键，直调打开方法）
+            UiTestHost.PumpUntil(
+                () => window.DatePickerPanel.Visibility == Visibility.Visible,
+                "D 打开日期选择器");
+            // 预设三行（无日期后缀）；无当前截止时清除按钮隐藏；输入框空时显示「日期」水印
+            Assert.Equal(3, window.DatePickerRows.Children.Count);
+            Assert.Equal(Visibility.Collapsed, window.DueClearButton.Visibility);
+            UiTestHost.PumpUntil(() => VisualTreeEx.FindVisualChildren<TextBlock>(window.DatePickerInput)
+                .Any(w => w.Name == "Watermark" && w.Text == "日期" && w.Visibility == Visibility.Visible),
+                "空输入显示「日期」水印");
+
+            // 点「明天」行：应用并关闭
+            window.DatePickerRows.Children.OfType<Button>().ElementAt(1)
+                .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Assert.Equal(today.AddDays(1), task.Due);
+            Assert.Equal(Visibility.Collapsed, window.DatePickerPanel.Visibility);
+
+            // 再打开：预填当前截止；「清除截止」在面板最底部出现，点击清除
+            window.OpenDuePicker();   // Shift+T 入口（合成输入无法注入修饰键，直调打开方法）
+            UiTestHost.PumpUntil(
+                () => window.DatePickerPanel.Visibility == Visibility.Visible,
+                "再次打开日期选择器");
+            Assert.Equal(3, window.DatePickerRows.Children.Count);
+            Assert.Equal(today.AddDays(1).ToString("yyyy-MM-dd"), window.DatePickerInput.Text);
+            Assert.Equal(Visibility.Visible, window.DueClearButton.Visibility);
+            window.DueClearButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Assert.Null(task.Due);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DuePicker_DefaultGesture_IsShiftT()
+    {
+        // 键位映射基线（合成输入无法注入修饰键，链路在此钉住；打开后的行为由其他用例覆盖）
+        var entry = Keymap.Current.DefaultEntries.First(e => e.Command == AppCommand.OpenDuePicker);
+        Assert.Equal(ModifierKeys.Shift, entry.Modifiers);
+        Assert.Equal(Key.T, entry.Key);
+        Assert.True(Keymap.IsTaskScoped(AppCommand.OpenDuePicker));   // 编辑框内让位
+    }
+
+    [Fact]
+    public void DueMenuItem_ShowsShiftTGestureHint() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            UiTestHost.PumpUntil(() => UiTestHost.ContainerOf(window, task) != null, "容器生成");
+            var card = VisualTreeEx.FindVisualChildren<Border>(UiTestHost.ContainerOf(window, task)!)
+                .First(b => b.Name == "Card");
+            var menu = card.ContextMenu;
+            menu.IsOpen = true;   // 触发 Opened：按 Tag 刷新快捷键提示
+            try
+            {
+                var dueItem = menu.Items.OfType<MenuItem>().First(m => m.Tag as string == "OpenDuePicker");
+                Assert.Equal("Shift+T", dueItem.InputGestureText);
+            }
+            finally
+            {
+                menu.IsOpen = false;
+            }
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DuePicker_CalendarSelectionApplies() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+
+            window.OpenDuePicker();   // Shift+T 入口（合成输入无法注入修饰键，直调打开方法）
+            UiTestHost.PumpUntil(
+                () => window.DatePickerPanel.Visibility == Visibility.Visible,
+                "D 打开日期选择器");
+
+            // 月历点选：找到目标日期格点击（程序化设 SelectedDate 是初始化路径，不触发应用）
+            var picked = DateOnly.FromDateTime(DateTime.Today).AddDays(5);
+            UiTestHost.PumpUntil(() => VisualTreeEx.FindVisualChildren<Button>(window.DueCalendar)
+                .Any(b => b.DataContext is Views.WeekView.DateCell c && c.Date == picked), "日期格生成");
+            VisualTreeEx.FindVisualChildren<Button>(window.DueCalendar)
+                .First(b => b.DataContext is Views.WeekView.DateCell c && c.Date == picked)
+                .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+
+            Assert.Equal(picked, task.Due);
+            Assert.Equal(Visibility.Collapsed, window.DatePickerPanel.Visibility);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DuePicker_WeekWindow_FourWeeksFromCurrentWeek() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+
+            window.OpenDuePicker();   // Shift+T 入口（合成输入无法注入修饰键，直调打开方法）
+            UiTestHost.PumpUntil(
+                () => window.DatePickerPanel.Visibility == Visibility.Visible,
+                "D 打开日期选择器");
+
+            var cal = window.DueCalendar;
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            // 粗略视图：不显示年月，四星期窗口 = 27 日期格 + 末格内嵌 ›（翻页）；起点为本周首日（含今天）
+            Assert.Equal(28, cal.Days.Count);
+            Assert.Equal(27, cal.Days.Count(c => c.Pager == 0));
+            Assert.Equal(1, cal.Days.Count(c => c.Pager == 1));
+            Assert.Equal("日", cal.WeekdayNames[0]);   // 周列头跟随界面语言（中文），周日为首
+            Assert.True(cal.Days[0].Date <= today && cal.Days[0].Date.AddDays(7) > today,
+                "首页起点应在本周首曰");
+            Assert.Contains(cal.Days, c => c.IsToday && c.Date == today);
+            Assert.All(cal.Days.Where(c => c.Pager == 0 && c.Date < today), c => Assert.True(c.IsPast));   // 过去禁用
+
+            // 翻页：› 向后三星期（步长 21：周首对齐且被替代日期在邻页可见）；翻页后首格为 ‹ 回翻
+            var firstBefore = cal.Days[0].Date;
+            cal.NextPage();
+            Assert.Equal(-1, cal.Days[0].Pager);   // 首格变为回翻
+            Assert.Equal(firstBefore.AddDays(22), cal.Days[1].Date);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DuePicker_EnterCommitsTypedDate() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+
+            window.OpenDuePicker();   // Shift+T 入口（合成输入无法注入修饰键，直调打开方法）
+            UiTestHost.PumpUntil(
+                () => window.DatePickerPanel.Visibility == Visibility.Visible,
+                "D 打开日期选择器");
+            UiTestHost.PumpUntil(
+                () => Keyboard.FocusedElement == window.DatePickerInput,
+                "焦点锁进日期输入框");   // 聚焦是 BeginInvoke 异步迁移，需先等位再发键
+
+            // 合成输入不产生文本输入事件，直接设值模拟手输；Enter 提交
+            window.DatePickerInput.Text = "2026-08-18";
+            UiTestHost.SendKey(window, Key.Enter);
+
+            Assert.Equal(new DateOnly(2026, 8, 18), task.Due);
+            Assert.Equal(Visibility.Collapsed, window.DatePickerPanel.Visibility);
         }
         finally
         {

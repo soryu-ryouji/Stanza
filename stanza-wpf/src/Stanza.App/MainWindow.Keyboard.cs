@@ -273,6 +273,12 @@ public partial class MainWindow
                        && !RecentPopup.IsOpen && !_taskDragging && VM.HasActiveSelection,
             Run: _ => OpenPriorityPicker(SelectedTaskAnchor())),
 
+        // 打开日期选择器（D）：作用域同优先级（截止日同样只属于活跃任务）
+        new(AppCommand.OpenDuePicker,
+            When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
+                       && !RecentPopup.IsOpen && !_taskDragging && VM.HasActiveSelection,
+            Run: _ => OpenDuePicker(SelectedTaskAnchor())),
+
         // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
         new(AppCommand.DiscardTask,
             When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)

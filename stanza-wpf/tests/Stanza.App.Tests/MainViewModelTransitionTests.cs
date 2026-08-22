@@ -104,6 +104,26 @@ public class MainViewModelTransitionTests : StaTestHost.StaFactBase
     });
 
     [Fact]
+    public void SetDueForSelection_SetsDueAndResorts() => OnUi(() =>
+    {
+        var vm = NewDoc();
+        var doing = Block(vm, TaskState.Doing);
+        var a = AddTask(vm, doing, "甲");
+        var b = AddTask(vm, doing, "乙");
+        Assert.Equal(new[] { a, b }, doing.Tasks);   // 同键稳定序
+
+        vm.UpdateSelection(new[] { b });
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        vm.SetDueForSelection(today);
+
+        Assert.Equal(today, b.Due);
+        Assert.Equal(new[] { b, a }, doing.Tasks);   // 截止是排序键：有日期的提前
+
+        vm.SetDueForSelection(null);   // 清除（b 仍在选中集）
+        Assert.Null(b.Due);
+    });
+
+    [Fact]
     public void ActiveTasks_SettleSort_ByQuadrantThenDue() => OnUi(() =>
     {
         var vm = NewDoc();

@@ -1,0 +1,100 @@
+<UserControl x:Class="Stanza.App.Views.WeekView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 自绘周历（参考 Things 3 的粗略视图，深色面板）：不显示年月，只列周列头；
+         从今天所在周起列出四星期（28 格），跨月连续排列、月初格带月界标记（「9月1」/「Sep 1」）。
+         末格内嵌 › 翻页（步长 3 周：保持周首对齐且被替代日期在下一页可见）；翻页后首格为 ‹ 回翻。
+         过去日期灰显禁用（截止是未来语义）；今天 Accent 色；选中日 Accent 圆底白字。
+         自含组件：经 SelectedDate / DatePicked 与外部通信。 -->
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 周列头：首日随系统文化（zh 周一 / en 周日等），名称取文化缩写 -->
+        <ItemsControl Grid.Row="0" Margin="2,0,2,2"
+                      ItemsSource="{Binding WeekdayNames, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="7"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" FontSize="10" HorizontalAlignment="Center"
+                               Foreground="{StaticResource FaintBrush}"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- 日期网格：4 行 × 7 列；末格 ›（翻页），翻页后首格 ‹（回翻） -->
+        <ItemsControl Grid.Row="1"
+                      ItemsSource="{Binding Days, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Columns="7"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Click="Day_Click" Cursor="Hand" Background="Transparent"
+                            BorderThickness="0" Padding="0" Margin="1"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <Button.Template>
+                            <ControlTemplate TargetType="{x:Type Button}">
+                                <Border x:Name="Bg" Width="26" Height="26" CornerRadius="13"
+                                        Background="{TemplateBinding Background}">
+                                    <TextBlock Text="{Binding Display}" FontSize="11"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{TemplateBinding Foreground}"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="Bg" Property="Background" Value="{StaticResource DarkPanelRaisedBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.35"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Button.Style>
+                            <Style TargetType="{x:Type Button}">
+                                <Setter Property="Foreground" Value="{StaticResource OnDarkTextBrush}"/>
+                                <Style.Triggers>
+                                    <!-- 翻页格：淡灰图标，不参与日期状态 -->
+                                    <DataTrigger Binding="{Binding Pager}" Value="1">
+                                        <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+                                        <Setter Property="FontFamily" Value="{StaticResource IconFont}"/>
+                                        <Setter Property="FontSize" Value="10"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Pager}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+                                        <Setter Property="FontFamily" Value="{StaticResource IconFont}"/>
+                                        <Setter Property="FontSize" Value="10"/>
+                                    </DataTrigger>
+                                    <!-- 过去日期禁用；今天 Accent 色；选中日 Accent 底白字（优先级最高） -->
+                                    <DataTrigger Binding="{Binding IsPast}" Value="True">
+                                        <Setter Property="IsEnabled" Value="False"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

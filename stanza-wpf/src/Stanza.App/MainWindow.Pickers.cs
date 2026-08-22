@@ -82,23 +82,24 @@ public partial class MainWindow
     // ---- 行构建 ----
 
     /// <summary>按行描述重建行按钮（打开/刷新时调用；行数少，成本可忽略）。
-    /// 徽章列仅在存在有徽章的行时保留（FacetPicker 全无徽章不缩进，与拆分前视觉一致）。</summary>
-    private void BuildPickerRows(StackPanel host)
+    /// 徽章列仅在存在有徽章的行时保留（FacetPicker 全无徽章不缩进，与拆分前视觉一致）。
+    /// 行样式随面板明暗取 PickerRowButton（深色）/LightPickerRowButton（浅色）。</summary>
+    private void BuildPickerRows(StackPanel host, string rowStyleKey = "PickerRowButton")
     {
         _pickerRowHost = host;
         host.Children.Clear();
         var anyBadge = _pickerItems.Any(i => i.Badge != null);
+        var rowStyle = (Style)FindResource(rowStyleKey);
         foreach (var item in _pickerItems)
         {
             var row = new Button
             {
-                Style = (Style)FindResource("PickerRowButton"),
+                Style = rowStyle,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
                 DataContext = item,
                 Content = MakePickerRowContent(item, anyBadge),
             };
             row.Click += PickerRow_Click;
-            row.MouseEnter += PickerRow_MouseEnter;
             host.Children.Add(row);
         }
         UpdatePickerHighlightVisuals();
@@ -200,14 +201,8 @@ public partial class MainWindow
         return trigger;
     }
 
-    // ---- 行交互（两个选择器共用：悬停迁移高亮；点击 = 高亮 + 应用） ----
-
-    private void PickerRow_MouseEnter(object sender, MouseEventArgs e)
-    {
-        if (sender is not Button { DataContext: PickerItem item }) return;
-        var i = PickerItemIndexOf(item);
-        if (i >= 0) SetPickerHighlight(i);
-    }
+    // ---- 行交互（两个选择器共用）：点击 = 高亮 + 应用；悬停是纯视觉（行样式 IsMouseOver 弱档），
+    // 不迁移键盘高亮——鼠标移走后键盘高亮保持在原行（VS Code quick-open 同款双轨语义） ----
 
     private void PickerRow_Click(object sender, RoutedEventArgs e)
     {
@@ -245,11 +240,20 @@ public partial class MainWindow
             ParkFocusOnTaskList();
     }
 
-    /// <summary>浮层承载两个选择器面板（标签/项目、通用选择），任一可见即需要浮层拦截点击。</summary>
+    /// <summary>浮层互斥：打开任一选择器前关闭全部（同一时刻只开一个）。</summary>
+    private void CloseAllPickers()
+    {
+        CloseFacetPicker();
+        CloseChoicePicker();
+        CloseDatePicker();
+    }
+
+    /// <summary>浮层承载三个选择器面板（标签/项目、通用选择、日期），任一可见即需要浮层拦截点击。</summary>
     private void UpdatePickerLayerVisibility()
         => PickerLayer.Visibility =
             FacetPickerPanel.Visibility == Visibility.Visible
             || ChoicePickerPanel.Visibility == Visibility.Visible
+            || DatePickerPanel.Visibility == Visibility.Visible
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -261,5 +265,7 @@ public partial class MainWindow
             CloseFacetPicker();
         if (!VisualTreeEx.IsWithin(source, ChoicePickerPanel))
             CloseChoicePicker();
+        if (!VisualTreeEx.IsWithin(source, DatePickerPanel))
+            CloseDatePicker();
     }
 }

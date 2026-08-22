@@ -22,6 +22,7 @@ public enum AppCommand
     OpenProjectPicker,
     OpenMovePicker,
     OpenPriorityPicker,
+    OpenDuePicker,
     DiscardTask,
     DeleteTask,
     NavigateUp,
@@ -166,6 +167,7 @@ public sealed class Keymap
             new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
             new(ModifierKeys.None, Key.M, AppCommand.OpenMovePicker),
             new(ModifierKeys.Shift, Key.P, AppCommand.OpenPriorityPicker),
+            new(ModifierKeys.Shift, Key.T, AppCommand.OpenDuePicker),   // Shift+T 打开日期选择器（两模式一致）
             new(ModifierKeys.None, Key.Back, AppCommand.DiscardTask),
             new(ModifierKeys.None, Key.Delete, AppCommand.DeleteTask),
             new(ModifierKeys.None, Key.Up, AppCommand.NavigateUp),
@@ -184,7 +186,7 @@ public sealed class Keymap
     public static bool IsTaskScoped(AppCommand command) => command is
         AppCommand.CompleteTask or AppCommand.NewTask
         or AppCommand.OpenTagPicker or AppCommand.OpenProjectPicker
-        or AppCommand.OpenMovePicker or AppCommand.OpenPriorityPicker
+        or AppCommand.OpenMovePicker or AppCommand.OpenPriorityPicker or AppCommand.OpenDuePicker
         or AppCommand.DiscardTask or AppCommand.DeleteTask
         or AppCommand.NavigateUp or AppCommand.NavigateDown
         or AppCommand.NavigateLeft or AppCommand.NavigateRight;

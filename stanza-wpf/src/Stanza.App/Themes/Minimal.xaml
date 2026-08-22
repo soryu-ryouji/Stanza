@@ -154,11 +154,12 @@
                                           VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- 双轨高亮：悬停（IsMouseOver）与键盘高亮（Tag=true）同为 Accent 蓝底白字，
+                             区别在生命周期——悬停纯视觉、移走即消（不进状态）；键盘高亮由方向键/Ctrl+N/P 驱动、保持 -->
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="White"/>
                         </Trigger>
-                        <!-- 键盘高亮行（方向键/Ctrl+N/P 移动，悬停同步） -->
                         <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{StaticResource AccentBrush}"/>
                             <Setter Property="Foreground" Value="White"/>

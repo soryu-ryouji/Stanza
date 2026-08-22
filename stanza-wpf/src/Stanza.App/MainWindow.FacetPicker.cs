@@ -26,7 +26,7 @@ public partial class MainWindow
     internal void OpenFacetPicker(FacetKind kind, Point? anchor = null)
     {
         if (!VM.HasSelection) return;
-        CloseChoicePicker();   // 浮层互斥：同一时刻只开一个选择器
+        CloseAllPickers();   // 浮层互斥：同一时刻只开一个选择器
         _pickerKind = kind;
         _pickerHighlight = null;            // 初始为输入态
         _pickerHighlightNullable = true;
@@ -198,9 +198,6 @@ public partial class MainWindow
     }
 
     private void FacetPickerClear_Click(object sender, RoutedEventArgs e) => ApplyPickerClear();
-
-    private void FacetPickerClear_MouseEnter(object sender, MouseEventArgs e)
-        => SetPickerHighlight(_pickerItems.Count);   // 尾部目标索引
 
     /// <summary>「清除」：清空选中任务的该类 facet（标签全清 / 项目置空）并关闭浮层。</summary>
     private void ApplyPickerClear()

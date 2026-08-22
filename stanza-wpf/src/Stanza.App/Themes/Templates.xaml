@@ -57,6 +57,8 @@
                               ItemsSource="{Binding PlacementTarget.Tag.PriorityOptions, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"
                               Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
                     </MenuItem>
+                    <MenuItem Icon="&#xE787;" Header="{DynamicResource Menu_Due}" Tag="OpenDuePicker" Click="FacetMenu_DueClick"
+                              Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}"/>
                     <MenuItem Icon="&#xE8EC;" Header="{DynamicResource Menu_Tags}" Tag="OpenTagPicker" Click="FacetMenu_TagClick">
                     </MenuItem>
                     <MenuItem Icon="&#xE8B7;" Header="{DynamicResource Menu_Project}" Tag="OpenProjectPicker" Click="FacetMenu_ProjectClick">

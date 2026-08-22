@@ -97,6 +97,13 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                             Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                    <!-- 截止日：打开日期选择器（同 D 键/右键「截止…」），仅活跃任务可用 -->
+                    <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_DueDate}"
+                            Click="DueDateButton_Click"
+                            Visibility="{Binding ScopeIsActive, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE787;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
                     <Button Style="{StaticResource ToolIconButton}" ToolTip="{DynamicResource Tip_Complete}"
                             Command="{Binding CompleteSelectionCommand}"
                             Visibility="{Binding ScopeIsActive, Converter={StaticResource BoolToVis}}">

@@ -114,7 +114,7 @@ public partial class MainWindow
     /// 全部按键在 ChoicePicker_KeyDown 统一处理。</summary>
     private void OpenChoicePicker(IReadOnlyList<PickerItem> items, ModifierKeys toggleModifiers, Key toggleKey, Point? anchor)
     {
-        CloseFacetPicker();   // 浮层互斥：同一时刻只开一个选择器
+        CloseAllPickers();   // 浮层互斥：同一时刻只开一个选择器
         _pickerItems = items;
         _pickerTailButton = null;
         _pickerHighlightNullable = false;

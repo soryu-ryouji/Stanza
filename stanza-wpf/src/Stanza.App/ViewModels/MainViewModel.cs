@@ -294,6 +294,17 @@ public sealed partial class MainViewModel : ViewModelBase
         SettleSort();   // 排序键变化后重排（象限 → 截止日期）
     }
 
+    /// <summary>设置选中任务的截止日（仅限活跃状态任务；null = 清除）。
+    /// 日期选择器（浮层/右键菜单/工具栏）的唯一入口。</summary>
+    public void SetDueForSelection(DateOnly? date)
+    {
+        var targets = SelectedTasks.Where(t => t.IsActive).ToList();
+        if (targets.Count == 0) return;
+        PushUndoSnapshot();
+        foreach (var t in targets) t.Due = date;
+        SettleSort();   // 排序键变化后重排（象限 → 截止日期）
+    }
+
     // ---- 展开状态 ----
 
     /// <summary>展开指定任务（同时收起之前展开的任务）。</summary>

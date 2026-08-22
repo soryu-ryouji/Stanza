@@ -271,11 +271,40 @@
                     <Button x:Name="FacetPickerClear" Style="{StaticResource PickerRowButton}"
                             Background="{StaticResource DarkPanelRaisedBrush}"
                             HorizontalContentAlignment="Center" Margin="0,2,0,0"
-                            MouseEnter="FacetPickerClear_MouseEnter"
                             Click="FacetPickerClear_Click">
                         <!-- 显式 TextBlock：字符串内容自动生成的 TextBlock 会被隐式样式的墨色
                              盖住按钮前景色，必须显式绑定 -->
                         <TextBlock Text="{DynamicResource Picker_Clear}"
+                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+            <!-- 日期选择器（参考 Things 3 的 When 面板）：深色面板 + 手输框 + 快捷预设 + 自绘周历（WeekView）。
+                 「清除截止」固定在最底部（周历下方），是高亮循环的尾部目标 -->
+            <Border x:Name="DatePickerPanel" Width="234" Padding="6" Visibility="Collapsed"
+                    Background="{StaticResource DarkPanelBrush}" CornerRadius="8"
+                    BorderBrush="{StaticResource DarkPanelBorderBrush}" BorderThickness="1"
+                    SnapsToDevicePixels="True"
+                    PreviewKeyDown="DatePicker_KeyDown">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF1C1C1E"/>
+                </Border.Effect>
+                <StackPanel>
+                    <TextBox x:Name="DatePickerInput" FontSize="12" Margin="2,0" TextAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Foreground="{StaticResource OnDarkTextBrush}"
+                             Background="{StaticResource DarkPanelRaisedBrush}"
+                             Tag="{DynamicResource DuePicker_Watermark}"
+                             TextChanged="DatePickerInput_TextChanged"/>
+                    <TextBlock x:Name="DatePickerError" FontSize="11" Margin="6,2,6,0" Visibility="Collapsed"
+                               Foreground="{StaticResource DangerBrush}"/>
+                    <StackPanel x:Name="DatePickerRows" Margin="0,2"/>
+                    <views:WeekView x:Name="DueCalendar" Margin="2,2,2,0"/>
+                    <Button x:Name="DueClearButton" Style="{StaticResource PickerRowButton}"
+                            Background="{StaticResource DarkPanelRaisedBrush}"
+                            HorizontalContentAlignment="Center" Margin="0,4,0,0" Visibility="Collapsed"
+                            Click="DueClear_Click">
+                        <TextBlock Text="{DynamicResource DuePicker_Clear}"
                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"/>
                     </Button>
                 </StackPanel>
