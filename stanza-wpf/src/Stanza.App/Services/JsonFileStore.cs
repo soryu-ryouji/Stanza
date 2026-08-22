@@ -9,11 +9,14 @@ namespace Stanza.App.Services;
 /// </summary>
 internal static class JsonFileStore
 {
-    /// <summary>配置文件路径：%APPDATA%/Stanza/&lt;fileName&gt;。</summary>
-    public static string PathFor(string fileName)
-        => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "Stanza", fileName);
+    /// <summary>配置根目录（默认 %APPDATA%/Stanza）。测试进程启动时重定向到临时目录：
+    /// GetFolderPath 自 .NET 8 起经 SHGetKnownFolderPath 解析，进程级 APPDATA 环境变量重定向对其无效，
+    /// 必须显式改此属性（测试见 StaTestHost.AppDomainInit）。</summary>
+    public static string BaseDirectory { get; set; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Stanza");
+
+    /// <summary>配置文件路径：&lt;BaseDirectory&gt;/&lt;fileName&gt;。</summary>
+    public static string PathFor(string fileName) => Path.Combine(BaseDirectory, fileName);
 
     public static T Load<T>(string path) where T : new()
     {

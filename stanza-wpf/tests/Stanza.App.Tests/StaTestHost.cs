@@ -1,11 +1,12 @@
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using Stanza.App.Services;
 
 namespace Stanza.App.Tests;
 
 /// <summary>
-/// 串行化集合：共享 %APPDATA% 隔离目录的测试类不得并行（配置读写存在竞争）。
+/// 串行化集合：共享配置隔离目录的测试类不得并行（配置读写存在竞争）。
 /// </summary>
 [CollectionDefinition("AppData", DisableParallelization = true)]
 public class AppDataCollection;
@@ -44,7 +45,7 @@ public static class StaTestHost
     }
 }
 
-/// <summary>程序集加载时：隔离 %APPDATA%（配置存储路径重定向到临时目录，不读写真实用户配置），
+/// <summary>程序集加载时：隔离配置目录（重定向到临时目录，不读写真实用户配置），
 /// 并创建 Application（仅一次）。</summary>
 internal static class AppDomainInit
 {
@@ -54,7 +55,9 @@ internal static class AppDomainInit
         var dir = Path.Combine(Path.GetTempPath(), "stanza-test-appdata");
         if (Directory.Exists(dir)) Directory.Delete(dir, true);
         Directory.CreateDirectory(dir);
-        Environment.SetEnvironmentVariable("APPDATA", dir);
+        // 显式重定向：GetFolderPath 自 .NET 8 起经 SHGetKnownFolderPath 解析，
+        // 进程级 APPDATA 环境变量修改对其无效（会写真实用户配置）
+        JsonFileStore.BaseDirectory = dir;
         StaTestHost.Run(() => _ = new Application());
     }
 }

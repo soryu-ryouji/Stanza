@@ -118,4 +118,74 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
             UiTestHost.CloseWindow(window);
         }
     });
+
+    [Fact]
+    public void PriorityPicker_AcceleratorKeyAppliesAndCloses() => OnUi(() =>
+    {
+        var path = WriteTempDoc("# DOING\n\n任务一\n\n");
+        var window = UiTestHost.CreateWindow(path);
+        try
+        {
+            var vm = VM(window);
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+
+            window.Activate();
+            window.OpenPriorityPicker();
+            UiTestHost.PumpUntil(
+                () => window.ChoicePickerPanel.Visibility == Visibility.Visible
+                    && Keyboard.FocusedElement == window.ChoicePickerPanel,
+                "选择面板打开并聚焦");
+            // 行即时构建：象限 A-D + 无优先级，共 5 行
+            Assert.Equal(5, window.ChoicePickerRows.Children.Count);
+
+            UiTestHost.SendKey(window, Key.D2);   // 面板内加速键直达：2 = 象限 B
+
+            Assert.Equal('B', task.Priority);
+            Assert.Equal(Visibility.Collapsed, window.ChoicePickerPanel.Visibility);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void FacetPicker_TagToggleKeepsOpen_ProjectAppliesAndCloses() => OnUi(() =>
+    {
+        var path = WriteTempDoc("# DOING\n\n任务一 +Apollo\n\n");
+        var window = UiTestHost.CreateWindow(path);
+        try
+        {
+            var vm = VM(window);
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+
+            // 标签：点击行 = toggle 应用，浮层保持开启（连续切换语义）
+            window.OpenFacetPicker(FacetKind.Tag);
+            UiTestHost.PumpUntil(() => window.FacetPickerPanel.Visibility == Visibility.Visible, "标签选择器打开");
+            Assert.True(window.FacetPickerRows.Children.Count > 0);   // 内置常用标签候选
+
+            window.FacetPickerRows.Children.OfType<Button>().First()
+                .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+
+            var tag = Assert.Single(task.Tags);
+            Assert.NotEmpty(tag);
+            Assert.Equal(Visibility.Visible, window.FacetPickerPanel.Visibility);
+            Assert.True(window.FacetPickerRows.Children.Count > 0);   // 行已重建
+
+            // 项目（文档候选仅 Apollo）：应用即关闭（每条任务至多一个项目）
+            window.OpenFacetPicker(FacetKind.Project);
+            UiTestHost.PumpUntil(() => window.FacetPickerPanel.Visibility == Visibility.Visible, "项目选择器打开");
+            window.FacetPickerRows.Children.OfType<Button>().First()
+                .RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+
+            Assert.Equal(Visibility.Collapsed, window.FacetPickerPanel.Visibility);
+            Assert.NotNull(task.ProjectName);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
 }

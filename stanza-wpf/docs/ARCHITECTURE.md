@@ -139,7 +139,9 @@ flowchart TB
 | `MainWindow.xaml.cs` | 208 | 构造与装配（VM 注入回调、属性监听、焦点管理钩子）；窗口拖拽/最小化/最大化/关闭；退出确认遮罩（应用内，非 MessageBox）；文件对话框 |
 | `MainWindow.Keyboard.cs` | 524 | **键盘分发与焦点管理**：应用级快捷键分发（`OnPreProcessInput`）、任务作用域命令执行（`TryExecuteTaskCommand` + 焦点作用域检查）、Shift+jk 扩展选中、Esc/Enter 语义键、焦点管理（`NavKeysDeadOnFocus`、`ParkFocusOnTaskList`） |
 | `MainWindow.Drag.cs` | 396 | **任务拖拽状态机**：点击/双击判定、拖拽阈值、占位项预览（区块模式悬停切换 / 面板模式按分段）、幽灵卡片、自动滚动、新建任务滚动聚焦 |
-| `MainWindow.Pickers.cs` | 602 | 两个选择器浮层：标签/项目选择器（FacetPicker，输入过滤 + 键盘高亮）与通用选择面板（ChoicePicker，状态 M / 优先级 Shift+P，加速键直达） |
+| `MainWindow.Pickers.cs` | 265 | **选择器骨架**（两个选择器共用）：`PickerItem` 行描述符、代码行构建、高亮状态机（含尾部目标）、浮层开闭/落位/互斥 |
+| `MainWindow.FacetPicker.cs` | 213 | 标签/项目选择器（FacetPicker）：输入过滤 + 键盘高亮 + 创建新名称；连续 toggle（标签）/ 单选替换（项目）语义 |
+| `MainWindow.ChoicePicker.cs` | 185 | 通用选择面板（ChoicePicker，状态 M / 优先级 Shift+P）：入口行描述符、加速键直达、开关语义 |
 | `MainWindow.Panels.cs` | 212 | 侧栏导航与窗口级交互：空白点击收起、项目/标签选中互斥、P/T 快速跳转模式、外部文件拖入 |
 | `MainWindow.Animations.cs` | 187 | 完成动画（勾选→变灰→淡出→补位）与撤销回归动画（按内容键 diff + 倒放） |
 | `MainWindow.Recent.cs` | 78 | 最近文件弹层：Ctrl+R 循环切换、键盘高亮行、条目移除 |
@@ -228,7 +230,7 @@ flowchart TB
 
 | 服务 | 说明 |
 | ---- | ---- |
-| `JsonFileStore` | `%APPDATA%/Stanza/` 下 JSON 读写基座；损坏回退默认值、写失败静默（配置不影响主流程） |
+| `JsonFileStore` | `%APPDATA%/Stanza/` 下 JSON 读写基座；损坏回退默认值、写失败静默（配置不影响主流程）。根目录经 `BaseDirectory` 显式可改（测试重定向用——GetFolderPath 自 .NET 8 起经 SHGetKnownFolderPath 解析，进程级 APPDATA 环境变量重定向对其无效） |
 | `SettingsStore` | `settings.json`：语言 + macOS 键盘模式 |
 | `RecentFilesStore` | `recent.json`：MRU 列表 + 上次打开文件（启动恢复用） |
 | `KeymapStore` | `keymap.json`：用户键位覆盖 |
@@ -335,12 +337,12 @@ flowchart TB
 | 区域 | 现状 | 风险 / 建议 |
 | ---- | ---- | ---- |
 | `MainWindow.Keyboard.cs` + `MainWindow.Drag.cs` | 键盘分发、焦点管理、拖拽状态机已拆为两个 partial | 中：进一步提取独立控制器类依赖 10+ 窗口成员，收益有限，暂无需求驱动 |
-| `MainWindow.Pickers.cs`（约 600 行） | 两个选择器（FacetPicker/ChoicePicker）各有一套高亮循环与键盘导航 | 中：可提炼共用骨架（高亮状态 + 键盘导航 + 行构建）；已有 ChoiceItem 描述符雏形 |
+| `MainWindow.Pickers.cs` 系列（663 行，三个 partial） | 已提炼共用骨架：`PickerItem` 行描述符 + 代码行构建 + 高亮状态机；Facet/Choice 各自只留特化（输入过滤提交 / 加速键开关语义） | 低：骨架已统一，后续变化沿骨架扩展 |
 | `MainViewModel`（4 个 partial） | 文档生命周期/命令/撤销/聚合已按主题分文件 | 中：聚合与撤销已独立成文件；若需进一步解耦可提取独立类，但状态互锁，需测试先行 |
 | `TaskViewModel` 双轨状态 | 编辑文本与结构化属性同步（`_effective` 合并展示值） | 中：语义最微妙的类；已有往返/捕获/提交测试覆盖，下沉 Core 会污染其「格式规则」定位，不建议 |
 | 事件转发链 | 模板 → `Templates.xaml.cs` → `Window.GetWindow` → MainWindow | 低：样板化但直接；引入命令绑定可简化 |
 | 全局单例 | `Keymap.Current`、`Loc` 静态类 | 低：测试隔离困难，但改动面大、收益有限 |
-| 测试覆盖 | Core 82 个 + App 层 31 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线：真实窗口 + 视觉树 + 消息泵，见 UiTestHost） | 建议继续补：拖拽状态机、选择器交互；接线层可随功能增量补（浮层、焦点、右键菜单） |
+| 测试覆盖 | Core 82 个 + App 层 33 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线：真实窗口 + 视觉树 + 消息泵，见 UiTestHost；含选择器骨架链路） | 建议继续补：拖拽状态机；接线层可随功能增量补（浮层、焦点、右键菜单） |
 
 ## 11. 附录：文件清单速查
 
@@ -351,11 +353,13 @@ src/Stanza.Core/                      src/Stanza.App/
 ├── StanzaTask.cs                      ├── MainWindow.xaml.cs       # 装配/窗口/退出确认
 ├── StanzaParser.cs                    ├── MainWindow.Keyboard.cs   # 键盘分发/焦点管理
 ├── StanzaWriter.cs                    ├── MainWindow.Drag.cs       # 拖拽状态机
-├── TaskTransitions.cs                 ├── MainWindow.Pickers.cs    # 标签/项目/状态/优先级选择器
-├── TaskState.cs                       ├── MainWindow.Panels.cs     # 侧栏导航/跳转/文件拖放
-├── TimestampKeywords.cs               ├── MainWindow.Animations.cs # 完成/撤销动画
-├── StanzaPatterns.cs                  ├── MainWindow.Recent.cs     # 最近文件弹层
-└──                                     ├── MainWindow.Toolbar.cs    # 清空二次确认
+├── TaskTransitions.cs                 ├── MainWindow.Pickers.cs    # 选择器骨架（行描述符/高亮/开闭落位）
+├── TaskState.cs                       ├── MainWindow.FacetPicker.cs # 标签/项目选择器
+├── TimestampKeywords.cs               ├── MainWindow.ChoicePicker.cs # 状态/优先级选择面板
+├── StanzaPatterns.cs                  ├── MainWindow.Panels.cs     # 侧栏导航/跳转/文件拖放
+└──                                     ├── MainWindow.Animations.cs # 完成/撤销动画
+                                        ├── MainWindow.Recent.cs     # 最近文件弹层
+                                        ├── MainWindow.Toolbar.cs    # 清空二次确认
                                         ├── MainWindow.Settings.cs   # 设置浮层/键位编辑
                                         ├── MainWindow.Windowing.cs  # Win32 窗口集成
                                         ├── Keymap.cs                # 快捷键表
