@@ -26,6 +26,8 @@
     <SolidColorBrush x:Key="ChipBrush" Color="#FFF0F0F3"/>
     <SolidColorBrush x:Key="DangerBrush" Color="#FFDC2626"/>
     <SolidColorBrush x:Key="DangerSoftBrush" Color="#FFFEF2F2"/>
+    <!-- 紧迫警示（截止日 今天/临近）：琥珀橙，紧迫度比 Danger 低一档 -->
+    <SolidColorBrush x:Key="WarningBrush" Color="#FFD97706"/>
     <!-- 深色浮层面板（标签/项目选择器）：参考 Things 3 选择器，降低纯白面板在浅灰画布上的刺眼感 -->
     <SolidColorBrush x:Key="DarkPanelBrush" Color="#FF2C2C30"/>
     <SolidColorBrush x:Key="DarkPanelRaisedBrush" Color="#FF3A3A40"/>

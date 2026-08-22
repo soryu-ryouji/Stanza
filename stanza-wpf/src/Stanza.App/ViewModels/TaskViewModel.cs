@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Stanza.Core;
 
@@ -44,10 +45,10 @@ public sealed class TaskViewModel : ViewModelBase
 
     public static TaskViewModel FromModel(StanzaTask model, TaskState state)
     {
-        var vm = new TaskViewModel { _state = state, _priority = model.Priority, _project = model.Project };
+        var vm = new TaskViewModel { _state = state, _priority = model.Priority, _project = model.Project, _due = model.DueDate };
         vm._tags.AddRange(model.Tags);
         vm.LoadNotes(model.Notes);
-        // 编辑文本只含 日期 + 描述：优先级/项目/标签都是结构化属性（§7.2.1/§7.2.4/§7.2.5）
+        // 编辑文本只含描述：优先级/项目/标签/截止日都是结构化属性（§7.2.1/§7.2.4/§7.2.5）
         vm.SetHeaderSilently(StanzaWriter.ComposeEditableHeader(model));
         return vm;
     }
@@ -79,7 +80,7 @@ public sealed class TaskViewModel : ViewModelBase
             if (Set(ref _state, value))
             {
                 OnPropertyChanged(nameof(DisplayQuadrant));
-                OnPropertyChanged(nameof(IsOverdue));
+                OnPropertyChanged(nameof(Urgency));
                 OnPropertyChanged(nameof(IsActive));
                 OnPropertyChanged(nameof(IsDone));
                 OnPropertyChanged(nameof(IsDeleted));
@@ -98,9 +99,10 @@ public sealed class TaskViewModel : ViewModelBase
 
     // ---- 主行（内联元数据） ----
 
-    /// <summary>主行编辑文本：<c>2026-08-07 描述</c>——仅日期与描述。
-    /// 优先级（§7.2.1）、项目（§7.2.4）、标签（§7.2.5）是结构化属性：键入的完整记号被自动捕获隐藏
-    /// （尾随空格实时捕获，行尾残留收起时捕获），不在编辑文本中常驻。</summary>
+    /// <summary>主行编辑文本：仅描述（如 <c>完成登录模块</c>）。
+    /// 优先级（§7.2.1）、项目（§7.2.4）、标签（§7.2.5）、截止日（§7.2.2）是结构化属性：
+    /// 键入的完整记号被自动捕获隐藏（尾随空格实时捕获，行尾残留收起时捕获），不在编辑文本中常驻；
+    /// 截止日由标题行右侧的着色文本展示。</summary>
     public string HeaderText
     {
         get => _headerText;
@@ -131,7 +133,8 @@ public sealed class TaskViewModel : ViewModelBase
         StanzaPatterns.Tag + @"(?=[ \t])", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>把编辑文本中输入完成的记号捕获为结构化属性：优先级前缀（行首 "(A) " 完整单元，
-    /// 循环剥除以容忍连续前缀，后者覆盖前者）与带尾随空白的 +项目/#标签。
+    /// 循环剥除以容忍连续前缀，后者覆盖前者）、行首日期前缀（同优先级模式，后者覆盖前者）
+    /// 与带尾随空白的 +项目/#标签。
     /// 已知代价：剥除导致文本变短时光标位置可能轻微偏移，属次要的幂等输入路径。</summary>
     private void CaptureTypedTokens()
     {
@@ -139,6 +142,11 @@ public sealed class TaskViewModel : ViewModelBase
         {
             _priority = typed;
             _headerText = rest;
+        }
+        while (StanzaParser.TrySplitDueDate(_headerText, out var due, out var rest2))
+        {
+            _due = due;
+            _headerText = rest2;
         }
         while (TerminatedProjectRegex.Match(_headerText) is { Success: true } pm)
         {
@@ -156,7 +164,7 @@ public sealed class TaskViewModel : ViewModelBase
     private void RefreshParsed()
     {
         var m = StanzaParser.ParseTaskHeader(_headerText);
-        _due = m.DueDate;
+        // _due 不在此更新：截止日是结构化属性，文本中输入完成的日期已被 CaptureTypedTokens 剥除接管
         _description = m.Description;
         // 有效值：文本中正在输入的记号优先（项目覆盖、标签按文本在前合并），提交后并入结构化属性。
         // 标签数组必须总是新实例：与结构化列表同引用时，AddTag/RemoveTag 后引用不变，
@@ -172,7 +180,7 @@ public sealed class TaskViewModel : ViewModelBase
         OnPropertyChanged(nameof(Due));
         OnPropertyChanged(nameof(DueDisplay));
         OnPropertyChanged(nameof(HasDue));
-        OnPropertyChanged(nameof(IsOverdue));
+        OnPropertyChanged(nameof(Urgency));
         OnPropertyChanged(nameof(Description));
         OnPropertyChanged(nameof(HasProject));
         OnPropertyChanged(nameof(ProjectDisplay));
@@ -187,6 +195,13 @@ public sealed class TaskViewModel : ViewModelBase
     {
         if (!_headerEdited) return;
         _headerEdited = false;
+        // 整行仅为一个完整日期（无尾随空格，实时捕获未触发）：按截止日接管
+        if (DateOnly.TryParseExact(_headerText.Trim(), "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out var loneDue))
+        {
+            _due = loneDue;
+            SetHeaderSilently("");
+        }
         var m = StanzaParser.ParseTaskHeader(_headerText);
         if (m.Project == null && m.Tags.Count == 0) return;   // 无残留记号：保留用户原始文本
         if (m.Project != null) _project = m.Project;
@@ -198,10 +213,11 @@ public sealed class TaskViewModel : ViewModelBase
     }
 
     /// <summary>把 Core 规范化（§9 流转）后的主行模型写回：项目/标签进入结构化属性，
-    /// 编辑文本规范化为「日期 + 描述」。变更通知由调用方统一触发。</summary>
+    /// 编辑文本规范化为纯描述。变更通知由调用方统一触发。</summary>
     internal void ApplyHeaderModel(StanzaTask m)
     {
         _project = m.Project;
+        _due = m.DueDate;
         _tags.Clear();
         _tags.AddRange(m.Tags.Distinct());
         SetHeaderSilently(StanzaWriter.ComposeEditableHeader(m));
@@ -228,7 +244,20 @@ public sealed class TaskViewModel : ViewModelBase
     public DateOnly? Due => _due;
     public string DueDisplay => Due?.ToString("yyyy-MM-dd") ?? "";
     public bool HasDue => Due != null;
-    public bool IsOverdue => Due is { } d && d < DateOnly.FromDateTime(DateTime.Today) && IsActive;
+
+    /// <summary>截止日紧迫度（折叠态标题行右侧截止日文字的着色档位）。仅活跃任务分档；
+    /// 归档任务（DONE/DELETE）一律 None——归档后截止日无行动价值。</summary>
+    public DueUrgency Urgency
+    {
+        get
+        {
+            if (Due is not { } d || !IsActive) return DueUrgency.None;
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            if (d < today) return DueUrgency.Overdue;
+            if (d == today) return DueUrgency.Today;
+            return d <= today.AddDays(3) ? DueUrgency.Soon : DueUrgency.Far;
+        }
+    }
 
     public string Description => _description;
 
@@ -239,9 +268,9 @@ public sealed class TaskViewModel : ViewModelBase
     public IReadOnlyList<string> Tags => _tagsEffective;
     public bool HasTags => _tagsEffective.Count > 0;
 
-    /// <summary>详情元数据行（截止/创建/完成）存在可展示内容时，展开视图才显示该行。
-    /// 优先级以标题文字颜色表达；项目/标签固定在标题行右侧 chip，均不在此行。</summary>
-    public bool HasAnyMeta => Due != null || HasCreated || HasCompleted;
+    /// <summary>详情元数据行（创建/完成）存在可展示内容时，展开视图才显示该行。
+    /// 优先级以标题文字颜色表达；项目/标签与截止日期固定在标题行右侧，均不在此行。</summary>
+    public bool HasAnyMeta => HasCreated || HasCompleted;
 
     // ---- 时间戳属性（§7.4） ----
 
@@ -368,6 +397,7 @@ public sealed class TaskViewModel : ViewModelBase
     {
         var task = StanzaParser.ParseTaskHeader(HeaderText);
         task.Priority = _priority;   // 编辑文本不含优先级前缀，以结构化属性为准
+        task.DueDate = _due;         // 编辑文本不含日期前缀，以结构化属性为准
         // 项目/标签同样以结构化属性为准；编辑文本可能残留未提交的输入中记号（自动保存发生在编辑中途），并入
         task.Project ??= _project;
         foreach (var tag in _tags)
@@ -400,3 +430,6 @@ public sealed class TaskViewModel : ViewModelBase
         return string.Join('\n', lines);
     }
 }
+
+/// <summary>截止日紧迫度档位（分档规则见 TaskViewModel.Urgency；着色在任务卡片模板 trigger）。</summary>
+public enum DueUrgency { None, Far, Soon, Today, Overdue }

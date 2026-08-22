@@ -30,6 +30,7 @@
     <sys:String x:Key="Tip_Discard">废弃（Backspace）</sys:String>
     <sys:String x:Key="Tip_Delete">彻底删除（Delete）</sys:String>
     <sys:String x:Key="Tip_HasNotes">含备注</sys:String>
+    <sys:String x:Key="Meta_Due">截止</sys:String>
 
     <!-- 空态 / 欢迎 / 拖放（{0} 为快捷键，由代码填入） -->
     <sys:String x:Key="Empty_NoTasks">这里还没有任务&#x0a;{0} 或点击下方按钮新建</sys:String>

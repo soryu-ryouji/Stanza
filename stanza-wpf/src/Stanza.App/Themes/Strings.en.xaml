@@ -30,6 +30,7 @@
     <sys:String x:Key="Tip_Discard">Discard (Backspace)</sys:String>
     <sys:String x:Key="Tip_Delete">Delete permanently (Delete)</sys:String>
     <sys:String x:Key="Tip_HasNotes">Has notes</sys:String>
+    <sys:String x:Key="Meta_Due">Due</sys:String>
 
     <!-- Empty state / welcome / drop ({0} = shortcut, filled in code) -->
     <sys:String x:Key="Empty_NoTasks">No tasks yet&#x0a;Press {0} or click below to add one</sys:String>

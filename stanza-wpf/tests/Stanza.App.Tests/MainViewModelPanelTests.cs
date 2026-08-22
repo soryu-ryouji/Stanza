@@ -101,7 +101,7 @@ public class MainViewModelPanelTests : StaTestHost.StaFactBase
         vm.CollapseExpanded();   // Esc/失焦路径：归属仍是预填值且无内容 = 放弃
 
         Assert.DoesNotContain(draft, doing.Tasks);
-        Assert.Empty(vm.PanelItems.OfType<TaskViewModel>().Where(t => t == draft));
+        Assert.DoesNotContain(vm.PanelItems.OfType<TaskViewModel>(), t => t == draft);
         Assert.Single(doing.Tasks);   // 只剩任务一
     });
 

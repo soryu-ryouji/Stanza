@@ -76,9 +76,9 @@ flowchart TB
 同一任务有两种文本：
 
 - **文件文本**（`ComposeTaskHeader`）：`(A) 2026-08-18 完成登录模块 +Apollo #紧急`，完整主行。
-- **GUI 编辑文本**（`ComposeEditableHeader`）：`2026-08-18 完成登录模块`，只含日期 + 描述。
+- **GUI 编辑文本**（`ComposeEditableHeader`）：`完成登录模块`，只含描述。
 
-优先级、项目、标签在 GUI 中是**结构化属性**（右键菜单/选择器管理），不以文本记号形式常驻编辑框；键入的完整记号会被实时捕获隐藏。所有往返路径（加载 `FromModel`、提交 `CommitHeader`、流转 `ApplyHeaderModel`、序列化 `ToModel`）都围绕这一分离设计。
+优先级、截止日、项目、标签在 GUI 中是**结构化属性**（右键菜单/选择器管理、右侧着色文本展示），不以文本记号形式常驻编辑框；键入的完整记号（`(A) ` 前缀、行首日期、`+项目`/`#标签`）会被实时捕获隐藏。所有往返路径（加载 `FromModel`、提交 `CommitHeader`、流转 `ApplyHeaderModel`、序列化 `ToModel`）都围绕这一分离设计。
 
 ## 4. Stanza.App：视图模型层
 
@@ -115,7 +115,7 @@ flowchart TB
 | 类 | 说明 |
 | ---- | ---- |
 | `BlockViewModel` | 一个状态区块视图模型。`Items` 是 `ObservableCollection<object>`（**任务与拖拽占位项混装**，类型擦除是为了容纳 `GapItem`）；`TaskCount` 随集合变更广播；`Name` 本地化 |
-| `TaskViewModel` | 任务的可编辑视图模型（388 行）。编辑文本 + 结构化属性双轨（见 3.1）；`_projectEffective`/`_tagsEffective` 是「结构化属性 ∪ 输入中记号」的展示值；`ToModel()` 是唯一的 VM→Core 序列化出口；时间戳以续行形式存续。**不持有文档 VM 引用**：内容变化经 `ContentChanged` 事件上报，MainViewModel 在全部实例化路径经 `Track` 挂接（脏追踪/自动保存入口） |
+| `TaskViewModel` | 任务的可编辑视图模型（388 行）。编辑文本（纯描述）+ 结构化属性双轨（优先级/截止日/项目/标签，见 3.1）；`_projectEffective`/`_tagsEffective` 是「结构化属性 ∪ 输入中记号」的展示值；`ToModel()` 是唯一的 VM→Core 序列化出口；时间戳以续行形式存续。**不持有文档 VM 引用**：内容变化经 `ContentChanged` 事件上报，MainViewModel 在全部实例化路径经 `Track` 挂接（脏追踪/自动保存入口） |
 | `FacetViewModel` | 侧栏项目/标签条目（Name + Count + Token + `Matches`）。纯派生数据，不持久化 |
 | `GapItem` | 拖拽位置预览占位（Height + 面板分段 State），不是任务 |
 | `RecentFilesViewModel` | 最近文件 MRU（上限 8），经回调打开文件，持久化由 `RecentFilesStore` 负责 |
@@ -324,7 +324,7 @@ flowchart TB
 1. **规则唯一来源在 Core**：状态流转（`TaskTransitions`）、排序（`ActiveTaskOrdering`）、语法正则（`StanzaPatterns`）只在 Core 实现；App 只做集合编排与文本往返，不得复制规则。
 2. **零第三方依赖**：MVVM 基类、命令、行为、JSON 全部手写/内建。引入依赖需有明确理由。
 3. **文本快照撤销**：撤销栈存序列化文本而非命令，天然覆盖所有变更路径（含拖拽、批量属性）；`SerializeDocument` 是唯一序列化路径，任何新变更都必须走它。
-4. **两种文本形态**：GUI 编辑文本（日期+描述）与文件文本（完整主行）分离；优先级/项目/标签是结构化属性。新元数据特性应沿用此模式。
+4. **两种文本形态**：GUI 编辑文本（仅描述）与文件文本（完整主行）分离；优先级/截止日/项目/标签是结构化属性。新元数据特性应沿用此模式。
 5. **四个区块常驻**：BlockViewModel 永远对应四种状态；空区块是否写回由 `ExistedInSource` 决定。
 6. **浮层不用独立窗口**：设置/退出确认/选择器都在主窗口视觉树内，模态靠键盘路由过滤。
 7. **快捷键三层分发**：路由前分发应用命令（无焦点也可用）、任务作用域命令逐命令检查焦点作用域、编辑框内手势让路。改键只改触发手势，不改变作用域语义。

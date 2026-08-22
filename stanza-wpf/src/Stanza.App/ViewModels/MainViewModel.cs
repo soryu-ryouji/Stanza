@@ -432,9 +432,10 @@ public sealed partial class MainViewModel : ViewModelBase
     {
         if (task.State == target) return;
         var m = StanzaParser.ParseTaskHeader(task.HeaderText);
-        // 优先级/项目/标签都由 VM 结构化属性承载（编辑文本不含记号），交给 Core 规则裁决；
+        // 优先级/项目/标签/截止日都由 VM 结构化属性承载（编辑文本不含记号），交给 Core 规则裁决；
         // 编辑文本可能残留的未提交记号一并并入
         m.Priority = task.Priority;
+        m.DueDate = task.Due;
         m.Project ??= task.ProjectName;
         foreach (var tag in task.Tags)
             if (!m.Tags.Contains(tag)) m.Tags.Add(tag);

@@ -20,6 +20,26 @@
         <Setter Property="Foreground" Value="{Binding DisplayQuadrant, Converter={StaticResource QuadrantToBrush}}"/>
     </Style>
 
+    <!-- 截止日期（折叠态/展开态标题行右侧共用）：前缀「截止」与日期值作为同一内容块统一着色——
+         默认灰，按紧迫度分档（逾期红加粗 / 今天橙加粗 / 临近橙 / 远期灰）。
+         默认色必须在 Style Setter 里——本地值优先级高于 Style trigger，写在元素上会让着色 trigger 永不生效 -->
+    <Style x:Key="DueDateText" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Urgency}" Value="{x:Static vm:DueUrgency.Overdue}">
+                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Urgency}" Value="{x:Static vm:DueUrgency.Today}">
+                <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Urgency}" Value="{x:Static vm:DueUrgency.Soon}">
+                <Setter Property="Foreground" Value="{StaticResource WarningBrush}"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- 任务卡片 -->
     <DataTemplate x:Key="TaskTemplate" DataType="{x:Type vm:TaskViewModel}">
         <!-- 普通态透明：任务行直接躺在灰色画布上，只有悬停/选中/展开才出现色面 -->
@@ -60,7 +80,6 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -70,25 +89,9 @@
                                       Visibility="{Binding ShowCheckBox, Converter={StaticResource BoolToVis}}"
                                       Click="TaskCheck_Click"/>
 
-                            <TextBlock Grid.Column="1" Text="{Binding DueDisplay}" FontSize="12"
-                                       Foreground="{StaticResource FaintBrush}" Margin="0,0,10,0"
-                                       VerticalAlignment="Center"
-                                       Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
-                                <TextBlock.Style>
-                                    <Style TargetType="{x:Type TextBlock}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsOverdue}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <TextBlock Grid.Column="1" Style="{StaticResource TaskTitleText}" Text="{Binding Description}"/>
 
-                            <TextBlock Grid.Column="2" Style="{StaticResource TaskTitleText}" Text="{Binding Description}"/>
-
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                 <!-- 完成日期（仅 DONE 任务）：归档列表中最有用的生命周期信息 -->
                                 <TextBlock Text="{Binding CompletedDisplay}" FontSize="12"
                                            Foreground="{StaticResource FaintBrush}" Margin="6,0,0,0"
@@ -117,6 +120,15 @@
                                     <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
                                                Foreground="{StaticResource GrayBrush}"/>
                                 </Border>
+                                <!-- 截止日在右侧区尾端（备注图标之左）：前缀「截止」恒灰，日期值按紧迫度着色
+                                     （DueDateText 共享样式），仅活跃任务分档，归档任务灰显 -->
+                                <StackPanel Orientation="Horizontal" Margin="6,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{DynamicResource Meta_Due}" Style="{StaticResource DueDateText}"
+                                               FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding DueDisplay}" Style="{StaticResource DueDateText}"
+                                               FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
                                 <!-- 备注标记固定在行尾最右缘（Things 风格：只提示存在，不渲染内容），
                                      尺寸恒定不受 chip 增减影响，位置稳定便于扫读 -->
                                 <Path Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
@@ -172,6 +184,14 @@
                                 <TextBlock Text="{Binding ProjectDisplay}" FontSize="11"
                                            Foreground="{StaticResource GrayBrush}"/>
                             </Border>
+                            <!-- 截止日：与折叠态一样钉在标题行右侧（项目 chip 后），不移入详情面板 -->
+                            <StackPanel Orientation="Horizontal" Margin="6,0,0,0"
+                                        Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{DynamicResource Meta_Due}" Style="{StaticResource DueDateText}"
+                                           FontSize="12"/>
+                                <TextBlock Text="{Binding DueDisplay}" Style="{StaticResource DueDateText}"
+                                           FontSize="12" Margin="4,0,0,0"/>
+                            </StackPanel>
                         </StackPanel>
                         <!-- 备注图标钉在标题行右缘（与折叠态位置一致），展开/收起时不出现、不移动 -->
                         <Path Grid.Column="3" Data="M0,0.5 H10 M0,3.5 H10 M0,6.5 H6" Stroke="{StaticResource FaintBrush}"
@@ -187,16 +207,10 @@
                                 behaviors:RevealBehavior.SpacingTarget="{Binding ElementName=Card}"
                                 behaviors:RevealBehavior.ContentTarget="{Binding ElementName=CardContent}">
                         <!-- 解析出的元数据：仅填写过的才显示（优先级以标题文字颜色表达；
-                             项目/标签固定在标题行右侧 chip，不在此行） -->
+                             项目/标签与截止日期固定在标题行右侧，不在此行） -->
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
                                     Visibility="{Binding HasAnyMeta, Converter={StaticResource BoolToVis}}">
-                            <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
-                                    Padding="7,1"
-                                    Visibility="{Binding HasDue, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="{Binding DueDisplay}" FontSize="11"
-                                           Foreground="{StaticResource GrayBrush}"/>
-                            </Border>
-                            <!-- 创建/完成时间：续行属性（§7.4），与截止日期同款 chip，带关键字前缀区分 -->
+                            <!-- 创建/完成时间：续行属性（§7.4），同款 chip，带关键字前缀区分 -->
                             <Border Background="{StaticResource ChipBrush}" CornerRadius="9"
                                     Padding="7,1" Margin="6,0,0,0"
                                     Visibility="{Binding HasCreated, Converter={StaticResource BoolToVis}}">

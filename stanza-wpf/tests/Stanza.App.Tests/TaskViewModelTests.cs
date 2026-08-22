@@ -25,8 +25,8 @@ public class TaskViewModelTests
 
         var task = TaskViewModel.FromModel(model, TaskState.Doing);
 
-        // GUI 编辑文本只含 日期 + 描述；优先级/项目/标签为结构化属性
-        Assert.Equal("2026-08-18 完成登录模块", task.HeaderText);
+        // GUI 编辑文本只含描述：优先级/项目/标签/截止日为结构化属性
+        Assert.Equal("完成登录模块", task.HeaderText);
         Assert.Equal('A', task.Priority);
         Assert.Equal("Apollo", task.ProjectName);
         Assert.Equal(new[] { "紧急", "后端" }, task.Tags);
@@ -50,10 +50,11 @@ public class TaskViewModelTests
         var task = NewTask();
         task.HeaderText = "(A) 2026-08-18 完成登录模块 +Apollo #紧急 ";
 
-        // 输入完成的记号（带尾随空白）被实时捕获移除，编辑文本只剩 日期 + 描述
-        // （剥除只移除记号本身，残留空白由解析/提交阶段归并）
-        Assert.Equal("2026-08-18 完成登录模块", task.HeaderText.TrimEnd());
+        // 输入完成的记号（优先级前缀/日期前缀/带尾随空白的项目标签）被实时捕获移除，
+        // 编辑文本只剩描述（剥除只移除记号本身，残留空白由解析/提交阶段归并）
+        Assert.Equal("完成登录模块", task.HeaderText.TrimEnd());
         Assert.DoesNotContain("(A)", task.HeaderText);
+        Assert.DoesNotContain("2026-08-18", task.HeaderText);
         Assert.DoesNotContain("+Apollo", task.HeaderText);
         Assert.DoesNotContain("#紧急", task.HeaderText);
         Assert.Equal('A', task.Priority);
@@ -123,6 +124,42 @@ public class TaskViewModelTests
 
         task.State = TaskState.Done;
         Assert.Null(task.DisplayQuadrant);   // 归档任务标题不按象限着色
+    }
+
+    [Fact]
+    public void CommitHeader_CapturesLoneDateLine()
+    {
+        var task = NewTask();
+        task.HeaderText = "2026-08-18";   // 整行日期、无尾随空格：实时捕获不触发
+
+        task.CommitHeader();   // 收起时按截止日接管
+
+        Assert.Equal(new DateOnly(2026, 8, 18), task.Due);
+        Assert.Equal("", task.HeaderText);
+        Assert.Equal(new DateOnly(2026, 8, 18), task.ToModel().DueDate);
+    }
+
+    [Fact]
+    public void DueUrgency_GradesByDistanceToToday()
+    {
+        var task = NewTask();
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        Assert.Equal(DueUrgency.None, task.Urgency);   // 无截止日
+
+        task.HeaderText = $"{today:yyyy-MM-dd} 任务";
+        Assert.Equal(DueUrgency.Today, task.Urgency);
+
+        task.HeaderText = $"{today.AddDays(2):yyyy-MM-dd} 任务";
+        Assert.Equal(DueUrgency.Soon, task.Urgency);   // 明天起 3 天内
+
+        task.HeaderText = $"{today.AddDays(10):yyyy-MM-dd} 任务";
+        Assert.Equal(DueUrgency.Far, task.Urgency);
+
+        task.HeaderText = $"{today.AddDays(-1):yyyy-MM-dd} 任务";
+        Assert.Equal(DueUrgency.Overdue, task.Urgency);
+
+        task.State = TaskState.Done;   // 归档任务不分档（截止日无行动价值）
+        Assert.Equal(DueUrgency.None, task.Urgency);
     }
 
     [Fact]

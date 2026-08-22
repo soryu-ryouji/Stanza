@@ -104,14 +104,28 @@ public class WriterTests
     }
 
     [Fact]
-    public void EditableHeader_Compose_OnlyDateAndDescription()
+    public void EditableHeader_Compose_OnlyDescription()
     {
-        // GUI 编辑文本只含 日期 + 描述：优先级/项目/标签都是结构化属性，不进编辑文本
+        // GUI 编辑文本只含描述：优先级/项目/标签/截止日都是结构化属性，不进编辑文本
         var parsed = StanzaParser.ParseTaskHeader("(B) 2026-08-07 完成登录模块 +Apollo #紧急 #review");
-        Assert.Equal("2026-08-07 完成登录模块", StanzaWriter.ComposeEditableHeader(parsed));
+        Assert.Equal("完成登录模块", StanzaWriter.ComposeEditableHeader(parsed));
 
         var bare = StanzaParser.ParseTaskHeader("纯描述");
         Assert.Equal("纯描述", StanzaWriter.ComposeEditableHeader(bare));
+    }
+
+    [Fact]
+    public void TrySplitDueDate_SplitsValidDatePrefix()
+    {
+        // 合法日期 + 尾随空格：拆分
+        Assert.True(StanzaParser.TrySplitDueDate("2026-08-18 完成登录模块", out var due, out var rest));
+        Assert.Equal(new DateOnly(2026, 8, 18), due);
+        Assert.Equal("完成登录模块", rest);
+
+        // 无尾随空格 / 非法日期 / 非日期开头：不识别，原文返回
+        Assert.False(StanzaParser.TrySplitDueDate("2026-08-18", out _, out _));
+        Assert.False(StanzaParser.TrySplitDueDate("2026-13-01 任务", out _, out _));
+        Assert.False(StanzaParser.TrySplitDueDate("任务 2026-08-18 ", out _, out _));
     }
 
     [Fact]

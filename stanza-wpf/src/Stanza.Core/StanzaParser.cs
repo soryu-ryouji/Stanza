@@ -151,6 +151,41 @@ public static class StanzaParser
         return false;
     }
 
+    /// <summary>从主行文本开头拆分日期前缀（§7.2.2）：识别成功返回 true，
+    /// <cparamref name="remainder"/> 为剥除前缀后的剩余文本；未识别返回 false，remainder 为原文。
+    /// 供编辑器将截止日从可编辑文本中分离为结构化属性（GUI 不展示日期前缀，经右侧着色文本展示）。</summary>
+    public static bool TrySplitDueDate(string line, out DateOnly due, out string remainder)
+    {
+        if (TryParseDueDate(line, out due, out var consumed))
+        {
+            remainder = line[consumed..];
+            return true;
+        }
+        remainder = line;
+        return false;
+    }
+
+    /// <summary>尝试解析行首日期（§7.2.2）：严格的 YYYY-MM-DD、后随一个空格、且为合法日期才占据日期位。</summary>
+    private static bool TryParseDueDate(string rest, out DateOnly due, out int consumed)
+    {
+        due = default;
+        consumed = 0;
+        if (rest.Length >= 11
+            && char.IsDigit(rest[0]) && char.IsDigit(rest[1]) && char.IsDigit(rest[2]) && char.IsDigit(rest[3])
+            && rest[4] == '-'
+            && char.IsDigit(rest[5]) && char.IsDigit(rest[6])
+            && rest[7] == '-'
+            && char.IsDigit(rest[8]) && char.IsDigit(rest[9])
+            && rest[10] == ' '
+            && DateOnly.TryParseExact(rest[..10], "yyyy-MM-dd",
+                CultureInfo.InvariantCulture, DateTimeStyles.None, out due))
+        {
+            consumed = 11;
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>尝试解析行首优先级（§7.2.1）：<c>(A) </c>。
     /// 象限字母仅限 A–D；其余形如 (E)、(A3) 的写法不识别，由调用方按描述处理。</summary>
     private static bool TryParsePriority(string rest, out char priority, out int consumed)

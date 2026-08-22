@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using Stanza.App.Behaviors;
 using Stanza.App.Services;
 using Stanza.App.ViewModels;
@@ -32,7 +33,7 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
     [Fact]
     public void Window_LoadsDocument_RendersTaskCards() => OnUi(() =>
     {
-        var path = WriteTempDoc("# DOING\n\n任务一 +Apollo\n\n任务二\n\n");
+        var path = WriteTempDoc("# DOING\n\n2026-08-18 任务一 +Apollo\n\n任务二\n\n");
         var window = UiTestHost.CreateWindow(path);
         try
         {
@@ -45,11 +46,15 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
                 "任务卡片容器生成");
             Assert.Equal(2, window.TaskList.Items.Count);
 
-            // 绑定接线：卡片文本与模型一致（描述、项目 chip）
-            var card = UiTestHost.ContainerOf(window, doing.Tasks.First())!;
+            // 绑定接线：卡片文本与模型一致（描述、项目 chip、带「截止」前缀的截止日期）
+            var task0 = doing.Tasks.First();
+            var card = UiTestHost.ContainerOf(window, task0)!;
             var texts = VisualTreeEx.FindVisualChildren<TextBlock>(card).Select(t => t.Text).ToList();
             Assert.Contains(texts, t => t.Contains("任务一"));
             Assert.Contains(texts, t => t.Contains("+Apollo"));
+            // 截止日期带「截止」前缀（前缀与日期值是两个独立 TextBlock）
+            Assert.Contains(texts, t => t == "截止");
+            Assert.Contains(texts, t => t == "2026-08-18");
 
             // 标题区绑定：ScopeTitle = 当前区块本地化名称
             var titles = VisualTreeEx.FindVisualChildren<TextBlock>(window).Select(t => t.Text);
@@ -87,6 +92,44 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
             UiTestHost.PumpUntil(() => target.State == TaskState.Done, "完成动画提交流转");
             Assert.Same(target, vm.Blocks.First(b => b.State == TaskState.Done).Tasks.First());
             Assert.DoesNotContain(target, doing.Tasks);
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void DueDate_ColorFollowsUrgency_AndStaysOnHeaderRowWhenExpanded() => OnUi(() =>
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var path = WriteTempDoc($"# DOING\n\n{today:yyyy-MM-dd} 今天截止的任务\n\n");
+        var window = UiTestHost.CreateWindow(path);
+        try
+        {
+            var vm = (MainViewModel)window.DataContext;
+            var task = vm.Blocks[0].Tasks.Single();
+            UiTestHost.PumpUntil(() => UiTestHost.ContainerOf(window, task) != null, "容器生成");
+            var card = UiTestHost.ContainerOf(window, task)!;
+            var warning = (Brush)Application.Current.FindResource("WarningBrush");
+            var dateText = today.ToString("yyyy-MM-dd");
+
+            // 截止 = 今天：日期值着色为橙（trigger 生效；默认色在 Style Setter 中才可被 trigger 覆盖），
+            // 「截止」前缀同步同色（同一内容块统一着色）
+            UiTestHost.PumpUntil(() => VisualTreeEx.FindVisualChildren<TextBlock>(card)
+                .Where(t => t.Text == dateText)
+                .Any(t => ReferenceEquals(t.Foreground, warning)), "今天截止日期着色为橙");
+            Assert.True(VisualTreeEx.FindVisualChildren<TextBlock>(card)
+                .Where(t => t.Text == "截止")
+                .Any(t => ReferenceEquals(t.Foreground, warning)), "前缀应与日期同色");
+
+            // 展开：截止日留在标题行右侧（EditHeader），不落入详情面板第二行
+            vm.ExpandTask(task);
+            UiTestHost.PumpUntil(() => task.IsExpanded, "任务展开");
+            var editHeader = VisualTreeEx.FindVisualChildren<Grid>(card).First(g => g.Name == "EditHeader");
+            Assert.Contains(VisualTreeEx.FindVisualChildren<TextBlock>(editHeader), t => t.Text == dateText);
+            var details = VisualTreeEx.FindVisualChildren<StackPanel>(card).First(s => s.Name == "DetailsPanel");
+            Assert.DoesNotContain(VisualTreeEx.FindVisualChildren<TextBlock>(details), t => t.Text == dateText);
         }
         finally
         {
