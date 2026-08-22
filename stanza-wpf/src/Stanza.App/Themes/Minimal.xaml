@@ -18,6 +18,9 @@
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#FFEAF3FD"/>
     <!-- 任务卡片选中底色：比 AccentSoft 深两档，选中态在灰画布上清晰可辨 -->
     <SolidColorBrush x:Key="TaskSelectedBrush" Color="#FFCFE3FC"/>
+    <!-- 失焦选中（焦点在侧栏/浮层时任务区的选中呈现）：淡灰，平台失焦选中惯例；
+         浓度层级：TaskSelected（持焦选中）> AccentSoft（预览/等待选中）> InactiveSelection（失焦选中）> Hover -->
+    <SolidColorBrush x:Key="InactiveSelectionBrush" Color="#FFECECF0"/>
     <!-- 文本选中底色：浅蓝，比 AccentSoft 深，选中区域清晰可辨且保持柔和 -->
     <SolidColorBrush x:Key="AccentSelectBrush" Color="#FFBFDDF9"/>
     <SolidColorBrush x:Key="ChipBrush" Color="#FFF0F0F3"/>

@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using Stanza.App.Behaviors;
 using Stanza.App.ViewModels;
 using Stanza.Core;
@@ -146,6 +147,41 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
     });
 
     [Fact]
+    public void SelectionHighlight_DimsWhenFocusLeavesTaskList() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.SelectedTask = task;
+            var container = UiTestHost.ContainerOf(window, task)!;
+            container.Focus();
+            UiTestHost.PumpUntil(() => Keyboard.FocusedElement == container, "焦点进任务条目");
+
+            var card = VisualTreeEx.FindVisualChildren<Border>(container).First(b => b.Name == "Card");
+            var activeBrush = (Brush)Application.Current.FindResource("TaskSelectedBrush");
+            var inactiveBrush = (Brush)Application.Current.FindResource("InactiveSelectionBrush");
+            UiTestHost.PumpUntil(() => ReferenceEquals(card.Background, activeBrush), "持焦选中为完整色");
+
+            // 焦点移到侧栏：选中高亮降为失焦淡色（比预览态更弱）
+            UiTestHost.SendKey(window, Key.Left);
+            UiTestHost.PumpUntil(
+                () => Keyboard.FocusedElement is DependencyObject f
+                    && VisualTreeEx.IsWithin(f, window.Sidebar.BlockList),
+                "焦点移到区块列表");
+            UiTestHost.PumpUntil(() => ReferenceEquals(card.Background, inactiveBrush), "失焦选中转淡色");
+
+            // 焦点回到任务区：恢复完整色
+            UiTestHost.SendKey(window, Key.Right);
+            UiTestHost.PumpUntil(() => ReferenceEquals(card.Background, activeBrush), "回焦恢复完整色");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
     public void MKey_WithSelection_OpensMovePicker() => OnUi(() =>
     {
         var window = WindowWithTasks(out var vm);
@@ -160,6 +196,90 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
                 () => window.ChoicePickerPanel.Visibility == Visibility.Visible,
                 "M 打开状态选择面板");
             Assert.Equal(4, window.ChoicePickerRows.Children.Count);   // 四状态
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void LeftKey_FromTaskArea_MovesFocusToBlockList() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            // 焦点在任务条目上按左：回侧栏区块列表（区块视图无跳转预览概念）
+            var task = vm.Blocks[0].Tasks.First();
+            vm.SelectedTask = task;
+            var container = UiTestHost.ContainerOf(window, task)!;
+            container.Focus();
+            UiTestHost.PumpUntil(
+                () => Keyboard.FocusedElement == container, "焦点进任务条目");
+
+            UiTestHost.SendKey(window, Key.Left);
+
+            UiTestHost.PumpUntil(
+                () => Keyboard.FocusedElement is DependencyObject f
+                    && VisualTreeEx.IsWithin(f, window.Sidebar.BlockList),
+                "焦点移到区块列表");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void RightKey_FromBlockList_MovesFocusToTaskList() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var block = vm.Blocks[0];
+            var blockContainer = window.Sidebar.BlockList.ItemContainerGenerator
+                .ContainerFromItem(block) as UIElement;
+            blockContainer!.Focus();
+            UiTestHost.PumpUntil(
+                () => Keyboard.FocusedElement == blockContainer, "焦点进区块条目");
+
+            // 侧栏按右：确认进任务区——无选中时选中首项
+            UiTestHost.SendKey(window, Key.Right);
+
+            UiTestHost.PumpUntil(
+                () => vm.SelectedTask == block.Tasks.First(), "右移选中首项");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void LeftRight_InFacetPanel_PreviewAndCommit() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            // 进入项目面板，焦点放任务区
+            var facet = vm.Projects.Single(p => p.Name == "Apollo");
+            vm.SelectedFacet = facet;
+            window.TaskList.Focus();
+            UiTestHost.PumpUntil(() => Keyboard.FocusedElement != null, "焦点就绪");
+
+            // 任务区按左：回 facet 列表并进入跳转预览（浅色高亮）
+            UiTestHost.SendKey(window, Key.Left);
+            UiTestHost.PumpUntil(
+                () => PreviewHighlight.GetIsActive(window.Sidebar.ProjectList),
+                "左移进入跳转预览");
+
+            // 预览中按右：确认（同 Enter），预览态退出、焦点进任务区并选中首项
+            UiTestHost.SendKey(window, Key.Right);
+            UiTestHost.PumpUntil(
+                () => !PreviewHighlight.GetIsActive(window.Sidebar.ProjectList),
+                "右移确认退出预览态");
+            Assert.Same(facet, vm.SelectedFacet);   // 面板保持
+            Assert.NotNull(vm.SelectedTask);        // 已选中面板首项
         }
         finally
         {

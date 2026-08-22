@@ -183,6 +183,35 @@ public partial class MainWindow
         }));
     }
 
+    // ==================== 横向面板导航（h/l · ←/→） ====================
+
+    /// <summary>任务区按左：回侧栏导航源——面板视图回 facet 列表并进入跳转预览（Esc 可恢复）；
+    /// 区块视图聚焦区块列表的选中项（随后方向键原生移动即切区块）。</summary>
+    private void NavigateToSidebar()
+    {
+        if (VM.SelectedFacet is { } facet)
+        {
+            EnterFacetJumpMode(facet.Kind);   // 预选当前 facet，进入跳转预览
+            return;
+        }
+        var block = VM.SelectedBlock;
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            var container = block != null
+                ? BlockList.ItemContainerGenerator.ContainerFromItem(block) as UIElement
+                : null;
+            (container ?? (UIElement)BlockList).Focus();
+        }));
+    }
+
+    /// <summary>侧栏按右：确认并进任务区——跳转模式中视为确认（同 Enter）；
+    /// 焦点落到当前选中任务，无选中时选中首项。</summary>
+    private void NavigateToTaskList()
+    {
+        if (_facetJumpActive) CommitFacetJump();   // 右移 = 确认预览
+        FocusTaskForArrow(Key.Right);   // 有选中归位，无选中选首项
+    }
+
     // ==================== 文件拖放 ====================
 
     private static bool IsSupportedFile(string path)

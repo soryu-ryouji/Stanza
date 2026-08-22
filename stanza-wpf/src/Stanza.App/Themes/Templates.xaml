@@ -223,13 +223,26 @@
             </Grid>
         </Border>
         <DataTemplate.Triggers>
-            <!-- 视觉优先级：悬停 < 选中 < 展开 -->
+            <!-- 视觉优先级：悬停 < 失焦选中 < 持焦选中 < 展开 -->
             <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
                 <Setter TargetName="Card" Property="Background" Value="{StaticResource CardHoverBrush}"/>
             </DataTrigger>
-            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True">
+            <!-- 选中分两级：焦点离开任务区（侧栏/浮层）时降为淡灰失焦态，
+                 比侧栏预览选中（AccentSoft）更弱——操作焦点不在此 -->
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"/>
+                    <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" Value="False"/>
+                </MultiDataTrigger.Conditions>
+                <Setter TargetName="Card" Property="Background" Value="{StaticResource InactiveSelectionBrush}"/>
+            </MultiDataTrigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"/>
+                    <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}" Value="True"/>
+                </MultiDataTrigger.Conditions>
                 <Setter TargetName="Card" Property="Background" Value="{StaticResource TaskSelectedBrush}"/>
-            </DataTrigger>
+            </MultiDataTrigger>
             <DataTrigger Binding="{Binding IsExpanded}" Value="True">
                 <Setter TargetName="ReadHeader" Property="Visibility" Value="Collapsed"/>
                 <Setter TargetName="EditHeader" Property="Visibility" Value="Visible"/>

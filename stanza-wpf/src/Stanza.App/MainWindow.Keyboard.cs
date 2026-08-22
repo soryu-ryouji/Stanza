@@ -285,10 +285,23 @@ public partial class MainWindow
 
         // 裸导航键：方向键与 vim hjkl 同语义映射。焦点无人消费时引入任务列表并移动选中；
         // 字母绑定没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
+        // 裸导航键上下：方向键与 vim jk 同语义映射。焦点无人消费时引入任务列表并移动选中；
+        // 字母绑定没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
         new(AppCommand.NavigateUp, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Up)),
         new(AppCommand.NavigateDown, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Down)),
-        new(AppCommand.NavigateLeft, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Left)),
-        new(AppCommand.NavigateRight, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Right)),
+        // 左右 = 面板间横向移动：任务区按左回侧栏（面板视图回 facet 列表进跳转预览，
+        // 区块视图聚焦区块列表）；侧栏按右确认进任务区（跳转模式中同 Enter）；
+        // 任务区按右、落空/残留焦点按左右，保持原「归位焦点/入门选中」语义
+        new(AppCommand.NavigateLeft, When: CanTakeNavigateLeft, Run: c =>
+        {
+            if (c.Scope is FocusScope.TaskList or FocusScope.TaskItem) NavigateToSidebar();
+            else FocusTaskForArrow(Key.Left);
+        }),
+        new(AppCommand.NavigateRight, When: CanTakeNavigateRight, Run: c =>
+        {
+            if (c.Scope is FocusScope.SidebarList or FocusScope.SidebarItem) NavigateToTaskList();
+            else FocusTaskForArrow(Key.Right);
+        }),
     ];
 
     /// <summary>T/P 双语义执行体：有选中任务打开对应选择器（锚点选中卡片），无选中进入侧栏跳转模式。</summary>
@@ -306,11 +319,24 @@ public partial class MainWindow
         FocusTaskAtIndex(index);
     }
 
-    /// <summary>裸导航键接管判定：焦点无人消费（NavKeysDeadOnFocus），或字母键落在任务条目上
+    /// <summary>裸导航键（上下）接管判定：焦点无人消费（NavKeysDeadOnFocus），或字母键落在任务条目上
     /// （字母没有 ListBox 默认导航可借力，选中条目聚焦时也接管）。</summary>
     private bool CanTakeNavigate(KeyContext c)
         => !RecentPopup.IsOpen
            && (NavKeysDeadOnFocus || (c.Key is >= Key.A and <= Key.Z && c.Scope is FocusScope.TaskItem));
+
+    /// <summary>左移接管范围：任务区（回侧栏）与落空/残留焦点（原归位语义）；
+    /// 编辑框（光标移动）、浮层、侧栏（已在最左）不接管。</summary>
+    private bool CanTakeNavigateLeft(KeyContext c)
+        => !RecentPopup.IsOpen
+           && c.Scope is not (FocusScope.TextEditor or FocusScope.Picker
+               or FocusScope.SidebarList or FocusScope.SidebarItem);
+
+    /// <summary>右移接管范围：侧栏（确认进任务区）、任务区与落空/残留焦点（归位语义）；
+    /// 编辑框与浮层不接管。</summary>
+    private bool CanTakeNavigateRight(KeyContext c)
+        => !RecentPopup.IsOpen
+           && c.Scope is not (FocusScope.TextEditor or FocusScope.Picker);
 
     /// <summary>任务作用域命令的执行：命中命令的规则 when 为真则执行并消费按键；
     /// 返回 false 表示当前上下文不分发，按键继续走默认路由（如编辑框内的字母输入）。</summary>

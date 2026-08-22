@@ -209,8 +209,9 @@ flowchart TB
     Modal -->|是| Skip["跳过：浮层自己的路由事件接管"]
     Modal -->|否| CtrlR["1. Ctrl+R 循环确认（KeyUp 时机）"]
     CtrlR --> AppCmd{"2. 应用级命令？<br/>Keymap.Resolve → VM.CommandFor"}
-    AppCmd -->|未命中| TaskCmd["3. 任务作用域规则表 TaskRules：<br/>逐条 when(KeyContext) 求值（VS Code 式声明规则）<br/>例：CompleteTask 限 TaskList/TaskItem；NewTask 排除编辑框/浮层；<br/>T/P 双语义；hjkl 导航（NavKeysDeadOnFocus 判定接管时机）"]
+    AppCmd -->|未命中| TaskCmd["3. 任务作用域规则表 TaskRules：<br/>逐条 when(KeyContext) 求值（VS Code 式声明规则）"]
     TaskCmd --> ShiftJk["4. Shift+jk 扩展选中（vim 语义）"]
+    TaskCmd -.->|规则示例| Rules["CompleteTask 限 TaskList/TaskItem；NewTask 排除编辑框/浮层；<br/>T/P 双语义；hjkl 上下移动选中；hl/←→ 面板间横向移动<br/>（任务区←回侧栏 / 侧栏→确认进任务区）"]
     AppCmd -->|命中| GiveWay{"让路检查"}
     GiveWay -->|编辑框内 Emacs 编辑手势（TextEditKeys）| Route["交还路由"]
     GiveWay -->|侧栏列表/选择面板内 Ctrl+N/P 选项导航| Route
