@@ -220,7 +220,6 @@ public sealed partial class MainViewModel
             ? Blocks.SelectMany(b => b.Tasks).Where(t => t.IsActive).Where(facet.Matches).ToList()
             : new List<TaskViewModel>();
         SyncPanel(matches);
-        OnPropertyChanged(nameof(ScopeTaskCount));
         OnPropertyChanged(nameof(ScopeHasTasks));
     }
 
@@ -241,16 +240,14 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>标题区、任务区数据源与工具栏作用域属性的统一通知。</summary>
+    /// <summary>任务区数据源与工具栏作用域属性的统一通知。</summary>
     private void NotifyScopeChanged()
     {
         OnPropertyChanged(nameof(TaskListSource));
-        OnPropertyChanged(nameof(ScopeTitle));
-        OnPropertyChanged(nameof(ScopeTaskCount));
-        OnPropertyChanged(nameof(ShowScopeCount));
         OnPropertyChanged(nameof(ScopeHasTasks));
         OnPropertyChanged(nameof(ShowAddTask));
         OnPropertyChanged(nameof(ShowClear));
+        OnPropertyChanged(nameof(ShowClearButton));
         OnPropertyChanged(nameof(ScopeIsActive));
         OnPropertyChanged(nameof(ScopeIsDoing));
         OnPropertyChanged(nameof(ScopeIsWaiting));

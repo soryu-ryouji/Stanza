@@ -25,6 +25,7 @@
     <sys:String x:Key="Tip_ClearConfirm">Click again to confirm</sys:String>
     <sys:String x:Key="Tip_Complete">Complete</sys:String>
     <sys:String x:Key="Tip_DueDate">Set due date</sys:String>
+    <sys:String x:Key="Tip_MoveState">Change state</sys:String>
     <sys:String x:Key="Tip_Defer">Move to WAIT</sys:String>
     <sys:String x:Key="Tip_Activate">Move to DOING</sys:String>
     <sys:String x:Key="Tip_Restore">Restore</sys:String>

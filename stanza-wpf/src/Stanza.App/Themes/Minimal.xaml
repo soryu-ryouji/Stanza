@@ -576,6 +576,14 @@
         <Setter Property="CommandParameter" Value="{Binding .}"/>
     </Style>
 
+    <!-- 状态子菜单项：与优先级同款纯文本（Label 直接绑 Header——隐式 MenuItem 模板的
+         ContentPresenter 硬编码 ContentTemplate，HeaderTemplate 不会生效，勿用） -->
+    <Style x:Key="StateMenuItem" TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Setter Property="Header" Value="{Binding Label}"/>
+        <Setter Property="Command" Value="{Binding PlacementTarget.Tag.SetStateCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
+        <Setter Property="CommandParameter" Value="{Binding .}"/>
+    </Style>
+
     <Style TargetType="{x:Type Separator}">
         <Setter Property="Template">
             <Setter.Value>

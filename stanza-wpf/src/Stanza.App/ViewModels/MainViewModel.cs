@@ -78,6 +78,9 @@ public sealed partial class MainViewModel : ViewModelBase
         SetPriorityCommand = new RelayCommand(
             p => { if (p is PriorityOption option) SetPriorityForSelection(option.Value); },
             _ => HasSelection);
+        SetStateCommand = new RelayCommand(
+            p => { if (p is StateOption option) MoveSelectionTo(option.State); },
+            _ => HasSelection);
 
         Recents = new RecentFilesViewModel(
             openFile: OpenFile,
@@ -91,10 +94,9 @@ public sealed partial class MainViewModel : ViewModelBase
         _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1200) };
         _autoSaveTimer.Tick += (_, _) => { _autoSaveTimer.Stop(); Save(); };
 
-        // 语言切换：区块显示名（侧栏 / 大标题）与面板分组头（转换器）随当前语言重算
+        // 语言切换：区块显示名（侧栏）与面板分组头（转换器）随当前语言重算
         Loc.Changed += (_, _) =>
         {
-            OnPropertyChanged(nameof(ScopeTitle));
             foreach (var block in Blocks) block.RefreshName();
             PanelView.Refresh();
         };
@@ -134,15 +136,12 @@ public sealed partial class MainViewModel : ViewModelBase
         }
     }
 
-    // 标题区与工具栏的作用域属性：区块模式取区块状态，面板模式取面板/首个选中任务的状态
-    public string ScopeTitle => _selectedFacet?.Token ?? _selectedBlock?.Name ?? "";
-    public int ScopeTaskCount => _selectedFacet != null ? _panelTasks.Count : _selectedBlock?.TaskCount ?? 0;
-
-    /// <summary>标题区计数可见性：归档区块（已完成/回收站）不显示计数（归档统计无行动价值）。</summary>
-    public bool ShowScopeCount => _selectedFacet != null || _selectedBlock is { IsArchiveList: false };
-    public bool ScopeHasTasks => ScopeTaskCount > 0;
+    // 工具栏与空态的作用域属性：区块模式取区块状态，面板模式取面板/首个选中任务的状态
+    public bool ScopeHasTasks => _selectedFacet != null ? _panelTasks.Count > 0 : _selectedBlock?.HasTasks == true;
     public bool ShowAddTask => _selectedFacet != null || _selectedBlock?.IsActiveList == true;
     public bool ShowClear => _selectedFacet == null && _selectedBlock?.IsArchiveList == true;
+    /// <summary>清空按钮：归档区块且无选中时显示（有选中时工具栏切换为任务操作）。</summary>
+    public bool ShowClearButton => ShowClear && !HasSelection;
 
     private TaskState? ScopeState =>
         _selectedFacet != null ? _selectedTasks.FirstOrDefault()?.State : _selectedBlock?.State;
@@ -255,6 +254,7 @@ public sealed partial class MainViewModel : ViewModelBase
     public ICommand ActivateSelectionCommand { get; }
     public ICommand DeleteSelectionCommand { get; }
     public ICommand SetPriorityCommand { get; }
+    public ICommand SetStateCommand { get; }
 
     /// <summary>键位表命令 ID → 命令实例（Keymap 分发用；ID 是后续用户键位文件的稳定标识）。
     /// 仅含应用级命令；任务作用域命令（含 NewTask）经 TryExecuteTaskCommand 的焦点检查分发，不走此映射。</summary>
@@ -273,6 +273,10 @@ public sealed partial class MainViewModel : ViewModelBase
 
     /// <summary>优先级菜单选项（任务右键菜单与底部工具栏共用同一套选项与样式）。</summary>
     public IReadOnlyList<PriorityOption> PriorityOptions { get; } = BuildPriorityOptions();
+
+    /// <summary>状态子菜单选项（右键菜单直接展开四状态，按规范序；Label 随当前语言即时取值）。</summary>
+    public IReadOnlyList<StateOption> StateOptions { get; } =
+        TaskStateNames.CanonicalOrder.Select(s => new StateOption(s)).ToList();
 
     private static IReadOnlyList<PriorityOption> BuildPriorityOptions() => new[]
     {
@@ -555,7 +559,6 @@ public sealed partial class MainViewModel : ViewModelBase
         {
             if (e.PropertyName is nameof(BlockViewModel.TaskCount))
             {
-                OnPropertyChanged(nameof(ScopeTaskCount));
                 OnPropertyChanged(nameof(ScopeHasTasks));
             }
         };
@@ -609,5 +612,11 @@ public sealed partial class MainViewModel : ViewModelBase
 public sealed record PriorityOption(string LabelKey, char? Value)
 {
     public string Label => Loc.Get(LabelKey);
+}
+
+/// <summary>状态子菜单项：状态 + 本地化名称（Label 按当前语言即时取值，右键菜单每次打开时重新求值）。</summary>
+public sealed record StateOption(TaskState State)
+{
+    public string Label => Loc.StateName(State);
 }
 

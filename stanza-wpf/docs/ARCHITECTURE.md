@@ -104,7 +104,7 @@ flowchart TB
 | 任务操作 | `CreateTask` / `TransitionTasks`（统一流转）/ `DropTask` / `DeleteTasksPermanently` / `ClearSelectedBlock` |
 | 排序 | `SettleSort` → `ApplySort`（仅活跃区块，稳定排序） |
 | 项目/标签聚合 | `RefreshFacets`（侧栏列表）+ `RebuildPanel`（面板任务集） |
-| 作用域属性 | `ScopeTitle/ScopeTaskCount/ScopeIsActive/...` 驱动标题区与工具栏 |
+| 作用域属性 | `ScopeHasTasks/ScopeIsActive/...` 驱动空态提示与工具栏 |
 | 视图回调注入 | `PickOpenFile`/`PickSaveFile`/`OpenRecentRequested`/`CompleteSelectionRequested`/`UndoRequested` 等 `Action` 属性，由窗口构造时注入；`TaskCreated` 事件（新任务后视图滚动聚焦） |
 | 自动保存 | 1.2s 防抖 `DispatcherTimer`，`NotifyContentChanged` 触发（任务级变化经 `TaskViewModel.ContentChanged` 事件汇入，见 §4.2） |
 
@@ -168,7 +168,7 @@ flowchart TB
     WindowFrame --> Root["Root"]
     Root --> ContentArea["ContentArea（208px 侧栏 | * 任务区）"]
     ContentArea --> Sidebar["Views/SidebarView：BlockList（区块）+ 项目/标签分组<br/>+ 底部工具按钮（打开/新建/最近/设置）+ RecentPopup"]
-    ContentArea --> TaskArea["Views/TaskAreaView：拖拽条 → 标题区（ScopeTitle）<br/>→ TaskList（分组 ListBox）→ 底部工具栏<br/>（模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）"]
+    ContentArea --> TaskArea["Views/TaskAreaView：拖拽条 → TaskList（分组 ListBox）→ 底部工具栏<br/>（模板选择器：TaskTemplate 卡片 / GapTemplate 拖拽占位）"]
     Root --> Welcome["无文档遮罩（欢迎页）"]
     Root --> StatusBar["悬浮状态条 + 窗口按钮（右上角）"]
     Root --> Ghost["GhostCanvas（拖拽幽灵卡片）"]

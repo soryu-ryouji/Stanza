@@ -259,7 +259,8 @@ public partial class MainWindow
                        && !RecentPopup.IsOpen && !_taskDragging,
             Run: _ => OpenFacetPickerOrJump(FacetKind.Project)),
 
-        // 打开状态选择器（移到…）：限任务列表焦点且有选中；
+        // 打开状态选择器（M；任务区有选中时 → 同义）：限任务列表焦点且有选中；
+        // 锚点为选中任务右上角（底部浮出只属于工具栏点击入口，见 MoveStateButton_Click）。
         // 拖拽中不打开：被拖任务已脱离区块，流转会因找不到所属区块而失败
         new(AppCommand.OpenMovePicker,
             When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
@@ -273,7 +274,8 @@ public partial class MainWindow
                        && !RecentPopup.IsOpen && !_taskDragging && VM.HasActiveSelection,
             Run: _ => OpenPriorityPicker(SelectedTaskAnchor())),
 
-        // 打开日期选择器（D）：作用域同优先级（截止日同样只属于活跃任务）
+        // 打开日期选择器（Shift+T）：作用域同优先级（截止日同样只属于活跃任务）；
+        // 锚点为选中任务右上角（底部浮出只属于工具栏点击入口）
         new(AppCommand.OpenDuePicker,
             When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
                        && !RecentPopup.IsOpen && !_taskDragging && VM.HasActiveSelection,
@@ -306,7 +308,9 @@ public partial class MainWindow
         new(AppCommand.NavigateRight, When: CanTakeNavigateRight, Run: c =>
         {
             if (c.Scope is FocusScope.SidebarList or FocusScope.SidebarItem) NavigateToTaskList();
-            else FocusTaskForArrow(Key.Right);
+            else if (c.Scope is FocusScope.TaskList or FocusScope.TaskItem && VM.HasSelection)
+                OpenMovePicker(SelectedTaskAnchor());   // → = 修改状态（锚点选中任务旁，同 M）
+            else FocusTaskForArrow(Key.Right);   // 无选中：归位/入门选中首项
         }),
     ];
 

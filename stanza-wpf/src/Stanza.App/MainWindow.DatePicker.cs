@@ -17,13 +17,13 @@ namespace Stanza.App;
 /// </summary>
 public partial class MainWindow
 {
-    /// <summary>工具栏「截止」按钮入口：锚点为选中任务右上角（同 D 键路径）。</summary>
+    /// <summary>工具栏「截止」按钮入口：面板浮动到工具栏上方（底边对齐工具栏顶）。</summary>
     internal void DueDateButton_Click(object sender, RoutedEventArgs e)
-        => OpenDuePicker(SelectedTaskAnchor());
+        => OpenDuePicker(ToolbarAnchor((FrameworkElement)sender), above: true);
 
     /// <summary>由右键菜单（鼠标位置）、工具栏按钮或快捷键（D，锚点为选中任务右上角）打开。
     /// 选择器是与主窗口同一视觉树的应用内浮层（不用 WPF DatePicker 的 Popup 日历——决策：浮层不进独立 HWND）。</summary>
-    internal void OpenDuePicker(Point? anchor = null)
+    internal void OpenDuePicker(Point? anchor = null, bool above = false)
     {
         if (!VM.HasActiveSelection) return;
         CloseAllPickers();   // 浮层互斥：同一时刻只开一个选择器
@@ -40,7 +40,7 @@ public partial class MainWindow
         // 月历定位并选中当前截止（无则停今天所在月；初始化不触发 DatePicked）
         DueCalendar.SelectedDate = uniform;
 
-        OpenPickerPanel(DatePickerPanel, anchor, 420);
+        OpenPickerPanel(DatePickerPanel, anchor, 420, above);
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => Keyboard.Focus(DatePickerInput)));
     }
 

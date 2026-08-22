@@ -239,6 +239,46 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
     }
 
     [Fact]
+    public void StateMenuItem_ExpandsInlineSubmenu_AppliesTransition() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+            UiTestHost.PumpUntil(() => UiTestHost.ContainerOf(window, task) != null, "容器生成");
+            var card = VisualTreeEx.FindVisualChildren<Border>(UiTestHost.ContainerOf(window, task)!)
+                .First(b => b.Name == "Card");
+            var menu = card.ContextMenu;
+            menu.PlacementTarget = card;   // 程序化打开需手动设置（右键打开时 WPF 自动）；Tag 桥接绑定依赖它
+            menu.IsOpen = true;
+            try
+            {
+                // 状态项与优先级同构：悬停直接展开子菜单（四项按规范序）
+                var stateItem = menu.Items.OfType<MenuItem>().First(m => m.Tag as string == "OpenMovePicker");
+                UiTestHost.PumpUntil(() => stateItem.Items.Count == 4, "状态子菜单项填充");
+
+                // 点击子项 = 流转（选 DONE：§9 规范化，进 DONE 顶部并追加完成时间戳）
+                var doneItem = stateItem.Items.OfType<StateOption>().First(o => o.State == TaskState.Done);
+                Assert.Equal("已完成", doneItem.Label);   // 子菜单显示 Label 而非 record 的 ToString
+                Assert.True(vm.SetStateCommand.CanExecute(doneItem));
+                vm.SetStateCommand.Execute(doneItem);
+                Assert.Equal(TaskState.Done, task.State);
+                Assert.Same(task, vm.Blocks.First(b => b.State == TaskState.Done).Tasks.First());
+            }
+            finally
+            {
+                menu.IsOpen = false;
+            }
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
     public void DueMenuItem_ShowsShiftTGestureHint() => OnUi(() =>
     {
         var window = WindowWithTasks(out var vm);
@@ -370,6 +410,45 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
     });
 
     [Fact]
+    public void Toolbar_CreateAlwaysFirst_MoveStateOpensPicker() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var toolbar = window.TaskArea;
+
+            // 无选中：创建任务按钮可见（常驻首位）
+            Assert.Equal(Visibility.Visible, toolbar.AddTaskButton.Visibility);
+
+            // 选中后：创建按钮仍在；「修改状态」按钮出现，点击打开状态选择面板
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+            Assert.Equal(Visibility.Visible, toolbar.AddTaskButton.Visibility);
+            UiTestHost.PumpUntil(
+                () => toolbar.MoveStateButton.Visibility == Visibility.Visible,
+                "选中后显示修改状态按钮");
+
+            toolbar.MoveStateButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            UiTestHost.PumpUntil(
+                () => window.ChoicePickerPanel.Visibility == Visibility.Visible,
+                "状态选择面板打开");
+            Assert.Equal(4, window.ChoicePickerRows.Children.Count);   // 四状态流转项
+
+            // 工具栏点击入口：面板底边对齐工具栏顶（按钮顶边为锚点，间距 6px；实测高度定位无估值错位）
+            var buttonTop = toolbar.MoveStateButton.TranslatePoint(new Point(0, 0), window.Root).Y;
+            var panelBottom = Canvas.GetTop(window.ChoicePickerPanel)
+                + window.ChoicePickerPanel.ActualHeight;
+            Assert.True(Math.Abs(panelBottom - (buttonTop - 6)) < 2,
+                $"面板底边 {panelBottom:F1} 应对齐工具栏顶 {buttonTop:F1} - 6");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
     public void MKey_WithSelection_OpensMovePicker() => OnUi(() =>
     {
         var window = WindowWithTasks(out var vm);
@@ -436,6 +515,33 @@ public class MainWindowKeyDispatchTests : StaTestHost.StaFactBase
 
             UiTestHost.PumpUntil(
                 () => vm.SelectedTask == block.Tasks.First(), "右移选中首项");
+        }
+        finally
+        {
+            UiTestHost.CloseWindow(window);
+        }
+    });
+
+    [Fact]
+    public void RightKey_WithSelection_OpensMovePicker_BesideTask() => OnUi(() =>
+    {
+        var window = WindowWithTasks(out var vm);
+        try
+        {
+            var task = vm.Blocks[0].Tasks.First();
+            vm.UpdateSelection(new[] { task });
+            vm.SelectedTask = task;
+
+            UiTestHost.SendKey(window, Key.Right);   // 任务区有选中：→ = 修改状态
+
+            // 快捷键入口：面板在选中任务旁打开（底部浮出只属于工具栏点击）
+            UiTestHost.PumpUntil(
+                () => window.ChoicePickerPanel.Visibility == Visibility.Visible,
+                "→ 打开状态面板");
+            var containerTop = UiTestHost.ContainerOf(window, task)!;
+            var panelTop = Canvas.GetTop(window.ChoicePickerPanel);
+            Assert.True(panelTop < window.ActualHeight / 2,
+                $"快捷键打开的面板应在任务附近（顶边 {panelTop:F0}），而非底部浮出");
         }
         finally
         {

@@ -19,12 +19,16 @@ public partial class MainWindow
 {
     private (ModifierKeys Modifiers, Key Key) _choiceToggleKey;   // 再按激活键 = 关闭（开关语义）
 
+    /// <summary>工具栏「修改状态」按钮入口：面板浮动到工具栏上方（底边对齐工具栏顶）。</summary>
+    internal void MoveStateButton_Click(object sender, RoutedEventArgs e)
+        => OpenMovePicker(ToolbarAnchor((FrameworkElement)sender), above: true);
+
     // ---- 入口：状态（移到…） ----
 
-    /// <summary>由快捷键（M，锚点为选中任务右上角）或右键菜单「状态…」（鼠标位置）打开。
+    /// <summary>由快捷键（M/→，面板浮动到工具栏上方）或右键菜单「状态…」（鼠标位置就地）打开。
     /// 四个目标按规范序：数字 1-4 直达（与 Alt+1~4 的区块序号同义）。
     /// 选中任务状态一致时当前状态行标 ✓，多选混合不标。</summary>
-    internal void OpenMovePicker(Point? anchor = null)
+    internal void OpenMovePicker(Point? anchor = null, bool above = false)
     {
         if (!VM.HasSelection) return;
         var states = VM.SelectedTasks.Select(t => t.State).Distinct().ToList();
@@ -45,7 +49,7 @@ public partial class MainWindow
                 Apply = () => { CloseChoicePicker(); ApplyMoveTo(state); },
             });
         }
-        OpenChoicePicker(items, ModifierKeys.None, Key.M, anchor);
+        OpenChoicePicker(items, ModifierKeys.None, Key.M, anchor, above);
     }
 
     /// <summary>状态行的应用：流转并把焦点落位到空缺处（同 Delete/Backspace 路径，支持连续操作）。</summary>
@@ -112,7 +116,7 @@ public partial class MainWindow
 
     /// <summary>打开选择面板：互斥关闭标签选择器、构建行、落位夹取。焦点锁面板：
     /// 全部按键在 ChoicePicker_KeyDown 统一处理。</summary>
-    private void OpenChoicePicker(IReadOnlyList<PickerItem> items, ModifierKeys toggleModifiers, Key toggleKey, Point? anchor)
+    private void OpenChoicePicker(IReadOnlyList<PickerItem> items, ModifierKeys toggleModifiers, Key toggleKey, Point? anchor, bool above = false)
     {
         CloseAllPickers();   // 浮层互斥：同一时刻只开一个选择器
         _pickerItems = items;
@@ -126,7 +130,7 @@ public partial class MainWindow
         _pickerHighlight = current >= 0 ? current : 0;
         BuildPickerRows(ChoicePickerRows);
 
-        OpenPickerPanel(ChoicePickerPanel, anchor, 180);
+        OpenPickerPanel(ChoicePickerPanel, anchor, 180, above);
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => Keyboard.Focus(ChoicePickerPanel)));
     }
 

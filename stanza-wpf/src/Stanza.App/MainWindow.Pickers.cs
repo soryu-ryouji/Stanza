@@ -217,10 +217,21 @@ public partial class MainWindow
 
     /// <summary>打开选择器面板：在锚点（鼠标/选中任务）附近落位并夹取到窗口内
     /// （参照物用始终已布局的 Root：Collapsed 面板自身 ActualWidth/Height 为 0，不能作为参照）。
+    /// above = true 时向上展开：底边对齐锚点（工具栏入口语义），先显示测量取真实高度再定位，避免估值错位。
     /// 互斥关闭另一选择器与聚焦由调用方负责。</summary>
-    private void OpenPickerPanel(FrameworkElement panel, Point? anchor, double estimatedHeight)
+    private void OpenPickerPanel(FrameworkElement panel, Point? anchor, double estimatedHeight, bool above = false)
     {
         var pos = anchor ?? Mouse.GetPosition(Root);
+        if (above)
+        {
+            panel.Visibility = Visibility.Visible;
+            UpdatePickerLayerVisibility();
+            panel.UpdateLayout();   // 取 ActualHeight，底边精确对齐锚点
+            Canvas.SetLeft(panel,
+                Math.Clamp(pos.X - panel.Width / 2, 0, Math.Max(0, Root.ActualWidth - panel.Width - 8)));
+            Canvas.SetTop(panel, Math.Max(8, pos.Y - panel.ActualHeight - 6));   // 底边距锚点 6px
+            return;
+        }
         Canvas.SetLeft(panel,
             Math.Clamp(pos.X, 0, Math.Max(0, Root.ActualWidth - panel.Width - 8)));
         Canvas.SetTop(panel,
@@ -228,6 +239,10 @@ public partial class MainWindow
         panel.Visibility = Visibility.Visible;
         UpdatePickerLayerVisibility();
     }
+
+    /// <summary>工具栏入口的锚点：按钮顶边中点（面板向上展开时底边即对齐工具栏顶）。</summary>
+    private Point ToolbarAnchor(FrameworkElement button)
+        => button.TranslatePoint(new Point(button.ActualWidth / 2, 0), Root);
 
     /// <summary>关闭选择器面板。焦点残留在已隐藏的面板内时停回任务列表（WPF 不自动迁移焦点，
     /// 否则焦点留在不可见元素上，Esc 关闭后 T/P 等裸键分发全部失效）。</summary>

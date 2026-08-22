@@ -55,10 +55,6 @@ public class MainWindowWiringTests : StaTestHost.StaFactBase
             // 截止日期带「截止」前缀（前缀与日期值是两个独立 TextBlock）
             Assert.Contains(texts, t => t == "截止");
             Assert.Contains(texts, t => t == "2026-08-18");
-
-            // 标题区绑定：ScopeTitle = 当前区块本地化名称
-            var titles = VisualTreeEx.FindVisualChildren<TextBlock>(window).Select(t => t.Text);
-            Assert.Contains(titles, t => t == Loc.StateName(TaskState.Doing));
         }
         finally
         {
