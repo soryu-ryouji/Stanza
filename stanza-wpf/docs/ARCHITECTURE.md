@@ -200,7 +200,7 @@ flowchart TB
 
 ## 6. 输入与快捷键体系（架构特色）
 
-快捷键体系是三层结构，全部手写，是重构时最需要小心保持语义的部分：
+快捷键体系是三层结构，全部手写，是重构时最需要小心保持语义的部分。焦点上下文（`FocusScope`：编辑框/任务列表/任务条目/侧栏/浮层/隐藏/落空）是唯一推断点——每次按键实时求值（非缓存状态，永不失同步），任务作用域命令的作用域检查全部读它。分发主干：
 
 ```mermaid
 flowchart TB
@@ -209,11 +209,11 @@ flowchart TB
     Modal -->|是| Skip["跳过：浮层自己的路由事件接管"]
     Modal -->|否| CtrlR["1. Ctrl+R 循环确认（KeyUp 时机）"]
     CtrlR --> AppCmd{"2. 应用级命令？<br/>Keymap.Resolve → VM.CommandFor"}
-    AppCmd -->|未命中| TaskCmd["3. 任务作用域命令：TryExecuteTaskCommand<br/>逐命令检查焦点作用域<br/>例：Space 完成（限任务列表焦点、非编辑框）；<br/>T/P 双语义（有选中 = 打开选择器，无选中 = 侧栏跳转模式）；<br/>hjkl 导航（NavKeysDeadOnFocus 判定接管时机）"]
+    AppCmd -->|未命中| TaskCmd["3. 任务作用域规则表 TaskRules：<br/>逐条 when(KeyContext) 求值（VS Code 式声明规则）<br/>例：CompleteTask 限 TaskList/TaskItem；NewTask 排除编辑框/浮层；<br/>T/P 双语义；hjkl 导航（NavKeysDeadOnFocus 判定接管时机）"]
     TaskCmd --> ShiftJk["4. Shift+jk 扩展选中（vim 语义）"]
     AppCmd -->|命中| GiveWay{"让路检查"}
     GiveWay -->|编辑框内 Emacs 编辑手势（TextEditKeys）| Route["交还路由"]
-    GiveWay -->|侧栏列表/选择面板内 Ctrl+N/P 列表导航| Route
+    GiveWay -->|侧栏列表/选择面板内 Ctrl+N/P 选项导航| Route
     GiveWay -->|编辑框内 Ctrl+Z 文本级撤销| Route
     GiveWay -->|无冲突| Execute["command.Execute（e.Cancel 消费按键）"]
 ```
@@ -337,13 +337,13 @@ flowchart TB
 
 | 区域 | 现状 | 风险 / 建议 |
 | ---- | ---- | ---- |
-| `MainWindow.Keyboard.cs` + `MainWindow.Drag.cs` | 键盘分发、焦点管理、拖拽状态机已拆为两个 partial | 中：进一步提取独立控制器类依赖 10+ 窗口成员，收益有限，暂无需求驱动 |
+| `MainWindow.Keyboard.cs` + `MainWindow.Drag.cs` | 键盘分发已收敛为 FocusScope 推断 + TaskRules 声明式规则表；拖拽状态机独立 partial | 低：分发主干已声明化，新增命令加规则行即可 |
 | `MainWindow.Pickers.cs` 系列（663 行，三个 partial） | 已提炼共用骨架：`PickerItem` 行描述符 + 代码行构建 + 高亮状态机；Facet/Choice 各自只留特化（输入过滤提交 / 加速键开关语义） | 低：骨架已统一，后续变化沿骨架扩展 |
 | `MainViewModel`（4 个 partial） | 文档生命周期/命令/撤销/聚合已按主题分文件 | 中：聚合与撤销已独立成文件；若需进一步解耦可提取独立类，但状态互锁，需测试先行 |
 | `TaskViewModel` 双轨状态 | 编辑文本与结构化属性同步（`_effective` 合并展示值） | 中：语义最微妙的类；已有往返/捕获/提交测试覆盖，下沉 Core 会污染其「格式规则」定位，不建议 |
 | 事件转发链 | 模板 → `Templates.xaml.cs` → `Window.GetWindow` → MainWindow | 低：样板化但直接；引入命令绑定可简化 |
 | 全局单例 | `Keymap.Current`、`Loc` 静态类 | 低：测试隔离困难，但改动面大、收益有限 |
-| 测试覆盖 | Core 82 个 + App 层 33 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线：真实窗口 + 视觉树 + 消息泵，见 UiTestHost；含选择器骨架链路） | 建议继续补：拖拽状态机；接线层可随功能增量补（浮层、焦点、右键菜单） |
+| 测试覆盖 | Core 82 个 + App 层 43 个（TaskViewModel 纯文本逻辑；MainViewModel 编排；MainWindow 视图接线与键盘分发：真实窗口 + 视觉树 + 消息泵，见 UiTestHost） | 修饰键组合受合成输入限制（修饰键取自真实键盘设备），Ctrl 系路径人工验证 |
 
 ## 11. 附录：文件清单速查
 

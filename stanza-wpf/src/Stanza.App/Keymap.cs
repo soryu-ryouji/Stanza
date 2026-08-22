@@ -161,7 +161,7 @@ public sealed class Keymap
 
             // ---- 任务作用域（仅任务列表焦点上下文分发；裸键不进文本框，见分发处的作用域检查） ----
             new(ModifierKeys.None, Key.Space, AppCommand.CompleteTask),
-            new(ModifierKeys.None, Key.N, AppCommand.NewTask),   // 裸键新建（两模式一致），焦点检查见 TryExecuteTaskCommand
+            new(ModifierKeys.None, Key.N, AppCommand.NewTask),   // 裸键新建（两模式一致），焦点检查见 TaskRules
             new(ModifierKeys.None, Key.T, AppCommand.OpenTagPicker),
             new(ModifierKeys.None, Key.P, AppCommand.OpenProjectPicker),
             new(ModifierKeys.None, Key.M, AppCommand.OpenMovePicker),

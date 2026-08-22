@@ -81,22 +81,18 @@ public static class UiTestHost
         }
     }
 
-    /// <summary>合成键盘输入：按真实按键序列先发 PreviewKeyDown（隧道）再发 KeyDown（冒泡，未消费时），
-    /// 均走完整输入管线（InputManager.PreProcessInput → 应用/任务命令分发 → 路由）。
+    /// <summary>合成键盘输入：发送单个 PreviewKeyDown staging item——InputManager 从隧道阶段开始
+    /// 完成完整按键序列（隧道未消费则继续冒泡；各阶段均过 PreProcessInput，冒泡阶段 RoutedEvent
+    /// 变为 KeyDownEvent，任务分发在那里触发一次）。注意：不要发 KeyDown staging item（跳过隧道阶段），
+    /// 也不要两个都发（同一按键被处理两遍）。
     /// 修饰键状态取自真实键盘设备（测试线程无法注入 Ctrl），故仅适用无修饰键的手势（Space 等）。</summary>
     public static void SendKey(MainWindow window, Key key)
     {
         var source = PresentationSource.FromVisual(window)
             ?? throw new InvalidOperationException("窗口未 Show，无 PresentationSource");
-        var preview = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key)
-        {
-            RoutedEvent = Keyboard.PreviewKeyDownEvent,
-        };
-        InputManager.Current.ProcessInput(preview);
-        if (preview.Handled) return;
         InputManager.Current.ProcessInput(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key)
         {
-            RoutedEvent = Keyboard.KeyDownEvent,
+            RoutedEvent = Keyboard.PreviewKeyDownEvent,
         });
     }
 

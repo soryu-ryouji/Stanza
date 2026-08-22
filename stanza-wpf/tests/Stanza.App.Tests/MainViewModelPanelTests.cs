@@ -87,6 +87,62 @@ public class MainViewModelPanelTests : StaTestHost.StaFactBase
     });
 
     [Fact]
+    public void NewTask_InFacetPanel_CollapseWithoutInput_RemovesDraft() => OnUi(() =>
+    {
+        var vm = NewDoc();
+        var doing = Block(vm, TaskState.Doing);
+        AddTask(vm, doing, "任务一 +Apollo ");
+        SelectProject(vm, "Apollo");
+
+        vm.NewTaskCommand.Execute(null);
+        var draft = doing.Tasks.Last();
+        Assert.Contains(draft, vm.PanelItems.OfType<TaskViewModel>());
+
+        vm.CollapseExpanded();   // Esc/失焦路径：归属仍是预填值且无内容 = 放弃
+
+        Assert.DoesNotContain(draft, doing.Tasks);
+        Assert.Empty(vm.PanelItems.OfType<TaskViewModel>().Where(t => t == draft));
+        Assert.Single(doing.Tasks);   // 只剩任务一
+    });
+
+    [Fact]
+    public void NewTask_InFacetPanel_CollapseWithContent_KeepsDraft() => OnUi(() =>
+    {
+        var vm = NewDoc();
+        var doing = Block(vm, TaskState.Doing);
+        AddTask(vm, doing, "任务一 +Apollo ");
+        SelectProject(vm, "Apollo");
+
+        vm.NewTaskCommand.Execute(null);
+        var draft = doing.Tasks.Last();
+        draft.HeaderText = "新任务";
+
+        vm.CollapseExpanded();   // 有内容：保留，含预填归属
+
+        Assert.Contains(draft, doing.Tasks);
+        Assert.Equal("Apollo", draft.ProjectName);
+    });
+
+    [Fact]
+    public void NewTask_InFacetPanel_CollapseAfterFacetChange_KeepsDraft() => OnUi(() =>
+    {
+        var vm = NewDoc();
+        var doing = Block(vm, TaskState.Doing);
+        AddTask(vm, doing, "任务一 +Apollo ");
+        AddTask(vm, doing, "任务二 +Beta ");
+        SelectProject(vm, "Apollo");
+
+        vm.NewTaskCommand.Execute(null);
+        var draft = doing.Tasks.Last();
+        draft.SetProject("Beta");   // 用户显式改过归属：即使无内容也保留（归属计为内容）
+
+        vm.CollapseExpanded();
+
+        Assert.Contains(draft, doing.Tasks);
+        Assert.Equal("Beta", draft.ProjectName);
+    });
+
+    [Fact]
     public void PanelOrder_FollowsSettleSort() => OnUi(() =>
     {
         var vm = NewDoc();

@@ -378,8 +378,16 @@ public sealed partial class MainViewModel : ViewModelBase
             // 面板视图下新建：落到 DOING 末尾（§9），归属预填为对应的 项目/标签（结构化属性）
             var doing = Blocks.First(b => b.State == TaskState.Doing);
             var task = CreateTask(doing, int.MaxValue);
-            if (facet.Kind == FacetKind.Project) task.SetProject(facet.Name);
-            else task.AddTag(facet.Name);
+            if (facet.Kind == FacetKind.Project)
+            {
+                task.SetProject(facet.Name);
+                task.MarkPrefilled(facet.Name, null);
+            }
+            else
+            {
+                task.AddTag(facet.Name);
+                task.MarkPrefilled(null, facet.Name);
+            }
             RefreshFacets();   // 让新草稿出现在面板中
             return;
         }

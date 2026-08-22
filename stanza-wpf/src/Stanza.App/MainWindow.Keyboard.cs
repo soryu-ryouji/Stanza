@@ -20,6 +20,38 @@ public partial class MainWindow
     private TaskViewModel? _shiftAnchor;   // Shift+jk 扩展选中的锚点（区间固定端）
     private TaskViewModel? _shiftCursor;   // 活动端（随 Shift+jk 移动）
 
+    // ==================== 焦点上下文 ====================
+
+    /// <summary>焦点所在的界面区域（VS Code 的 focus context key 对应物）。
+    /// 实时推断而非缓存状态：焦点是外部可变事实（点击/Tab/容器重建），每次按键现场求值永不失同步；
+    /// IsVisible 校验是「有效性兜底」——焦点残留在已隐藏元素上（WPF 不自动迁移焦点）归为 Hidden。</summary>
+    private enum FocusScope { TextEditor, TaskList, TaskItem, SidebarList, SidebarItem, Picker, Hidden, None }
+
+    /// <summary>当前焦点区域。判定顺序即优先级：编辑框 > 选择器浮层 > 任务列表（条目/本体）>
+    /// > 侧栏列表（本体/条目）> 其他。任务卡片的编辑框在条目内，但输入语义优先（TextEditor 先判）。</summary>
+    private FocusScope CurrentFocusScope
+    {
+        get
+        {
+            if (Keyboard.FocusedElement is not DependencyObject focus) return FocusScope.None;
+            if (focus is UIElement { IsVisible: false }) return FocusScope.Hidden;
+            if (focus is TextBoxBase) return FocusScope.TextEditor;
+            if (VisualTreeEx.IsWithin(focus, PickerLayer)) return FocusScope.Picker;
+            if (VisualTreeEx.IsWithin(focus, TaskList))
+                return VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) != null
+                    ? FocusScope.TaskItem
+                    : FocusScope.TaskList;
+            if (focus is ListBox) return FocusScope.SidebarList;
+            if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) != null) return FocusScope.SidebarItem;
+            return FocusScope.None;
+        }
+    }
+
+    /// <summary>焦点在任务列表的未选中条目上（「只聚焦不选中」的预置态，启动/切区块时产生）。</summary>
+    private bool FocusedTaskItemUnselected
+        => VisualTreeEx.FindVisualAncestor<ListBoxItem>(Keyboard.FocusedElement as DependencyObject)
+            is { IsSelected: false };
+
     /// <summary>输入总入口：拖拽（PreviewMouseMove/Up）与键盘（PreProcessInput/KeyDown）处理器统一注册。</summary>
     private void InitializeDragInput()
     {
@@ -94,7 +126,7 @@ public partial class MainWindow
         // 用户改键只改触发手势；作用域语义（编辑框内输入、浮层内的按键优先）不随之变化
         if (Keymap.Current.Resolve(key, Keyboard.Modifiers) is { } taskEntry
             && Keymap.IsTaskScoped(taskEntry.Command)
-            && TryExecuteTaskCommand(taskEntry.Command, key))
+            && TryExecuteTaskRule(taskEntry.Command, key))
         {
             e.Cancel();
             return;
@@ -118,13 +150,10 @@ public partial class MainWindow
     /// 活动端移回锚点即收缩。无选中时与裸 j/k 一致（j 选首项、k 选末项）。</summary>
     private bool TryShiftSelectTasks(Key key)
     {
-        // 作用域同任务导航键：文本框（文本选择）、浮层、侧栏列表内不接管
-        if (Keyboard.FocusedElement is DependencyObject focus)
-        {
-            if (focus is TextBoxBase) return false;
-            if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
-            if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
-        }
+        // 作用域同任务导航键：文本框（文本选择）、浮层、侧栏列表本体内不接管
+        // （侧栏条目上的焦点放行：Shift+jk 在侧栏条目焦点时归任务列表管，与 Shift+方向键借桥一致）
+        if (CurrentFocusScope is FocusScope.TextEditor or FocusScope.Picker or FocusScope.SidebarList)
+            return false;
         var down = key == Key.J;
         var tasks = TaskList.Items.OfType<TaskViewModel>().ToList();
         if (tasks.Count == 0) return true;   // 空列表：吞掉，避免焦点逃逸到工具栏
@@ -166,15 +195,10 @@ public partial class MainWindow
             || Keyboard.Modifiers != ModifierKeys.Shift
             || RecentPopup.IsOpen)
             return false;
-        if (Keyboard.FocusedElement is not DependencyObject focus) return true;
-        if (focus is UIElement { IsVisible: false }) return true;
-        if (focus is TextBoxBase) return false;
-        if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
-        if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item
-            && VisualTreeEx.IsWithin(item, TaskList))
-            return false;
-        if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
-        return true;
+        // 借桥 = 焦点无人做原生扩展时：无焦点/残留隐藏元素/任务列表本体/侧栏条目。
+        // 任务条目（WPF Extended 原生扩展）、编辑框（文本选择）、浮层、侧栏列表本体各有归属
+        return CurrentFocusScope is FocusScope.None or FocusScope.Hidden
+            or FocusScope.TaskList or FocusScope.SidebarItem;
     }
 
     /// <summary>把焦点放回选中边缘（方向同侧）的条目容器；不消费按键——焦点从列表外进入不联动选中，
@@ -194,125 +218,125 @@ public partial class MainWindow
         ((UIElement?)ContainerOf(target) ?? TaskList).Focus();
     }
 
-    /// <summary>任务作用域命令的执行（含焦点作用域检查）。返回 false 表示当前上下文不分发，
-    /// 按键继续走默认路由（如编辑框内的字母输入）。</summary>
-    private bool TryExecuteTaskCommand(AppCommand command, Key key)
+    /// <summary>按键时的上下文快照：焦点区域（实时推断）+ 实际按键（Navigate 的方向语义取自按键，
+    /// 用户改键只改触发手势）。模式状态（弹层/拖拽）与 VM 查询由规则谓词闭包实时读取。</summary>
+    private readonly record struct KeyContext(FocusScope Scope, Key Key);
+
+    /// <summary>任务作用域规则（VS Code keybinding 规则的对应物）：命令 + when 谓词 + 执行体。
+    /// when 为假时按键放行（交还路由，如编辑框内的字母输入）。</summary>
+    private sealed record TaskRule(AppCommand Command, Func<KeyContext, bool> When, Action<KeyContext> Run);
+
+    private TaskRule[]? _taskRules;
+
+    private TaskRule[] TaskRules => _taskRules ??= BuildTaskRules();
+
+    private TaskRule[] BuildTaskRules() =>
+    [
+        // 新建任务（默认裸 N，两平台一致）：非输入上下文即可——文本框内是输入字符，
+        // 选择器/最近文件弹层/拖拽中让位；焦点落空（列表本体/窗口）时可用（全局语义）
+        new(AppCommand.NewTask,
+            When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)
+                       && !RecentPopup.IsOpen && !_taskDragging
+                       && VM.NewTaskCommand.CanExecute(null),
+            Run: _ => VM.NewTaskCommand.Execute(null)),
+
+        // 标记选中任务已完成（§9）。限任务列表焦点：编辑框内 Space 是输入、按钮上 Space 是激活
+        new(AppCommand.CompleteTask,
+            When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
+                       && !RecentPopup.IsOpen
+                       && VM.ScopeIsActive && VM.CompleteSelectionCommand.CanExecute(null),
+            Run: _ => AnimateCompleteTasks(VM.SelectedTasks.ToList())),
+
+        // 标签/项目键的双语义：有选中任务 = 打开设置器（任务操作，选中是更强的信号，不限焦点位置）；
+        // 无选中任务 = 跳转对应侧栏列表（导航，任意焦点位置可用——侧栏、落空均可）。
+        // 编辑框内字母是输入、浮层内按键归面板自身，不拦截
+        new(AppCommand.OpenTagPicker,
+            When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)
+                       && !RecentPopup.IsOpen && !_taskDragging,
+            Run: _ => OpenFacetPickerOrJump(FacetKind.Tag)),
+        new(AppCommand.OpenProjectPicker,
+            When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)
+                       && !RecentPopup.IsOpen && !_taskDragging,
+            Run: _ => OpenFacetPickerOrJump(FacetKind.Project)),
+
+        // 打开状态选择器（移到…）：限任务列表焦点且有选中；
+        // 拖拽中不打开：被拖任务已脱离区块，流转会因找不到所属区块而失败
+        new(AppCommand.OpenMovePicker,
+            When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
+                       && !RecentPopup.IsOpen && !_taskDragging && VM.HasSelection,
+            Run: _ => OpenMovePicker(SelectedTaskAnchor())),
+
+        // 打开优先级选择器（Shift+P）：同上；优先级只属于活跃任务，全归档选中不响应。
+        // 拖拽中不打开：排序重排会使拖拽持有的引用失效
+        new(AppCommand.OpenPriorityPicker,
+            When: c => c.Scope is FocusScope.TaskList or FocusScope.TaskItem
+                       && !RecentPopup.IsOpen && !_taskDragging && VM.HasActiveSelection,
+            Run: _ => OpenPriorityPicker(SelectedTaskAnchor())),
+
+        // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
+        new(AppCommand.DiscardTask,
+            When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)
+                       && VM.HasSelection && VM.DiscardSelectionCommand.CanExecute(null),
+            Run: _ => ExecuteWithFocusRestore(VM.DiscardSelectionCommand)),
+        new(AppCommand.DeleteTask,
+            When: c => c.Scope is not (FocusScope.TextEditor or FocusScope.Picker)
+                       && VM.HasSelection && VM.DeleteSelectionCommand.CanExecute(null),
+            Run: _ => ExecuteWithFocusRestore(VM.DeleteSelectionCommand)),
+
+        // 裸导航键：方向键与 vim hjkl 同语义映射。焦点无人消费时引入任务列表并移动选中；
+        // 字母绑定没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
+        new(AppCommand.NavigateUp, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Up)),
+        new(AppCommand.NavigateDown, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Down)),
+        new(AppCommand.NavigateLeft, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Left)),
+        new(AppCommand.NavigateRight, When: CanTakeNavigate, Run: c => FocusTaskForArrow(Key.Right)),
+    ];
+
+    /// <summary>T/P 双语义执行体：有选中任务打开对应选择器（锚点选中卡片），无选中进入侧栏跳转模式。</summary>
+    private void OpenFacetPickerOrJump(FacetKind kind)
     {
-        var focus = Keyboard.FocusedElement as DependencyObject;
-        switch (command)
+        if (VM.HasSelection) OpenFacetPicker(kind, SelectedTaskAnchor());
+        else EnterFacetJumpMode(kind);
+    }
+
+    /// <summary>删除/废弃执行体：先记落位索引，执行后把选中与焦点落到原位置的后续任务（连续操作语义）。</summary>
+    private void ExecuteWithFocusRestore(System.Windows.Input.ICommand command)
+    {
+        var index = FirstSelectedIndex();
+        command.Execute(null);
+        FocusTaskAtIndex(index);
+    }
+
+    /// <summary>裸导航键接管判定：焦点无人消费（NavKeysDeadOnFocus），或字母键落在任务条目上
+    /// （字母没有 ListBox 默认导航可借力，选中条目聚焦时也接管）。</summary>
+    private bool CanTakeNavigate(KeyContext c)
+        => !RecentPopup.IsOpen
+           && (NavKeysDeadOnFocus || (c.Key is >= Key.A and <= Key.Z && c.Scope is FocusScope.TaskItem));
+
+    /// <summary>任务作用域命令的执行：命中命令的规则 when 为真则执行并消费按键；
+    /// 返回 false 表示当前上下文不分发，按键继续走默认路由（如编辑框内的字母输入）。</summary>
+    private bool TryExecuteTaskRule(AppCommand command, Key key)
+    {
+        var ctx = new KeyContext(CurrentFocusScope, key);
+        foreach (var rule in TaskRules)
         {
-            // 新建任务（默认裸 N，两平台一致）：非输入上下文即可——文本框内是输入字符，
-            // 选择器/最近文件弹层/拖拽中让位；焦点落空（列表本体/窗口）时可用（与原 Ctrl+N 的全局语义一致）
-            case AppCommand.NewTask:
-                if (RecentPopup.IsOpen || _taskDragging || focus is TextBoxBase
-                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer))
-                    return false;
-                if (!VM.NewTaskCommand.CanExecute(null)) return false;
-                VM.NewTaskCommand.Execute(null);
-                return true;
-
-            // 标记选中任务已完成（§9）。限任务列表焦点：编辑框内 Space 是输入、按钮上 Space 是激活
-            case AppCommand.CompleteTask:
-                if (RecentPopup.IsOpen || focus is null or TextBoxBase
-                    || !VisualTreeEx.IsWithin(focus, TaskList)
-                    || !VM.ScopeIsActive
-                    || !VM.CompleteSelectionCommand.CanExecute(null))
-                    return false;
-                AnimateCompleteTasks(VM.SelectedTasks.ToList());
-                return true;
-
-            // 标签/项目键的双语义：有选中任务 = 打开设置器（任务操作，选中是更强的信号，不限焦点位置）；
-            // 无选中任务 = 跳转对应侧栏列表（导航，任意焦点位置可用——侧栏、落空均可）。
-            // 编辑框内字母是输入、浮层内按键归面板自身，不拦截
-            case AppCommand.OpenTagPicker:
-            case AppCommand.OpenProjectPicker:
-                if (RecentPopup.IsOpen || _taskDragging || focus is TextBoxBase
-                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer))
-                    return false;
-                if (VM.HasSelection)
-                {
-                    OpenFacetPicker(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project,
-                        SelectedTaskAnchor());
-                    return true;
-                }
-                EnterFacetJumpMode(command == AppCommand.OpenTagPicker ? FacetKind.Tag : FacetKind.Project);
-                return true;
-
-            // 打开状态选择器（移到…）：作用域同标签/项目选择器；
-            // 拖拽中不打开：被拖任务已脱离区块，流转会因找不到所属区块而失败
-            case AppCommand.OpenMovePicker:
-                if (RecentPopup.IsOpen || _taskDragging || focus is null or TextBoxBase
-                    || !VisualTreeEx.IsWithin(focus, TaskList)
-                    || !VM.HasSelection)
-                    return false;
-                OpenMovePicker(SelectedTaskAnchor());
-                return true;
-
-            // 打开优先级选择器（Shift+P）：作用域同其他选择器；优先级只属于活跃任务，
-            // 全归档选中不响应。拖拽中不打开：排序重排会使拖拽持有的引用失效
-            case AppCommand.OpenPriorityPicker:
-                if (RecentPopup.IsOpen || _taskDragging || focus is null or TextBoxBase
-                    || !VisualTreeEx.IsWithin(focus, TaskList)
-                    || !VM.HasActiveSelection)
-                    return false;
-                OpenPriorityPicker(SelectedTaskAnchor());
-                return true;
-
-            // 移入 DELETE（回收站语义，§9）/ 彻底删除。编辑框内是删字、选择器面板内被面板自身吞掉
-            case AppCommand.DiscardTask:
-            case AppCommand.DeleteTask:
-                if (focus is TextBoxBase
-                    || focus != null && VisualTreeEx.IsWithin(focus, PickerLayer)
-                    || !VM.HasSelection)
-                    return false;
-                var deleteCommand = command == AppCommand.DiscardTask
-                    ? VM.DiscardSelectionCommand
-                    : VM.DeleteSelectionCommand;
-                if (!deleteCommand.CanExecute(null)) return false;
-                var index = FirstSelectedIndex();
-                deleteCommand.Execute(null);
-                FocusTaskAtIndex(index);
-                return true;
-
-            // 裸导航键：方向键与 vim hjkl 同语义映射。焦点无人消费时引入任务列表并移动选中；
-            // 字母绑定没有 ListBox 默认导航可借力，选中条目聚焦时（方向键让位给默认导航的状态）也接管
-            case AppCommand.NavigateUp or AppCommand.NavigateDown
-                or AppCommand.NavigateLeft or AppCommand.NavigateRight:
-                if (RecentPopup.IsOpen) return false;
-                var isCharKey = key is >= Key.A and <= Key.Z;
-                if (!NavKeysDeadOnFocus && !(isCharKey && FocusedTaskChrome)) return false;
-                FocusTaskForArrow(command switch
-                {
-                    AppCommand.NavigateUp => Key.Up,
-                    AppCommand.NavigateDown => Key.Down,
-                    AppCommand.NavigateLeft => Key.Left,
-                    _ => Key.Right,
-                });
-                return true;
-
-            default:
-                return false;
+            if (rule.Command != command) continue;
+            if (!rule.When(ctx)) return false;
+            rule.Run(ctx);
+            return true;
         }
+        return false;
     }
 
     /// <summary>裸导航键（方向键/hjkl）当前无人消费：无焦点；焦点残留在已隐藏/移除的元素上
     /// （WPF 不自动迁移焦点，按键仍会路由给它）；焦点在按钮/窗口/任务列表框本体上；
     /// 或焦点在任务列表的未选中条目上（启动/切区块时预置的「只聚焦不选中」状态，见 MainWindow 构造函数）。
     /// 编辑框（光标移动）、选中条目（默认方向导航接管）、侧栏列表、浮层内的焦点不接管。</summary>
-    private bool NavKeysDeadOnFocus
+    private bool NavKeysDeadOnFocus => CurrentFocusScope switch
     {
-        get
-        {
-            if (Keyboard.FocusedElement is not DependencyObject focus) return true;
-            if (focus is UIElement { IsVisible: false }) return true;
-            if (focus is TextBoxBase) return false;
-            if (VisualTreeEx.IsWithin(focus, PickerLayer)) return false;
-            if (VisualTreeEx.FindVisualAncestor<ListBoxItem>(focus) is { } item)
-                return VisualTreeEx.IsWithin(focus, TaskList) && !item.IsSelected;
-            if (focus is ListBox list && !ReferenceEquals(list, TaskList)) return false;
-            return true;
-        }
-    }
+        FocusScope.None or FocusScope.Hidden or FocusScope.TaskList => true,
+        FocusScope.TaskItem => FocusedTaskItemUnselected,   // 未选中条目：接管使其成为选中
+        _ => false,
+    };
 
     /// <summary>方向键定位任务列表选中：有选中时 Up/Down 相对当前项移动（Left/Right 只归位焦点）；
     /// 无选中但焦点已在某条目上时选中该焦点项；都没有时 Down/Right 选首项、Up/Left 选末项。</summary>
@@ -364,11 +388,6 @@ public partial class MainWindow
         var container = ContainerOf(task);
         return container?.TranslatePoint(new Point(container.ActualWidth, 0), Root);
     }
-
-    /// <summary>焦点在任务列表的条目容器上（勾选框等也可），但不在文本框内：
-    /// hjkl 导航的附加作用域——编辑框输入字母优先，不参与导航。</summary>
-    private bool FocusedTaskChrome
-        => Keyboard.FocusedElement is not TextBoxBase && FocusedTask() != null;
 
     // 语义键（焦点相关，控件级按键）：挂在窗口 KeyDown（冒泡方向），焦点控件先处理，
     // 这里只收到无人认领的键——编辑框消化的键（多行框的 Enter）、按钮的 Enter/Space、

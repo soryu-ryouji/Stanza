@@ -20,6 +20,11 @@ public sealed class TaskViewModel : ViewModelBase
     private bool _isExpanded;
     private bool _headerEdited;   // 用户编辑过主行（收起时才做记号捕获；未编辑的展开/收起必须无损）
 
+    // 面板新建时预填的归属（项目/标签，二者其一）：空草稿判定的基准——归属仍等于预填值
+    // 且无任何内容时视为放弃（Esc/失焦收起即移除）；用户改过归属或输入了内容则保留。
+    private string? _prefilledProject;
+    private string? _prefilledTag;
+
     // 主行解析结果（只读，供展示）
     private char? _priority;
     private DateOnly? _due;
@@ -343,11 +348,20 @@ public sealed class TaskViewModel : ViewModelBase
         set => Set(ref _isExpanded, value);
     }
 
-    /// <summary>是否完全没有内容（保存时丢弃）。时间戳与优先级是工具/菜单写入的属性，不计为内容；
-    /// 项目/标签是用户显式设置的归属信息，计为内容（仅有归属的草稿不被误弃，与预填文本时代一致）。</summary>
+    /// <summary>记录面板新建时预填的归属（项目或标签，二者其一），见 IsEmpty。</summary>
+    internal void MarkPrefilled(string? project, string? tag)
+    {
+        _prefilledProject = project;
+        _prefilledTag = tag;
+    }
+
+    /// <summary>是否完全没有内容（保存时丢弃，收起时按空草稿移除）。时间戳与优先级是工具/菜单写入的属性，不计为内容；
+    /// 项目/标签是用户显式设置的归属信息，计为内容——但面板新建时预填的归属例外：归属仍等于预填值
+    /// 且无其他内容的草稿视为放弃（用户未输入任何东西），改过归属（含清空）则按用户意图保留。</summary>
     public bool IsEmpty =>
         HeaderText.Trim().Length == 0
-        && _project == null && _tags.Count == 0
+        && (_project == null || _project == _prefilledProject)
+        && (_tags.Count == 0 || (_prefilledTag != null && _tags.Count == 1 && _tags[0] == _prefilledTag))
         && NotesText.Split('\n').All(line => line.Trim().Length == 0);
 
     public StanzaTask ToModel()
