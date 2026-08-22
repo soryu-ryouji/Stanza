@@ -64,7 +64,7 @@ public partial class MainWindow
 
     /// <summary>由快捷键（Shift+P，锚点为选中任务右上角）打开。数字 1-4 对应象限 A-D
     /// （Todoist/Linear 的数字选级惯例），0 = 无优先级（Linear 的键位惯例）。
-    /// 行首徽章为象限着色的小旗（与右键菜单优先级同一旗形）；无优先级行不带徽章。
+    /// 行首徽章为象限着色的小旗（右键菜单「优先级」项同一旗形）；无优先级行不带徽章。
     /// 优先级只属于活跃任务：全归档选中不响应（分发处按 HasActiveSelection 拦截，这里再兜底）。
     /// 选中活跃任务优先级一致时标 ✓（均无优先级标在无优先级行），混合不标。
     /// 行描述取自 PriorityOptions（与右键子菜单同源）。</summary>
@@ -83,13 +83,13 @@ public partial class MainWindow
                 var digit = items.Count + 1;
                 items.Add(new PickerItem
                 {
-                    Label = Loc.Get($"Priority_Desc_{q}"),
+                    Label = option.Label,
                     Keys = new[] { Key.D0 + digit, Key.NumPad0 + digit },
                     KeyHint = digit.ToString(),
                     IsCurrent = uniform && current == q,
                     Badge = () => new TextBlock
                     {
-                        Text = "",   // 小旗（象限着色，与右键菜单优先级同一旗形）
+                        Text = "",   // 小旗（象限着色，右键菜单「优先级」项同一旗形）
                         FontFamily = (FontFamily)FindResource("IconFont"),
                         FontSize = 11,
                         Foreground = QuadrantToBrushConverter.Of(q),

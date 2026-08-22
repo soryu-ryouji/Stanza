@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Stanza.App.Services;
 using Stanza.Core;
@@ -612,11 +613,18 @@ public sealed partial class MainViewModel : ViewModelBase
 public sealed record PriorityOption(string LabelKey, char? Value)
 {
     public string Label => Loc.Get(LabelKey);
+
+    /// <summary>菜单左侧色点：象限色（与标题文字同色）；无优先级为 Transparent 占位——
+    /// 不画标识但保留图标位，文本与象限行左对齐。</summary>
+    public Brush DotBrush => Value is { } q ? QuadrantToBrushConverter.Of(q) : Brushes.Transparent;
 }
 
 /// <summary>状态子菜单项：状态 + 本地化名称（Label 按当前语言即时取值，右键菜单每次打开时重新求值）。</summary>
 public sealed record StateOption(TaskState State)
 {
     public string Label => Loc.StateName(State);
+
+    /// <summary>菜单左侧色点：状态色（与分组头/状态选择面板同一取色）。</summary>
+    public Brush DotBrush => StateToBrushConverter.Of(State);
 }
 

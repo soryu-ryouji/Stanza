@@ -99,14 +99,11 @@
     <sys:String x:Key="File_Untitled">未命名.stanza</sys:String>
 
     <!-- 优先级菜单 -->
-    <sys:String x:Key="Priority_A">A  重要且紧急</sys:String>
-    <sys:String x:Key="Priority_B">B  重要不紧急</sys:String>
-    <sys:String x:Key="Priority_C">C  紧急不重要</sys:String>
-    <sys:String x:Key="Priority_D">D  不重要不紧急</sys:String>
-    <sys:String x:Key="Priority_Desc_A">重要且紧急</sys:String>
-    <sys:String x:Key="Priority_Desc_B">重要不紧急</sys:String>
-    <sys:String x:Key="Priority_Desc_C">紧急不重要</sys:String>
-    <sys:String x:Key="Priority_Desc_D">不重要不紧急</sys:String>
+    <!-- 优先级选项文本（右键子菜单与选择面板共用，字母前缀由色点/键提示承担，不进文本） -->
+    <sys:String x:Key="Priority_A">重要且紧急</sys:String>
+    <sys:String x:Key="Priority_B">重要不紧急</sys:String>
+    <sys:String x:Key="Priority_C">紧急不重要</sys:String>
+    <sys:String x:Key="Priority_D">不重要不紧急</sys:String>
     <sys:String x:Key="Priority_Clear">无优先级</sys:String>
 
     <!-- 设置面板 -->

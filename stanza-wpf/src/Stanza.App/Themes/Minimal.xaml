@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
                     xmlns:app="clr-namespace:Stanza.App"
                     xmlns:behaviors="clr-namespace:Stanza.App.Behaviors">
 
@@ -448,15 +449,31 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <!-- 图标：Icon 只传几何数据字符串，由模板内 Path 用 TemplateBinding 渲染。
+                            <!-- 图标槽：按 Icon 值类型选渲染（模板资源内的隐式 DataTemplate 仅作用于本槽）——
+                                 字符串：IconFont 字形码（Segoe Fluent Icons，WinUI FontIcon 同款方案）；
+                                 Geometry：自绘描边图形（如状态项的右箭头，与底部工具栏同一几何）；
+                                 Brush：色点（状态/优先级子菜单的左侧标识；Transparent = 透明占位，保住左缩进）。
+                                 字形与描边图形颜色随 MenuItem.Foreground 联动（高亮反白）；
+                                 色点保持本色不反白（同选择面板徽章惯例）。
                                  不要把 Path 元素放进 Icon 再用 RelativeSource 绑前景色——游离属性值元素
                                  上的祖先绑定在真实宿主时序下会求值失败（图标隐形，实测 stroke=null） -->
-                            <!-- 图标：字体字形（Segoe Fluent Icons，WinUI FontIcon 同款方案），
-                                 颜色经 TemplateBinding 随 Foreground 联动，高亮自动反白；Icon 传字形码 -->
-                            <TextBlock x:Name="IconGlyph" Text="{TemplateBinding Icon}"
-                                       FontFamily="{StaticResource IconFont}" FontSize="13"
-                                       Foreground="{TemplateBinding Foreground}"
-                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ContentPresenter x:Name="IconHost" Content="{TemplateBinding Icon}"
+                                              VerticalAlignment="Center" Margin="0,0,8,0">
+                                <ContentPresenter.Resources>
+                                    <DataTemplate DataType="{x:Type sys:String}">
+                                        <TextBlock Text="{Binding}" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type MenuItem}}}"/>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type Geometry}">
+                                        <Path Data="{Binding}" Width="16" Height="16"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type MenuItem}}}"
+                                              StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                    </DataTemplate>
+                                    <DataTemplate DataType="{x:Type Brush}">
+                                        <Ellipse Width="7" Height="7" Fill="{Binding}"/>
+                                    </DataTemplate>
+                                </ContentPresenter.Resources>
+                            </ContentPresenter>
                             <!-- 显式 TextBlock 绑定菜单项前景色：隐式 TextBlock 样式的墨色会盖住
                                  继承值，否则高亮（蓝底）时文字不变白 -->
                             <ContentPresenter Grid.Column="1" Content="{TemplateBinding Header}" VerticalAlignment="Center">
@@ -516,7 +533,7 @@
                             <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="Icon" Value="{x:Null}">
-                            <Setter TargetName="IconGlyph" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="IconHost" Property="Visibility" Value="Collapsed"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -569,16 +586,18 @@
     <!-- 优先级菜单项：Header/命令绑定到 PriorityOption，由 ItemsSource 生成
          （ItemContainerStyle 沿 MenuItem 子菜单继承，象限项自动获得同一样式）。
          命令经 PlacementTarget.Tag 桥接主窗口 DataContext（ContextMenu 在独立弹层视觉树中）。
-         任务右键菜单与底部工具栏共用此样式 -->
+         左侧色点为象限色；无优先级行取 Transparent 占位，文本与象限行左对齐 -->
     <Style x:Key="PriorityMenuItem" TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Setter Property="Icon" Value="{Binding DotBrush}"/>
         <Setter Property="Header" Value="{Binding Label}"/>
         <Setter Property="Command" Value="{Binding PlacementTarget.Tag.SetPriorityCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
         <Setter Property="CommandParameter" Value="{Binding .}"/>
     </Style>
 
-    <!-- 状态子菜单项：与优先级同款纯文本（Label 直接绑 Header——隐式 MenuItem 模板的
-         ContentPresenter 硬编码 ContentTemplate，HeaderTemplate 不会生效，勿用） -->
+    <!-- 状态子菜单项：Label 直接绑 Header——隐式 MenuItem 模板的 ContentPresenter 硬编码
+         ContentTemplate，HeaderTemplate 不会生效，勿用；左侧色点为状态色（同分组头圆点） -->
     <Style x:Key="StateMenuItem" TargetType="{x:Type MenuItem}" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Setter Property="Icon" Value="{Binding DotBrush}"/>
         <Setter Property="Header" Value="{Binding Label}"/>
         <Setter Property="Command" Value="{Binding PlacementTarget.Tag.SetStateCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}"/>
         <Setter Property="CommandParameter" Value="{Binding .}"/>

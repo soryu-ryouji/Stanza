@@ -99,14 +99,12 @@
     <sys:String x:Key="File_Untitled">Untitled.stanza</sys:String>
 
     <!-- Priority menu -->
-    <sys:String x:Key="Priority_A">A  Important and urgent</sys:String>
-    <sys:String x:Key="Priority_B">B  Important, not urgent</sys:String>
-    <sys:String x:Key="Priority_C">C  Urgent, not important</sys:String>
-    <sys:String x:Key="Priority_D">D  Not important, not urgent</sys:String>
-    <sys:String x:Key="Priority_Desc_A">Important and urgent</sys:String>
-    <sys:String x:Key="Priority_Desc_B">Important, not urgent</sys:String>
-    <sys:String x:Key="Priority_Desc_C">Urgent, not important</sys:String>
-    <sys:String x:Key="Priority_Desc_D">Not important, not urgent</sys:String>
+    <!-- Priority option labels (context submenu + choice panel share these; the letter prefix is
+         carried by the color dot / key hint, not the text) -->
+    <sys:String x:Key="Priority_A">Important and urgent</sys:String>
+    <sys:String x:Key="Priority_B">Important, not urgent</sys:String>
+    <sys:String x:Key="Priority_C">Urgent, not important</sys:String>
+    <sys:String x:Key="Priority_D">Not important, not urgent</sys:String>
     <sys:String x:Key="Priority_Clear">No priority</sys:String>
 
     <!-- Settings panel -->
